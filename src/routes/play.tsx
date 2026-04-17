@@ -1,9 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { CockpitHUD, type HUDState } from "@/components/CockpitHUD";
+import { Minimap, type MinimapData } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
 import { SpaceScene } from "@/components/SpaceScene";
+import type { Discovery } from "@/lib/journal";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+const OBJECTIVE_TARGET: Record<string, Discovery["type"] | "orb" | null> = {
+  "Discover 3 new worlds": "planet",
+  "Reach a blue giant star": "blue-giant",
+  "Collect 5 energy orbs": "orb",
+  "Engage lightspeed": null,
+  "Discover a ringed planet": "ringed-planet",
+};
 
 export const Route = createFileRoute("/play")({
   head: () => ({

@@ -1,4 +1,8 @@
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { generateName, saveDiscovery, type Discovery } from "@/lib/journal";
 
 type Body = {
@@ -201,6 +205,8 @@ function makeFlareStreakTexture(color: string): THREE.CanvasTexture {
 
 export class SpaceScene {
   renderer: THREE.WebGLRenderer;
+  composer: EffectComposer;
+  bloomPass: UnrealBloomPass;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   ship: THREE.Object3D;

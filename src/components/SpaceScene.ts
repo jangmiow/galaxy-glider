@@ -376,12 +376,12 @@ export class SpaceScene {
   }
 
   buildStarfield() {
-    const count = 6000;
+    // Layer 1: bright nearer stars
+    const count = 9000;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      // Distribute on a large sphere shell
       const r = 800 + Math.random() * 1500;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
@@ -389,16 +389,51 @@ export class SpaceScene {
       pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       pos[i * 3 + 2] = r * Math.cos(phi);
       const t = Math.random();
-      // Mix of white/blue/amber
-      if (t < 0.7) { col[i*3] = 1; col[i*3+1] = 1; col[i*3+2] = 1; }
-      else if (t < 0.9) { col[i*3] = 0.6; col[i*3+1] = 0.8; col[i*3+2] = 1; }
-      else { col[i*3] = 1; col[i*3+1] = 0.8; col[i*3+2] = 0.5; }
+      const b = 0.7 + Math.random() * 0.3;
+      if (t < 0.7) { col[i*3] = b; col[i*3+1] = b; col[i*3+2] = b; }
+      else if (t < 0.9) { col[i*3] = 0.6*b; col[i*3+1] = 0.8*b; col[i*3+2] = b; }
+      else { col[i*3] = b; col[i*3+1] = 0.8*b; col[i*3+2] = 0.5*b; }
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    const mat = new THREE.PointsMaterial({ size: 1.6, vertexColors: true, sizeAttenuation: true, transparent: true });
+    const mat = new THREE.PointsMaterial({ size: 1.8, vertexColors: true, sizeAttenuation: true, transparent: true, fog: false });
     this.starField = new THREE.Points(geo, mat);
     this.scene.add(this.starField);
+
+    // Layer 2: very distant dim dust stars to fill the void (no fog, no size attenuation)
+    const farCount = 18000;
+    const farGeo = new THREE.BufferGeometry();
+    const farPos = new Float32Array(farCount * 3);
+    const farCol = new Float32Array(farCount * 3);
+    for (let i = 0; i < farCount; i++) {
+      const r = 2400 + Math.random() * 1200;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      farPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      farPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      farPos[i * 3 + 2] = r * Math.cos(phi);
+      const b = 0.25 + Math.random() * 0.4;
+      const t = Math.random();
+      if (t < 0.75) { farCol[i*3] = b; farCol[i*3+1] = b; farCol[i*3+2] = b; }
+      else if (t < 0.92) { farCol[i*3] = 0.5*b; farCol[i*3+1] = 0.7*b; farCol[i*3+2] = b; }
+      else { farCol[i*3] = b; farCol[i*3+1] = 0.7*b; farCol[i*3+2] = 0.45*b; }
+    }
+    farGeo.setAttribute("position", new THREE.BufferAttribute(farPos, 3));
+    farGeo.setAttribute("color", new THREE.BufferAttribute(farCol, 3));
+    const farMat = new THREE.PointsMaterial({
+      size: 0.9,
+      vertexColors: true,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      fog: false,
+    });
+    const farStars = new THREE.Points(farGeo, farMat);
+    this.scene.add(farStars);
+
+    // Reduce fog density so distant stars stay visible
+    this.scene.fog = new THREE.FogExp2(0x000308, 0.00035);
   }
 
   buildWarpField() {
@@ -418,8 +453,8 @@ export class SpaceScene {
   }
 
   buildNebulae() {
-    const colors = [0x4466aa, 0xaa4466, 0x6644aa, 0xaa8844];
-    for (let i = 0; i < 8; i++) {
+    const colors = [0x4466aa, 0xaa4466, 0x6644aa, 0xaa8844, 0x335577, 0x884466];
+    for (let i = 0; i < 16; i++) {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 256;
       const ctx = canvas.getContext("2d")!;

@@ -28,22 +28,54 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         <defs>
           <linearGradient id="dashTop" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#000" stopOpacity="0.95" />
+            <stop offset="60%" stopColor="#0a1118" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#000" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="dashBot" x1="0" x2="0" y1="1" y2="0">
             <stop offset="0%" stopColor="#000" stopOpacity="0.98" />
+            <stop offset="55%" stopColor="#0d1620" stopOpacity="0.7" />
             <stop offset="100%" stopColor="#000" stopOpacity="0" />
           </linearGradient>
+          <linearGradient id="strutL" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#000" stopOpacity="0.95" />
+            <stop offset="60%" stopColor="#0c1620" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="strutR" x1="1" x2="0" y1="0" y2="0">
+            <stop offset="0%" stopColor="#000" stopOpacity="0.95" />
+            <stop offset="60%" stopColor="#0c1620" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </linearGradient>
+          <radialGradient id="consoleGlow" cx="0.5" cy="1" r="0.7">
+            <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.18" />
+            <stop offset="60%" stopColor="#0891b2" stopOpacity="0.05" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </radialGradient>
         </defs>
         {/* Top frame */}
-        <path d="M0,0 L1000,0 L1000,80 Q500,180 0,80 Z" fill="url(#dashTop)" />
-        {/* Bottom dashboard */}
-        <path d="M0,600 L1000,600 L1000,420 Q500,320 0,420 Z" fill="url(#dashBot)" />
-        {/* Window struts */}
-        <path d="M0,0 Q60,300 0,600" fill="#000" opacity="0.85" />
-        <path d="M1000,0 Q940,300 1000,600" fill="#000" opacity="0.85" />
+        <path d="M0,0 L1000,0 L1000,90 Q500,200 0,90 Z" fill="url(#dashTop)" />
+        {/* Bottom dashboard with subtle console glow */}
+        <path d="M0,600 L1000,600 L1000,400 Q500,290 0,400 Z" fill="url(#dashBot)" />
+        <ellipse cx="500" cy="600" rx="420" ry="160" fill="url(#consoleGlow)" />
+        {/* Window struts (curved interior pillars) */}
+        <path d="M0,0 Q90,300 0,600 L0,0 Z" fill="url(#strutL)" />
+        <path d="M1000,0 Q910,300 1000,600 L1000,0 Z" fill="url(#strutR)" />
+        {/* Strut highlights — thin cyan rim suggests interior reflections */}
+        <path d="M0,0 Q90,300 0,600" stroke="#22d3ee" strokeOpacity="0.25" strokeWidth="1" fill="none" />
+        <path d="M1000,0 Q910,300 1000,600" stroke="#22d3ee" strokeOpacity="0.25" strokeWidth="1" fill="none" />
+        {/* Top canopy seam */}
+        <path d="M0,90 Q500,200 1000,90" stroke="#22d3ee" strokeOpacity="0.18" strokeWidth="1" fill="none" />
+        {/* Dashboard seam + panel lines (subtle interior detail) */}
+        <path d="M0,400 Q500,290 1000,400" stroke="#22d3ee" strokeOpacity="0.22" strokeWidth="1" fill="none" />
+        <path d="M180,470 L820,470" stroke="#22d3ee" strokeOpacity="0.12" strokeWidth="1" />
+        <path d="M260,510 L740,510" stroke="#22d3ee" strokeOpacity="0.08" strokeWidth="1" />
+        {/* Tiny dashboard indicator dots */}
+        <circle cx="220" cy="540" r="2" fill="#22d3ee" opacity="0.6" />
+        <circle cx="240" cy="540" r="2" fill="#fbbf24" opacity="0.5" />
+        <circle cx="780" cy="540" r="2" fill="#22d3ee" opacity="0.6" />
+        <circle cx="760" cy="540" r="2" fill="#f87171" opacity="0.5" />
         {/* Center pillar accent */}
-        <line x1="500" y1="80" x2="500" y2="120" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+        <line x1="500" y1="90" x2="500" y2="140" stroke="#22d3ee" strokeOpacity="0.35" strokeWidth="1" />
       </svg>
 
       {/* Crosshair / reticle */}

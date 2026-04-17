@@ -378,7 +378,7 @@ export class SpaceScene {
         // Soft corona
         const coronaTex = makeRadialTexture(color, 0.9);
         const corona = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+          new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
         );
         corona.scale.set(size * 6, size * 6, 1);
         mesh.add(corona);
@@ -393,6 +393,7 @@ export class SpaceScene {
             depthTest: false,
             blending: THREE.AdditiveBlending,
             opacity: 0,
+            fog: false,
           }),
         );
         flareSprite.scale.set(size * 14, size * 14, 1);
@@ -412,6 +413,7 @@ export class SpaceScene {
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             opacity: 0.85,
+            fog: false,
           }),
         );
         atmo.scale.set(size * 2.6, size * 2.6, 1);

@@ -46,6 +46,159 @@ function mulberry32(seed: number) {
   };
 }
 
+// 2D value-noise with octaves on a canvas, returning a CanvasTexture.
+function makePlanetTexture(
+  type: Discovery["type"],
+  baseColor: string,
+  rng: () => number,
+): THREE.CanvasTexture {
+  const W = 512;
+  const H = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  const img = ctx.createImageData(W, H);
+
+  const base = new THREE.Color(baseColor);
+  // Pick contrasting accent depending on type
+  const accent = new THREE.Color(baseColor).offsetHSL(
+    type === "ringed-planet" ? 0.05 : (rng() - 0.5) * 0.3,
+    0,
+    type === "red-dwarf" ? -0.2 : -0.25,
+  );
+  const highlight = new THREE.Color(baseColor).offsetHSL(0, -0.1, 0.25);
+
+  // Hash-based value noise
+  const seed = Math.floor(rng() * 100000);
+  const hash = (x: number, y: number) => {
+    let h = x * 374761393 + y * 668265263 + seed * 1442695040;
+    h = (h ^ (h >>> 13)) * 1274126177;
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const valueNoise = (x: number, y: number) => {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const v00 = hash(xi, yi);
+    const v10 = hash(xi + 1, yi);
+    const v01 = hash(xi, yi + 1);
+    const v11 = hash(xi + 1, yi + 1);
+    const u = smooth(xf), v = smooth(yf);
+    return lerp(lerp(v00, v10, u), lerp(v01, v11, u), v);
+  };
+  const fbm = (x: number, y: number, oct: number) => {
+    let amp = 0.5, freq = 1, sum = 0, norm = 0;
+    for (let i = 0; i < oct; i++) {
+      sum += valueNoise(x * freq, y * freq) * amp;
+      norm += amp;
+      amp *= 0.5;
+      freq *= 2;
+    }
+    return sum / norm;
+  };
+
+  // Style varies by type
+  const isGasGiant = type === "ringed-planet" || rng() < 0.35;
+  const scale = isGasGiant ? 3 : 5 + rng() * 4;
+  const bandStrength = isGasGiant ? 0.7 + rng() * 0.3 : 0;
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const u = x / W;
+      const v = y / H;
+      // Spherical-ish coords
+      const nx = u * scale * 2;
+      const ny = v * scale;
+      let n = fbm(nx, ny, 5);
+      if (isGasGiant) {
+        // Horizontal bands with turbulence
+        const band = Math.sin(v * Math.PI * (4 + rng() * 4) + n * 4) * 0.5 + 0.5;
+        n = n * (1 - bandStrength) + band * bandStrength;
+      }
+      // Pole darkening
+      const pole = 1 - Math.pow(Math.abs(v - 0.5) * 2, 2) * 0.4;
+      n *= pole;
+
+      const t = Math.max(0, Math.min(1, n));
+      let r: number, g: number, b: number;
+      if (t < 0.4) {
+        const k = t / 0.4;
+        r = lerp(accent.r, base.r, k);
+        g = lerp(accent.g, base.g, k);
+        b = lerp(accent.b, base.b, k);
+      } else {
+        const k = (t - 0.4) / 0.6;
+        r = lerp(base.r, highlight.r, k);
+        g = lerp(base.g, highlight.g, k);
+        b = lerp(base.b, highlight.b, k);
+      }
+      const idx = (y * W + x) * 4;
+      img.data[idx] = (r * 255) | 0;
+      img.data[idx + 1] = (g * 255) | 0;
+      img.data[idx + 2] = (b * 255) | 0;
+      img.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+// Soft radial sprite texture (used for atmosphere glow + lens flare core).
+function makeRadialTexture(color: string, innerAlpha = 0.9, falloff = 1): THREE.CanvasTexture {
+  const S = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext("2d")!;
+  const c = new THREE.Color(color);
+  const r = (c.r * 255) | 0, g = (c.g * 255) | 0, b = (c.b * 255) | 0;
+  const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  grad.addColorStop(0, `rgba(${r},${g},${b},${innerAlpha})`);
+  grad.addColorStop(0.4 * falloff, `rgba(${r},${g},${b},${innerAlpha * 0.35})`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+// Cross/anamorphic streak texture for lens flare.
+function makeFlareStreakTexture(color: string): THREE.CanvasTexture {
+  const S = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext("2d")!;
+  const c = new THREE.Color(color);
+  const r = (c.r * 255) | 0, g = (c.g * 255) | 0, b = (c.b * 255) | 0;
+  // Soft center
+  const grad = ctx.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  grad.addColorStop(0, `rgba(${r},${g},${b},0.9)`);
+  grad.addColorStop(0.15, `rgba(${r},${g},${b},0.3)`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
+  // Horizontal streak
+  const hStreak = ctx.createLinearGradient(0, S/2 - 4, 0, S/2 + 4);
+  hStreak.addColorStop(0, `rgba(${r},${g},${b},0)`);
+  hStreak.addColorStop(0.5, `rgba(255,255,255,0.9)`);
+  hStreak.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = hStreak;
+  ctx.fillRect(0, S/2 - 4, S, 8);
+  // Vertical streak
+  const vStreak = ctx.createLinearGradient(S/2 - 3, 0, S/2 + 3, 0);
+  vStreak.addColorStop(0, `rgba(${r},${g},${b},0)`);
+  vStreak.addColorStop(0.5, `rgba(255,255,255,0.7)`);
+  vStreak.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = vStreak;
+  ctx.fillRect(S/2 - 3, 0, 6, S);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
 export class SpaceScene {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;

@@ -55,6 +55,7 @@ function Play() {
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
+  const [minimap, setMinimap] = useState<MinimapData | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;

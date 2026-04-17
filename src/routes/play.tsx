@@ -137,6 +137,12 @@ function Play() {
           setHud((s) => ({ ...s, isWarping: true }));
           setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
         }
+        // Minimap zoom: + / = to zoom in (smaller range), - / _ to zoom out
+        if (e.code === "Equal" || e.code === "NumpadAdd") {
+          adjustRange(-1);
+        } else if (e.code === "Minus" || e.code === "NumpadSubtract") {
+          adjustRange(1);
+        }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
       } else {

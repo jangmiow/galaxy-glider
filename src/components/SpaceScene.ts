@@ -152,6 +152,43 @@ function makePlanetTexture(
   return tex;
 }
 
+// Cloud layer texture: wispy noise blobs on transparent background, wraps in U.
+function makeCloudTexture(rng: () => number): THREE.CanvasTexture {
+  const W = 512;
+  const H = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, W, H);
+  const blobs = 80 + Math.floor(rng() * 80);
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < blobs; i++) {
+    const x = rng() * W;
+    const y = rng() * H;
+    const r = 12 + rng() * 48;
+    const latFade = 1 - Math.abs(y / H - 0.5) * 1.2;
+    const a = 0.08 + rng() * 0.18 * Math.max(0.1, latFade);
+    const drawBlob = (cx: number) => {
+      const grad = ctx.createRadialGradient(cx, y, 0, cx, y, r);
+      grad.addColorStop(0, `rgba(255,255,255,${a})`);
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    drawBlob(x);
+    if (x < r) drawBlob(x + W);
+    else if (x > W - r) drawBlob(x - W);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 // Soft radial sprite texture (used for atmosphere glow + lens flare core).
 function makeRadialTexture(color: string, innerAlpha = 0.9, falloff = 1): THREE.CanvasTexture {
   const S = 256;

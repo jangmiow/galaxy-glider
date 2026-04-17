@@ -563,6 +563,7 @@ export class SpaceScene {
     this.warpTimer = 2.5;
     this.warpCharge = 0;
     (this.warpStars.material as THREE.PointsMaterial).opacity = 1;
+    this.warpStars.visible = true;
   }
 
   update(dt: number) {
@@ -623,6 +624,7 @@ export class SpaceScene {
       if (this.warpTimer <= 0) {
         this.isWarping = false;
         (this.warpStars.material as THREE.PointsMaterial).opacity = 0;
+        this.warpStars.visible = false;
         this.systemSeed += 1;
         this.buildSystem(this.systemSeed);
       }

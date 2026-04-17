@@ -26,11 +26,18 @@ const SIZE = 160;
 const R = SIZE / 2;
 
 export function Minimap({ data, objective }: { data: MinimapData | null; objective: string }) {
+  // Find nearest target dot for live distance readout
+  const target = data?.dots.reduce<MinimapDot | null>((best, d) => {
+    if (!d.isTarget) return best;
+    if (!best || d.distance < best.distance) return d;
+    return best;
+  }, null) ?? null;
+
   return (
     <div className="hud-panel rounded-md p-2">
       <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-hud-dim">
         <span>STAR MAP</span>
-        <span className="text-amber">{Math.round((data?.range ?? 800))}u</span>
+        <span className="text-amber">{Math.round(data?.range ?? 800)}u</span>
       </div>
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
         {/* Background */}
@@ -97,6 +104,9 @@ export function Minimap({ data, objective }: { data: MinimapData | null; objecti
       <div className="mt-1 truncate px-1 text-[10px] text-hud-dim">
         TGT: <span className="text-amber">{shortObjective(objective)}</span>
       </div>
+      <div className="px-1 text-[10px] text-hud-dim">
+        DIST: <span className="text-amber">{target ? formatDist(target.distance) : "—"}</span>
+      </div>
     </div>
   );
 }
@@ -104,4 +114,10 @@ export function Minimap({ data, objective }: { data: MinimapData | null; objecti
 function shortObjective(o: string): string {
   if (o.length <= 22) return o;
   return o.slice(0, 21) + "…";
+}
+
+function formatDist(d: number): string {
+  if (d >= 10000) return `${(d / 1000).toFixed(1)}ku`;
+  if (d >= 1000) return `${(d / 1000).toFixed(2)}ku`;
+  return `${Math.round(d)}u`;
 }

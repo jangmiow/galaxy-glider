@@ -726,6 +726,7 @@ export class SpaceScene {
 
   dispose() {
     this.clearSystem();
+    this.composer.dispose();
     this.renderer.dispose();
   }
 }

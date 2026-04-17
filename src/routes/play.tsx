@@ -4,6 +4,7 @@ import { CockpitHUD, type HUDState } from "@/components/CockpitHUD";
 import { Minimap, type MinimapData } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
 import { SpaceScene } from "@/components/SpaceScene";
+import { CockpitAudio } from "@/lib/audio";
 import type { Discovery } from "@/lib/journal";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -56,13 +57,19 @@ function Play() {
   const hudRef = useRef(hud);
   hudRef.current = hud;
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
+  const audioRef = useRef<CockpitAudio | null>(null);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const audio = new CockpitAudio();
+    audioRef.current = audio;
+
     const scene = new SpaceScene(canvas, {
       onDiscovery: (d) => {
+        audio.discoveryBeep();
         setHud((s) => {
           const score = s.score + 250;
           return {
@@ -76,6 +83,7 @@ function Play() {
       },
       onScanProgress: (info) => setHud((s) => ({ ...s, scanning: info })),
       onOrbCollected: () => {
+        audio.orbPing();
         setHud((s) => {
           const score = s.score + 50;
           return { ...s, score, rank: rankFor(score) };
@@ -92,15 +100,19 @@ function Play() {
     resize();
     window.addEventListener("resize", resize);
 
+    const startAudio = () => audio.start();
+
     const onMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
       scene.setMouse(x, y);
+      startAudio();
       if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
     };
     const onKey = (e: KeyboardEvent, down: boolean) => {
       if (down) {
+        startAudio();
         if (e.code === "Escape") {
           setHud((s) => ({ ...s, paused: !s.paused }));
           scene.paused = !scene.paused;
@@ -108,6 +120,7 @@ function Play() {
         }
         if (e.code === "Space") {
           e.preventDefault();
+          if (scene.warpCharge >= 1 && !scene.isWarping) audio.warpWhoosh();
           scene.triggerWarp();
           setHud((s) => ({ ...s, isWarping: true }));
           setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
@@ -121,6 +134,7 @@ function Play() {
     const kd = (e: KeyboardEvent) => onKey(e, true);
     const ku = (e: KeyboardEvent) => onKey(e, false);
     canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("pointerdown", startAudio);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
 
@@ -133,6 +147,9 @@ function Play() {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       scene.update(dt);
+
+      // Drive engine hum from scene state
+      audio.setThrust(scene.thrust, scene.boost);
 
       // Rotate objective every 25s
       objSwap += dt;
@@ -167,9 +184,12 @@ function Play() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("pointerdown", startAudio);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
       scene.dispose();
+      audio.dispose();
+      audioRef.current = null;
       sceneRef.current = null;
     };
   }, []);
@@ -187,6 +207,20 @@ function Play() {
       <div className="pointer-events-none absolute bottom-32 right-6 z-10 font-display text-hud">
         <Minimap data={minimap} objective={hud.objective} />
       </div>
+      {/* Mute toggle */}
+      <button
+        onClick={() => {
+          const next = !muted;
+          setMuted(next);
+          audioRef.current?.start();
+          audioRef.current?.setMuted(next);
+        }}
+        className="hud-panel pointer-events-auto absolute bottom-6 right-[260px] z-10 rounded-md px-3 py-2 font-display text-xs tracking-widest text-hud-dim hover:text-hud"
+        aria-label={muted ? "Unmute audio" : "Mute audio"}
+        title={muted ? "Unmute" : "Mute"}
+      >
+        {muted ? "🔇 SOUND OFF" : "🔊 SOUND ON"}
+      </button>
       <CockpitHUD
         state={hud}
         onResume={() => {
@@ -213,6 +247,8 @@ function Play() {
           onWarp={() => {
             const scene = sceneRef.current;
             if (!scene || scene.warpCharge < 1) return;
+            audioRef.current?.start();
+            audioRef.current?.warpWhoosh();
             scene.triggerWarp();
             setHud((s) => ({ ...s, isWarping: true }));
             setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);

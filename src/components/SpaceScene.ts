@@ -857,6 +857,14 @@ export class SpaceScene {
     for (const b of this.bodies) {
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
+      const clouds = (b.mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds;
+      if (clouds) {
+        const cs = (clouds as THREE.Mesh & { _cloudSpin?: number })._cloudSpin ?? 0;
+        const cd = (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift ?? 0;
+        clouds.rotation.y += cs * dt;
+        const mat = clouds.material as THREE.MeshStandardMaterial;
+        if (mat.map) mat.map.offset.x = (mat.map.offset.x + cd * dt) % 1;
+      }
       if (b.flare && b.isStar) {
         tmp.copy(b.mesh.position).sub(this.ship.position).normalize();
         const align = Math.max(0, tmp.dot(camForward)); // 0..1

@@ -64,8 +64,12 @@ function Play() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const audio = new CockpitAudio();
+    audioRef.current = audio;
+
     const scene = new SpaceScene(canvas, {
       onDiscovery: (d) => {
+        audio.discoveryBeep();
         setHud((s) => {
           const score = s.score + 250;
           return {
@@ -79,6 +83,7 @@ function Play() {
       },
       onScanProgress: (info) => setHud((s) => ({ ...s, scanning: info })),
       onOrbCollected: () => {
+        audio.orbPing();
         setHud((s) => {
           const score = s.score + 50;
           return { ...s, score, rank: rankFor(score) };
@@ -95,15 +100,19 @@ function Play() {
     resize();
     window.addEventListener("resize", resize);
 
+    const startAudio = () => audio.start();
+
     const onMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
       scene.setMouse(x, y);
+      startAudio();
       if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
     };
     const onKey = (e: KeyboardEvent, down: boolean) => {
       if (down) {
+        startAudio();
         if (e.code === "Escape") {
           setHud((s) => ({ ...s, paused: !s.paused }));
           scene.paused = !scene.paused;
@@ -111,6 +120,7 @@ function Play() {
         }
         if (e.code === "Space") {
           e.preventDefault();
+          if (scene.warpCharge >= 1 && !scene.isWarping) audio.warpWhoosh();
           scene.triggerWarp();
           setHud((s) => ({ ...s, isWarping: true }));
           setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
@@ -124,6 +134,7 @@ function Play() {
     const kd = (e: KeyboardEvent) => onKey(e, true);
     const ku = (e: KeyboardEvent) => onKey(e, false);
     canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("pointerdown", startAudio);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
 
@@ -136,6 +147,9 @@ function Play() {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       scene.update(dt);
+
+      // Drive engine hum from scene state
+      audio.setThrust(scene.thrust, scene.boost);
 
       // Rotate objective every 25s
       objSwap += dt;
@@ -170,9 +184,12 @@ function Play() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("pointerdown", startAudio);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
       scene.dispose();
+      audio.dispose();
+      audioRef.current = null;
       sceneRef.current = null;
     };
   }, []);

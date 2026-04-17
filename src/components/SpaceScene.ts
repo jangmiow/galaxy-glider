@@ -1,4 +1,8 @@
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { generateName, saveDiscovery, type Discovery } from "@/lib/journal";
 
 type Body = {
@@ -201,6 +205,8 @@ function makeFlareStreakTexture(color: string): THREE.CanvasTexture {
 
 export class SpaceScene {
   renderer: THREE.WebGLRenderer;
+  composer: EffectComposer;
+  bloomPass: UnrealBloomPass;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   ship: THREE.Object3D;
@@ -239,6 +245,20 @@ export class SpaceScene {
     this.scene.fog = new THREE.FogExp2(0x000308, 0.0008);
 
     this.camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 5000);
+
+    // Postprocessing: bloom for stars and orbs
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.composer.setSize(canvas.clientWidth, canvas.clientHeight);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
+      0.9, // strength
+      0.85, // radius
+      0.2, // threshold — only bright pixels (stars/orbs/coronas) bloom
+    );
+    this.composer.addPass(this.bloomPass);
+    this.composer.addPass(new OutputPass());
 
     this.ship = new THREE.Object3D();
     this.ship.add(this.camera);
@@ -553,6 +573,8 @@ export class SpaceScene {
 
   resize(w: number, h: number) {
     this.renderer.setSize(w, h, false);
+    this.composer.setSize(w, h);
+    this.bloomPass.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
@@ -568,7 +590,7 @@ export class SpaceScene {
 
   update(dt: number) {
     if (this.paused) {
-      this.renderer.render(this.scene, this.camera);
+      this.composer.render();
       return;
     }
 
@@ -699,11 +721,12 @@ export class SpaceScene {
       }
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render();
   }
 
   dispose() {
     this.clearSystem();
+    this.composer.dispose();
     this.renderer.dispose();
   }
 }

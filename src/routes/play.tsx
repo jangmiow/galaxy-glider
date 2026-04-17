@@ -207,6 +207,20 @@ function Play() {
       <div className="pointer-events-none absolute bottom-32 right-6 z-10 font-display text-hud">
         <Minimap data={minimap} objective={hud.objective} />
       </div>
+      {/* Mute toggle */}
+      <button
+        onClick={() => {
+          const next = !muted;
+          setMuted(next);
+          audioRef.current?.start();
+          audioRef.current?.setMuted(next);
+        }}
+        className="hud-panel pointer-events-auto absolute bottom-6 right-[260px] z-10 rounded-md px-3 py-2 font-display text-xs tracking-widest text-hud-dim hover:text-hud"
+        aria-label={muted ? "Unmute audio" : "Mute audio"}
+        title={muted ? "Unmute" : "Mute"}
+      >
+        {muted ? "🔇 SOUND OFF" : "🔊 SOUND ON"}
+      </button>
       <CockpitHUD
         state={hud}
         onResume={() => {

@@ -28,6 +28,7 @@ const OBJECTIVES = [
 function Play() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRef = useRef<SpaceScene | null>(null);
+  const isMobile = useIsMobile();
   const [hud, setHud] = useState<HUDState>({
     velocity: 0,
     thrust: 0,

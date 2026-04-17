@@ -353,38 +353,77 @@ export class SpaceScene {
       const angle = rng() * Math.PI * 2;
       const elev = (rng() - 0.5) * 60;
 
-      const geo = new THREE.SphereGeometry(size, 32, 24);
-      const mat = isStar
-        ? new THREE.MeshBasicMaterial({ color: new THREE.Color(color) })
-        : new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.85, metalness: 0.05 });
+      const geo = new THREE.SphereGeometry(size, 48, 32);
+      let mat: THREE.Material;
+      if (isStar) {
+        mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
+      } else {
+        const tex = makePlanetTexture(type, color, rng);
+        mat = new THREE.MeshStandardMaterial({
+          map: tex,
+          color: 0xffffff,
+          roughness: 0.92,
+          metalness: 0.02,
+        });
+      }
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(Math.cos(angle) * dist, elev, Math.sin(angle) * dist);
+      // Slow axial spin for life
+      mesh.rotation.y = rng() * Math.PI * 2;
+      (mesh as THREE.Mesh & { _spin?: number })._spin = (rng() - 0.5) * 0.05;
+
+      let flareSprite: THREE.Sprite | undefined;
 
       if (isStar) {
-        // Glow sprite
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 256;
-        const ctx = canvas.getContext("2d")!;
-        const c = new THREE.Color(color);
-        const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-        grad.addColorStop(0, `rgba(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0},0.9)`);
-        grad.addColorStop(0.4, `rgba(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0},0.3)`);
-        grad.addColorStop(1, `rgba(0,0,0,0)`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0,0,256,256);
-        const tex = new THREE.CanvasTexture(canvas);
-        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-        sprite.scale.set(size * 6, size * 6, 1);
-        mesh.add(sprite);
+        // Soft corona
+        const coronaTex = makeRadialTexture(color, 0.9);
+        const corona = new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+        );
+        corona.scale.set(size * 6, size * 6, 1);
+        mesh.add(corona);
+
+        // Lens flare (cross/streak), scaled per-frame based on view alignment
+        const flareTex = makeFlareStreakTexture(color);
+        flareSprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: flareTex,
+            transparent: true,
+            depthWrite: false,
+            depthTest: false,
+            blending: THREE.AdditiveBlending,
+            opacity: 0,
+          }),
+        );
+        flareSprite.scale.set(size * 14, size * 14, 1);
+        flareSprite.renderOrder = 999;
+        mesh.add(flareSprite);
 
         const light = new THREE.PointLight(new THREE.Color(color), 1.2, 600);
         mesh.add(light);
+      } else {
+        // Atmospheric rim glow (slightly larger billboard behind the planet, additive)
+        const atmoColor = type === "red-dwarf"
+          ? color
+          : new THREE.Color(color).offsetHSL(0.02, 0.1, 0.15).getStyle();
+        const atmoTex = makeRadialTexture(atmoColor, 0.55, 1);
+        const atmo = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: atmoTex,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            opacity: 0.85,
+          }),
+        );
+        atmo.scale.set(size * 2.6, size * 2.6, 1);
+        mesh.add(atmo);
       }
 
       if (type === "ringed-planet") {
         const ring = new THREE.Mesh(
-          new THREE.RingGeometry(size * 1.4, size * 2.2, 64),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.4 })
+          new THREE.RingGeometry(size * 1.4, size * 2.2, 96),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
         );
         ring.rotation.x = Math.PI / 2 - 0.3;
         mesh.add(ring);
@@ -396,6 +435,8 @@ export class SpaceScene {
         mesh, type, size, color, id,
         name: generateName(seed * 1000 + i),
         scanned: false,
+        flare: flareSprite,
+        isStar,
       });
     }
 

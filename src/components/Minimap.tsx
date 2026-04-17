@@ -11,6 +11,7 @@ export type MinimapDot = {
 export type MinimapData = {
   dots: MinimapDot[];
   range: number;
+  offRangeTarget: { x: number; z: number; distance: number } | null;
 };
 
 const KIND_COLOR: Record<MinimapDot["kind"], string> = {

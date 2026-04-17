@@ -126,6 +126,27 @@ export function Minimap({
           );
         })}
 
+        {/* Off-radar objective arrow on the rim */}
+        {data?.offRangeTarget && (() => {
+          const t = data.offRangeTarget;
+          // Map ship-local x/z to screen: x → right, -z → up (forward = up)
+          const len = Math.hypot(t.x, t.z) || 1;
+          const ux = t.x / len;
+          const uz = t.z / len;
+          const rim = R - 8;
+          const px = R + ux * rim;
+          const py = R + uz * rim;
+          // Angle so triangle points outward from center (screen-space)
+          const angleDeg = (Math.atan2(uz, ux) * 180) / Math.PI + 90;
+          return (
+            <g transform={`translate(${px} ${py}) rotate(${angleDeg})`}>
+              <polygon points="0,-7 -5,4 5,4" fill="#ffb347" stroke="#ffb347" strokeOpacity="0.4" strokeWidth="2">
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="1.4s" repeatCount="indefinite" />
+              </polygon>
+            </g>
+          );
+        })()}
+
         {/* Ship heading triangle (always at center, pointing up) */}
         <g transform={`translate(${R} ${R})`}>
           <polygon points="0,-7 -5,5 5,5" fill="oklch(0.85 0.18 200)" stroke="oklch(1 0 0)" strokeWidth="0.5" />
@@ -136,7 +157,10 @@ export function Minimap({
         TGT: <span className="text-amber">{shortObjective(objective)}</span>
       </div>
       <div className="px-1 text-[10px] text-hud-dim">
-        DIST: <span className="text-amber">{target ? formatDist(target.distance) : "—"}</span>
+        DIST:{" "}
+        <span className="text-amber">
+          {target ? formatDist(target.distance) : data?.offRangeTarget ? formatDist(data.offRangeTarget.distance) : "—"}
+        </span>
       </div>
     </div>
   );

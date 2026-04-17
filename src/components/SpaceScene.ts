@@ -690,14 +690,23 @@ export class SpaceScene {
 
     const dots: Dot[] = [];
     let target: { dist: number; idx: number } | null = null;
+    // Track nearest objective target across ALL distances (for off-radar arrow)
+    let nearestTarget: { distance: number; dx: number; dz: number } | null = null;
+
+    const considerNearestTarget = (distance: number, dx: number, dz: number) => {
+      if (!nearestTarget || distance < nearestTarget.distance) {
+        nearestTarget = { distance, dx, dz };
+      }
+    };
 
     for (let i = 0; i < this.bodies.length; i++) {
       const b = this.bodies[i];
       tmp.copy(b.mesh.position).applyMatrix4(inv);
       const distance = tmp.length();
-      if (distance > range) continue;
       const isTargetCandidate =
         targetType !== null && targetType !== "orb" && b.type === targetType && !b.scanned;
+      if (isTargetCandidate) considerNearestTarget(distance, tmp.x, tmp.z);
+      if (distance > range) continue;
       const idx = dots.length;
       dots.push({
         x: tmp.x / range,
@@ -718,6 +727,7 @@ export class SpaceScene {
       for (const o of this.orbs) {
         tmp.copy(o.position).applyMatrix4(inv);
         const distance = tmp.length();
+        considerNearestTarget(distance, tmp.x, tmp.z);
         if (distance > range) continue;
         const idx = dots.length;
         dots.push({
@@ -751,7 +761,17 @@ export class SpaceScene {
 
     if (target) dots[target.idx].isTarget = true;
 
-    return { dots, range };
+    // If the nearest target is outside the radar range, expose it as an off-radar pointer
+    let offRangeTarget: { x: number; z: number; distance: number } | null = null;
+    if (nearestTarget !== null) {
+      const nt = nearestTarget as { distance: number; dx: number; dz: number };
+      if (nt.distance > range) {
+        const len = Math.hypot(nt.dx, nt.dz) || 1;
+        offRangeTarget = { x: nt.dx / len, z: nt.dz / len, distance: nt.distance };
+      }
+    }
+
+    return { dots, range, offRangeTarget };
   }
 
   resize(w: number, h: number) {

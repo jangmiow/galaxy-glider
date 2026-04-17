@@ -152,6 +152,43 @@ function makePlanetTexture(
   return tex;
 }
 
+// Cloud layer texture: wispy noise blobs on transparent background, wraps in U.
+function makeCloudTexture(rng: () => number): THREE.CanvasTexture {
+  const W = 512;
+  const H = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, W, H);
+  const blobs = 80 + Math.floor(rng() * 80);
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < blobs; i++) {
+    const x = rng() * W;
+    const y = rng() * H;
+    const r = 12 + rng() * 48;
+    const latFade = 1 - Math.abs(y / H - 0.5) * 1.2;
+    const a = 0.08 + rng() * 0.18 * Math.max(0.1, latFade);
+    const drawBlob = (cx: number) => {
+      const grad = ctx.createRadialGradient(cx, y, 0, cx, y, r);
+      grad.addColorStop(0, `rgba(255,255,255,${a})`);
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    drawBlob(x);
+    if (x < r) drawBlob(x + W);
+    else if (x > W - r) drawBlob(x - W);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 // Soft radial sprite texture (used for atmosphere glow + lens flare core).
 function makeRadialTexture(color: string, innerAlpha = 0.9, falloff = 1): THREE.CanvasTexture {
   const S = 256;
@@ -506,6 +543,29 @@ export class SpaceScene {
         );
         atmo.scale.set(size * 2.6, size * 2.6, 1);
         mesh.add(atmo);
+
+        // Drifting cloud layer on ~55% of planets (skip ringed gas giants ~half the time)
+        const wantsClouds = rng() < (type === "ringed-planet" ? 0.3 : 0.55);
+        if (wantsClouds) {
+          const cloudTex = makeCloudTexture(rng);
+          const cloudMat = new THREE.MeshStandardMaterial({
+            map: cloudTex,
+            transparent: true,
+            depthWrite: false,
+            opacity: 0.55 + rng() * 0.25,
+            roughness: 1,
+            metalness: 0,
+          });
+          const cloudGeo = new THREE.SphereGeometry(size * 1.025, 48, 32);
+          const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+          clouds.rotation.y = rng() * Math.PI * 2;
+          clouds.rotation.z = (rng() - 0.5) * 0.4;
+          (clouds as THREE.Mesh & { _cloudSpin?: number; _cloudDrift?: number })._cloudSpin =
+            (rng() - 0.5) * 0.08;
+          (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift = (rng() - 0.5) * 0.02;
+          mesh.add(clouds);
+          (mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds = clouds;
+        }
       }
 
       if (type === "ringed-planet") {
@@ -797,6 +857,14 @@ export class SpaceScene {
     for (const b of this.bodies) {
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
+      const clouds = (b.mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds;
+      if (clouds) {
+        const cs = (clouds as THREE.Mesh & { _cloudSpin?: number })._cloudSpin ?? 0;
+        const cd = (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift ?? 0;
+        clouds.rotation.y += cs * dt;
+        const mat = clouds.material as THREE.MeshStandardMaterial;
+        if (mat.map) mat.map.offset.x = (mat.map.offset.x + cd * dt) % 1;
+      }
       if (b.flare && b.isStar) {
         tmp.copy(b.mesh.position).sub(this.ship.position).normalize();
         const align = Math.max(0, tmp.dot(camForward)); // 0..1

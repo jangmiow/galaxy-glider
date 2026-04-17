@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { CockpitHUD, type HUDState } from "@/components/CockpitHUD";
+import { MobileControls } from "@/components/MobileControls";
 import { SpaceScene } from "@/components/SpaceScene";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Route = createFileRoute("/play")({
   head: () => ({

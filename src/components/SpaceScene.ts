@@ -590,7 +590,7 @@ export class SpaceScene {
 
   update(dt: number) {
     if (this.paused) {
-      this.renderer.render(this.scene, this.camera);
+      this.composer.render();
       return;
     }
 
@@ -721,7 +721,7 @@ export class SpaceScene {
       }
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render();
   }
 
   dispose() {

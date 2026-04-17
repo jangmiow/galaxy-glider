@@ -586,6 +586,24 @@ export class SpaceScene {
     // Keep starfield centered around ship for parallax illusion
     this.starField.position.copy(this.ship.position);
 
+    // Planet spin + lens flare alignment
+    const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
+    const tmp = new THREE.Vector3();
+    for (const b of this.bodies) {
+      const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
+      if (spin) b.mesh.rotation.y += spin * dt;
+      if (b.flare && b.isStar) {
+        tmp.copy(b.mesh.position).sub(this.ship.position).normalize();
+        const align = Math.max(0, tmp.dot(camForward)); // 0..1
+        const intensity = Math.pow(align, 6);
+        const mat = b.flare.material as THREE.SpriteMaterial;
+        mat.opacity = intensity * 0.9;
+        const baseScale = b.size * 14;
+        const s = baseScale * (0.6 + intensity * 0.8);
+        b.flare.scale.set(s, s, 1);
+      }
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 

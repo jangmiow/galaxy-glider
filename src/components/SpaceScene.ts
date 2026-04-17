@@ -509,11 +509,38 @@ export class SpaceScene {
       }
 
       if (type === "ringed-planet") {
+        const innerR = size * (1.25 + rng() * 0.25);
+        const outerR = innerR + size * (0.6 + rng() * 1.1);
+        const ringGeom = new THREE.RingGeometry(innerR, outerR, 128, 1);
+        // Remap UVs so U runs along the radius (for banded radial texture)
+        const pos = ringGeom.attributes.position;
+        const uv = ringGeom.attributes.uv;
+        for (let v = 0; v < pos.count; v++) {
+          const x = pos.getX(v);
+          const y = pos.getY(v);
+          const r = Math.sqrt(x * x + y * y);
+          const u = (r - innerR) / (outerR - innerR);
+          const a = Math.atan2(y, x) / (Math.PI * 2) + 0.5;
+          uv.setXY(v, u, a);
+        }
+        uv.needsUpdate = true;
+        const ringTex = makeRingTexture(color, rng);
         const ring = new THREE.Mesh(
-          new THREE.RingGeometry(size * 1.4, size * 2.2, 96),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+          ringGeom,
+          new THREE.MeshBasicMaterial({
+            map: ringTex,
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false,
+            fog: false,
+          }),
         );
-        ring.rotation.x = Math.PI / 2 - 0.3;
+        // Per-planet tilt + slight roll for variety
+        ring.rotation.x = Math.PI / 2 - (rng() * 0.9 - 0.1);
+        ring.rotation.y = (rng() - 0.5) * 0.6;
+        ring.rotation.z = (rng() - 0.5) * 0.4;
         mesh.add(ring);
       }
 

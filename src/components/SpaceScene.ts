@@ -312,7 +312,7 @@ export class SpaceScene {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 256, 256);
       const tex = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
       const sprite = new THREE.Sprite(mat);
       const r2 = 600 + Math.random() * 600;
       const th = Math.random() * Math.PI * 2;

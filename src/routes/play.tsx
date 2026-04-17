@@ -247,6 +247,8 @@ function Play() {
           onWarp={() => {
             const scene = sceneRef.current;
             if (!scene || scene.warpCharge < 1) return;
+            audioRef.current?.start();
+            audioRef.current?.warpWhoosh();
             scene.triggerWarp();
             setHud((s) => ({ ...s, isWarping: true }));
             setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);

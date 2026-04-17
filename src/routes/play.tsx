@@ -57,6 +57,18 @@ function Play() {
   const hudRef = useRef(hud);
   hudRef.current = hud;
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
+  const [minimapRange, setMinimapRange] = useState(800);
+  const minimapRangeRef = useRef(minimapRange);
+  minimapRangeRef.current = minimapRange;
+  const RANGE_STEPS = [200, 400, 800, 1600, 3200];
+  const adjustRange = (dir: 1 | -1) => {
+    setMinimapRange((r) => {
+      const idx = RANGE_STEPS.indexOf(r);
+      const cur = idx === -1 ? 2 : idx;
+      const next = Math.max(0, Math.min(RANGE_STEPS.length - 1, cur + dir));
+      return RANGE_STEPS[next];
+    });
+  };
   const audioRef = useRef<CockpitAudio | null>(null);
   const [muted, setMuted] = useState(false);
 
@@ -125,6 +137,12 @@ function Play() {
           setHud((s) => ({ ...s, isWarping: true }));
           setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
         }
+        // Minimap zoom: + / = to zoom in (smaller range), - / _ to zoom out
+        if (e.code === "Equal" || e.code === "NumpadAdd") {
+          adjustRange(-1);
+        } else if (e.code === "Minus" || e.code === "NumpadSubtract") {
+          adjustRange(1);
+        }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
       } else {
@@ -173,7 +191,7 @@ function Play() {
       if (mmAcc > 0.1) {
         mmAcc = 0;
         const target = OBJECTIVE_TARGET[hudRef.current.objective] ?? null;
-        setMinimap(scene.getMinimapSnapshot(target));
+        setMinimap(scene.getMinimapSnapshot(target, minimapRangeRef.current));
       }
 
       raf = requestAnimationFrame(loop);
@@ -204,8 +222,13 @@ function Play() {
         aria-hidden
       />
       {/* Star map / minimap */}
-      <div className="pointer-events-none absolute bottom-32 right-6 z-10 font-display text-hud">
-        <Minimap data={minimap} objective={hud.objective} />
+      <div className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud">
+        <Minimap
+          data={minimap}
+          objective={hud.objective}
+          onZoomIn={() => adjustRange(-1)}
+          onZoomOut={() => adjustRange(1)}
+        />
       </div>
       {/* Mute toggle */}
       <button

@@ -25,7 +25,17 @@ const KIND_COLOR: Record<MinimapDot["kind"], string> = {
 const SIZE = 160;
 const R = SIZE / 2;
 
-export function Minimap({ data, objective }: { data: MinimapData | null; objective: string }) {
+export function Minimap({
+  data,
+  objective,
+  onZoomIn,
+  onZoomOut,
+}: {
+  data: MinimapData | null;
+  objective: string;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+}) {
   // Find nearest target dot for live distance readout
   const target = data?.dots.reduce<MinimapDot | null>((best, d) => {
     if (!d.isTarget) return best;
@@ -35,9 +45,29 @@ export function Minimap({ data, objective }: { data: MinimapData | null; objecti
 
   return (
     <div className="hud-panel rounded-md p-2">
-      <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-hud-dim">
+      <div className="mb-1 flex items-center justify-between gap-2 px-1 text-[10px] uppercase tracking-widest text-hud-dim">
         <span>STAR MAP</span>
-        <span className="text-amber">{Math.round(data?.range ?? 800)}u</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onZoomOut}
+            className="rounded border border-hud/40 px-1 leading-none text-hud-dim hover:bg-hud/10 hover:text-hud"
+            aria-label="Zoom out (increase range)"
+            title="Zoom out (-)"
+          >
+            −
+          </button>
+          <span className="min-w-[42px] text-right text-amber">{Math.round(data?.range ?? 800)}u</span>
+          <button
+            type="button"
+            onClick={onZoomIn}
+            className="rounded border border-hud/40 px-1 leading-none text-hud-dim hover:bg-hud/10 hover:text-hud"
+            aria-label="Zoom in (decrease range)"
+            title="Zoom in (+)"
+          >
+            +
+          </button>
+        </div>
       </div>
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
         {/* Background */}

@@ -170,6 +170,67 @@ function makeRadialTexture(color: string, innerAlpha = 0.9, falloff = 1): THREE.
   return tex;
 }
 
+// Banded ring texture: radial bands of varying density/alpha with a Cassini-style gap.
+function makeRingTexture(baseColor: string, rng: () => number): THREE.CanvasTexture {
+  const W = 512;
+  const H = 32;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  const base = new THREE.Color(baseColor);
+  const tintA = base.clone().offsetHSL((rng() - 0.5) * 0.08, 0, 0.05);
+  const tintB = base.clone().offsetHSL((rng() - 0.5) * 0.08, -0.1, -0.1);
+  const shades = [base, tintA, tintB];
+  const layers = 3 + Math.floor(rng() * 3);
+  const freqs: number[] = [];
+  const phases: number[] = [];
+  const amps: number[] = [];
+  for (let i = 0; i < layers; i++) {
+    freqs.push(8 + rng() * 60);
+    phases.push(rng() * Math.PI * 2);
+    amps.push(0.35 + rng() * 0.65);
+  }
+  const gapPos = 0.35 + rng() * 0.3;
+  const gapWidth = 0.02 + rng() * 0.05;
+  const innerFade = 0.04 + rng() * 0.06;
+  const outerFade = 0.06 + rng() * 0.08;
+
+  const img = ctx.createImageData(W, H);
+  for (let x = 0; x < W; x++) {
+    const u = x / W;
+    let n = 0;
+    let ampSum = 0;
+    for (let i = 0; i < layers; i++) {
+      n += Math.sin(u * freqs[i] + phases[i]) * amps[i];
+      ampSum += amps[i];
+    }
+    n = n / ampSum;
+    let alpha = 0.5 + 0.5 * n;
+    alpha = Math.pow(alpha, 1.4);
+    const gapDist = Math.abs(u - gapPos);
+    if (gapDist < gapWidth) alpha *= gapDist / gapWidth;
+    if (u < innerFade) alpha *= u / innerFade;
+    if (u > 1 - outerFade) alpha *= (1 - u) / outerFade;
+    const shade = shades[Math.floor((Math.sin(u * 23.7 + phases[0]) * 0.5 + 0.5) * shades.length) % shades.length];
+    const r = (shade.r * 255) | 0;
+    const g = (shade.g * 255) | 0;
+    const b = (shade.b * 255) | 0;
+    const a = Math.max(0, Math.min(1, alpha)) * 255;
+    for (let y = 0; y < H; y++) {
+      const idx = (y * W + x) * 4;
+      img.data[idx] = r;
+      img.data[idx + 1] = g;
+      img.data[idx + 2] = b;
+      img.data[idx + 3] = a;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  return tex;
+}
+
 // Cross/anamorphic streak texture for lens flare.
 function makeFlareStreakTexture(color: string): THREE.CanvasTexture {
   const S = 512;
@@ -448,11 +509,38 @@ export class SpaceScene {
       }
 
       if (type === "ringed-planet") {
+        const innerR = size * (1.25 + rng() * 0.25);
+        const outerR = innerR + size * (0.6 + rng() * 1.1);
+        const ringGeom = new THREE.RingGeometry(innerR, outerR, 128, 1);
+        // Remap UVs so U runs along the radius (for banded radial texture)
+        const pos = ringGeom.attributes.position;
+        const uv = ringGeom.attributes.uv;
+        for (let v = 0; v < pos.count; v++) {
+          const x = pos.getX(v);
+          const y = pos.getY(v);
+          const r = Math.sqrt(x * x + y * y);
+          const u = (r - innerR) / (outerR - innerR);
+          const a = Math.atan2(y, x) / (Math.PI * 2) + 0.5;
+          uv.setXY(v, u, a);
+        }
+        uv.needsUpdate = true;
+        const ringTex = makeRingTexture(color, rng);
         const ring = new THREE.Mesh(
-          new THREE.RingGeometry(size * 1.4, size * 2.2, 96),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+          ringGeom,
+          new THREE.MeshBasicMaterial({
+            map: ringTex,
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false,
+            fog: false,
+          }),
         );
-        ring.rotation.x = Math.PI / 2 - 0.3;
+        // Per-planet tilt + slight roll for variety
+        ring.rotation.x = Math.PI / 2 - (rng() * 0.9 - 0.1);
+        ring.rotation.y = (rng() - 0.5) * 0.6;
+        ring.rotation.z = (rng() - 0.5) * 0.4;
         mesh.add(ring);
       }
 

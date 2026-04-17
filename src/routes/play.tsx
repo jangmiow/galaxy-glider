@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { CockpitHUD, type HUDState } from "@/components/CockpitHUD";
+import { MobileControls } from "@/components/MobileControls";
 import { SpaceScene } from "@/components/SpaceScene";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -26,6 +28,7 @@ const OBJECTIVES = [
 function Play() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRef = useRef<SpaceScene | null>(null);
+  const isMobile = useIsMobile();
   const [hud, setHud] = useState<HUDState>({
     velocity: 0,
     thrust: 0,
@@ -167,6 +170,37 @@ function Play() {
           if (sceneRef.current) sceneRef.current.paused = false;
         }}
       />
+      {isMobile && (
+        <MobileControls
+          warpReady={hud.warpCharge >= 1}
+          onSteer={(x, y) => {
+            sceneRef.current?.setMouse(x, y);
+            if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
+          }}
+          onThrust={(t) => {
+            const scene = sceneRef.current;
+            if (!scene) return;
+            scene.keys.delete("KeyW");
+            scene.keys.delete("KeyS");
+            if (t > 0.05) scene.keys.add("KeyW");
+            else if (t < -0.05) scene.keys.add("KeyS");
+            if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
+          }}
+          onWarp={() => {
+            const scene = sceneRef.current;
+            if (!scene || scene.warpCharge < 1) return;
+            scene.triggerWarp();
+            setHud((s) => ({ ...s, isWarping: true }));
+            setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
+          }}
+          onPause={() => {
+            const scene = sceneRef.current;
+            if (!scene) return;
+            scene.paused = !scene.paused;
+            setHud((s) => ({ ...s, paused: scene.paused }));
+          }}
+        />
+      )}
     </div>
   );
 }

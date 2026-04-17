@@ -222,8 +222,13 @@ function Play() {
         aria-hidden
       />
       {/* Star map / minimap */}
-      <div className="pointer-events-none absolute bottom-32 right-6 z-10 font-display text-hud">
-        <Minimap data={minimap} objective={hud.objective} />
+      <div className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud">
+        <Minimap
+          data={minimap}
+          objective={hud.objective}
+          onZoomIn={() => adjustRange(-1)}
+          onZoomOut={() => adjustRange(1)}
+        />
       </div>
       {/* Mute toggle */}
       <button

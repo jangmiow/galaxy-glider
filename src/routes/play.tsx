@@ -57,6 +57,18 @@ function Play() {
   const hudRef = useRef(hud);
   hudRef.current = hud;
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
+  const [minimapRange, setMinimapRange] = useState(800);
+  const minimapRangeRef = useRef(minimapRange);
+  minimapRangeRef.current = minimapRange;
+  const RANGE_STEPS = [200, 400, 800, 1600, 3200];
+  const adjustRange = (dir: 1 | -1) => {
+    setMinimapRange((r) => {
+      const idx = RANGE_STEPS.indexOf(r);
+      const cur = idx === -1 ? 2 : idx;
+      const next = Math.max(0, Math.min(RANGE_STEPS.length - 1, cur + dir));
+      return RANGE_STEPS[next];
+    });
+  };
   const audioRef = useRef<CockpitAudio | null>(null);
   const [muted, setMuted] = useState(false);
 

@@ -4,6 +4,7 @@ import { CockpitHUD, type HUDState } from "@/components/CockpitHUD";
 import { Minimap, type MinimapData } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
 import { SpaceScene } from "@/components/SpaceScene";
+import { CockpitAudio } from "@/lib/audio";
 import type { Discovery } from "@/lib/journal";
 import { useIsMobile } from "@/hooks/use-mobile";
 

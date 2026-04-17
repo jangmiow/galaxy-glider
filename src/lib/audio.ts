@@ -10,6 +10,13 @@ export class CockpitAudio {
   private humGain: GainNode | null = null;
   private humFilter: BiquadFilterNode | null = null;
 
+  // Ambient synth pad (slow, evolving)
+  private padOscs: OscillatorNode[] = [];
+  private padGain: GainNode | null = null;
+  private padFilter: BiquadFilterNode | null = null;
+  private padLfo: OscillatorNode | null = null;
+  private padLfoGain: GainNode | null = null;
+
   private started = false;
   private muted = false;
 
@@ -60,6 +67,41 @@ export class CockpitAudio {
 
     this.humOsc1.start();
     this.humOsc2.start();
+
+    // Ambient pad: detuned root + 5th + octave through soft lowpass with slow LFO swell
+    this.padFilter = ctx.createBiquadFilter();
+    this.padFilter.type = "lowpass";
+    this.padFilter.frequency.value = 900;
+    this.padFilter.Q.value = 0.4;
+
+    this.padGain = ctx.createGain();
+    this.padGain.gain.value = 0.06; // base pad level (very soft)
+
+    // Slow amplitude LFO for breathing/swell (~0.06Hz, ~16s cycle)
+    this.padLfo = ctx.createOscillator();
+    this.padLfo.type = "sine";
+    this.padLfo.frequency.value = 0.06;
+    this.padLfoGain = ctx.createGain();
+    this.padLfoGain.gain.value = 0.025;
+    this.padLfo.connect(this.padLfoGain).connect(this.padGain.gain);
+
+    // Pad voices: low D + A + D (octave), with slight detunes for chorus
+    const padFreqs = [73.42, 110.0, 146.83]; // D2, A2, D3
+    const padDetunes = [-7, 5, 9];
+    const padTypes: OscillatorType[] = ["sine", "triangle", "sine"];
+    for (let i = 0; i < padFreqs.length; i++) {
+      const o = ctx.createOscillator();
+      o.type = padTypes[i];
+      o.frequency.value = padFreqs[i];
+      o.detune.value = padDetunes[i];
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.5 + i * 0.15;
+      o.connect(voiceGain).connect(this.padFilter);
+      o.start();
+      this.padOscs.push(o);
+    }
+    this.padFilter.connect(this.padGain).connect(this.master);
+    this.padLfo.start();
   }
 
   /** thrust in -1..1, boost >=1 */
@@ -181,6 +223,8 @@ export class CockpitAudio {
     try {
       this.humOsc1?.stop();
       this.humOsc2?.stop();
+      this.padOscs.forEach((o) => o.stop());
+      this.padLfo?.stop();
     } catch {
       // ignore
     }
@@ -188,6 +232,12 @@ export class CockpitAudio {
     this.humOsc2?.disconnect();
     this.humFilter?.disconnect();
     this.humGain?.disconnect();
+    this.padOscs.forEach((o) => o.disconnect());
+    this.padOscs = [];
+    this.padFilter?.disconnect();
+    this.padGain?.disconnect();
+    this.padLfo?.disconnect();
+    this.padLfoGain?.disconnect();
     this.master?.disconnect();
     this.ctx?.close().catch(() => {});
     this.ctx = null;
@@ -195,6 +245,10 @@ export class CockpitAudio {
     this.humOsc1 = this.humOsc2 = null;
     this.humGain = null;
     this.humFilter = null;
+    this.padFilter = null;
+    this.padGain = null;
+    this.padLfo = null;
+    this.padLfoGain = null;
     this.started = false;
   }
 }

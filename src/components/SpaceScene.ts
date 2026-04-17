@@ -418,8 +418,8 @@ export class SpaceScene {
   }
 
   buildNebulae() {
-    const colors = [0x4466aa, 0xaa4466, 0x6644aa, 0xaa8844];
-    for (let i = 0; i < 8; i++) {
+    const colors = [0x4466aa, 0xaa4466, 0x6644aa, 0xaa8844, 0x335577, 0x884466];
+    for (let i = 0; i < 16; i++) {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 256;
       const ctx = canvas.getContext("2d")!;

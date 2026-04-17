@@ -128,6 +128,7 @@ function Play() {
     let last = performance.now();
     let objIdx = 0;
     let objSwap = 0;
+    let mmAcc = 0;
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
@@ -149,6 +150,14 @@ function Play() {
         warpCharge: scene.warpCharge,
         heading: { pitch: scene.ship.rotation.x, yaw: scene.ship.rotation.y },
       }));
+
+      // Refresh minimap ~10fps
+      mmAcc += dt;
+      if (mmAcc > 0.1) {
+        mmAcc = 0;
+        const target = OBJECTIVE_TARGET[hudRef.current.objective] ?? null;
+        setMinimap(scene.getMinimapSnapshot(target));
+      }
 
       raf = requestAnimationFrame(loop);
     };

@@ -403,9 +403,7 @@ export class SpaceScene {
         mesh.add(light);
       } else {
         // Atmospheric rim glow (slightly larger billboard behind the planet, additive)
-        const atmoColor = type === "red-dwarf"
-          ? color
-          : new THREE.Color(color).offsetHSL(0.02, 0.1, 0.15).getStyle();
+        const atmoColor = new THREE.Color(color).offsetHSL(0.02, 0.1, 0.15).getStyle();
         const atmoTex = makeRadialTexture(atmoColor, 0.55, 1);
         const atmo = new THREE.Sprite(
           new THREE.SpriteMaterial({

@@ -191,7 +191,7 @@ function Play() {
       if (mmAcc > 0.1) {
         mmAcc = 0;
         const target = OBJECTIVE_TARGET[hudRef.current.objective] ?? null;
-        setMinimap(scene.getMinimapSnapshot(target));
+        setMinimap(scene.getMinimapSnapshot(target, minimapRangeRef.current));
       }
 
       raf = requestAnimationFrame(loop);

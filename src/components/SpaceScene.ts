@@ -304,14 +304,20 @@ export class SpaceScene {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 256;
       const ctx = canvas.getContext("2d")!;
+      // Start fully transparent so corners outside the circle have alpha=0 AND rgb=0
+      ctx.clearRect(0, 0, 256, 256);
       const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
       const c = colors[i % colors.length];
       const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
       grad.addColorStop(0, `rgba(${r},${g},${b},0.5)`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 256, 256);
+      // Circular fill avoids opaque corner artifacts under additive blending
+      ctx.beginPath();
+      ctx.arc(128, 128, 128, 0, Math.PI * 2);
+      ctx.fill();
       const tex = new THREE.CanvasTexture(canvas);
+      tex.premultiplyAlpha = true;
       const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
       const sprite = new THREE.Sprite(mat);
       const r2 = 600 + Math.random() * 600;

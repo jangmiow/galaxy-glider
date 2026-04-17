@@ -543,6 +543,29 @@ export class SpaceScene {
         );
         atmo.scale.set(size * 2.6, size * 2.6, 1);
         mesh.add(atmo);
+
+        // Drifting cloud layer on ~55% of planets (skip ringed gas giants ~half the time)
+        const wantsClouds = rng() < (type === "ringed-planet" ? 0.3 : 0.55);
+        if (wantsClouds) {
+          const cloudTex = makeCloudTexture(rng);
+          const cloudMat = new THREE.MeshStandardMaterial({
+            map: cloudTex,
+            transparent: true,
+            depthWrite: false,
+            opacity: 0.55 + rng() * 0.25,
+            roughness: 1,
+            metalness: 0,
+          });
+          const cloudGeo = new THREE.SphereGeometry(size * 1.025, 48, 32);
+          const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+          clouds.rotation.y = rng() * Math.PI * 2;
+          clouds.rotation.z = (rng() - 0.5) * 0.4;
+          (clouds as THREE.Mesh & { _cloudSpin?: number; _cloudDrift?: number })._cloudSpin =
+            (rng() - 0.5) * 0.08;
+          (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift = (rng() - 0.5) * 0.02;
+          mesh.add(clouds);
+          (mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds = clouds;
+        }
       }
 
       if (type === "ringed-planet") {

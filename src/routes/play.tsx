@@ -57,6 +57,8 @@ function Play() {
   const hudRef = useRef(hud);
   hudRef.current = hud;
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
+  const audioRef = useRef<CockpitAudio | null>(null);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;

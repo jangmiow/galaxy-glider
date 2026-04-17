@@ -293,8 +293,9 @@ export class SpaceScene {
       pos[i*3+2] = -Math.random() * 800;
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: 0xaaddff, size: 2, transparent: true, opacity: 0 });
+    const mat = new THREE.PointsMaterial({ color: 0xaaddff, size: 2, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.warpStars = new THREE.Points(geo, mat);
+    this.warpStars.visible = false;
     this.camera.add(this.warpStars);
   }
 

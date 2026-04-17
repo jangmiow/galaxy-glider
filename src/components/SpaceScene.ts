@@ -458,6 +458,90 @@ export class SpaceScene {
     this.mouseY = apply(y);
   }
 
+  /**
+   * Returns ship-local positions of nearby bodies/orbs for the minimap.
+   * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
+   */
+  getMinimapSnapshot(targetType: Discovery["type"] | "orb" | null, range = 800) {
+    const inv = this.ship.matrixWorld.clone().invert();
+    const tmp = new THREE.Vector3();
+
+    type Dot = {
+      x: number;
+      z: number;
+      kind: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf" | "orb";
+      scanned: boolean;
+      isTarget: boolean;
+      ahead: boolean;
+      distance: number;
+    };
+
+    const dots: Dot[] = [];
+    let target: { dist: number; idx: number } | null = null;
+
+    for (let i = 0; i < this.bodies.length; i++) {
+      const b = this.bodies[i];
+      tmp.copy(b.mesh.position).applyMatrix4(inv);
+      const distance = tmp.length();
+      if (distance > range) continue;
+      const isTargetCandidate =
+        targetType !== null && targetType !== "orb" && b.type === targetType && !b.scanned;
+      const idx = dots.length;
+      dots.push({
+        x: tmp.x / range,
+        z: tmp.z / range,
+        kind: b.type,
+        scanned: b.scanned,
+        isTarget: false,
+        ahead: tmp.z < 0,
+        distance,
+      });
+      if (isTargetCandidate && (!target || distance < target.dist)) {
+        target = { dist: distance, idx };
+      }
+    }
+
+    if (targetType === "orb") {
+      let bestOrb: { d: number; i: number } | null = null;
+      for (const o of this.orbs) {
+        tmp.copy(o.position).applyMatrix4(inv);
+        const distance = tmp.length();
+        if (distance > range) continue;
+        const idx = dots.length;
+        dots.push({
+          x: tmp.x / range,
+          z: tmp.z / range,
+          kind: "orb",
+          scanned: false,
+          isTarget: false,
+          ahead: tmp.z < 0,
+          distance,
+        });
+        if (!bestOrb || distance < bestOrb.d) bestOrb = { d: distance, i: idx };
+      }
+      if (bestOrb) dots[bestOrb.i].isTarget = true;
+    } else {
+      for (const o of this.orbs) {
+        tmp.copy(o.position).applyMatrix4(inv);
+        const distance = tmp.length();
+        if (distance > range) continue;
+        dots.push({
+          x: tmp.x / range,
+          z: tmp.z / range,
+          kind: "orb",
+          scanned: false,
+          isTarget: false,
+          ahead: tmp.z < 0,
+          distance,
+        });
+      }
+    }
+
+    if (target) dots[target.idx].isTarget = true;
+
+    return { dots, range };
+  }
+
   resize(w: number, h: number) {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;

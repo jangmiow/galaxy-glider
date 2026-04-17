@@ -1,9 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { CockpitHUD, type HUDState } from "@/components/CockpitHUD";
+import { Minimap, type MinimapData } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
 import { SpaceScene } from "@/components/SpaceScene";
+import type { Discovery } from "@/lib/journal";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+const OBJECTIVE_TARGET: Record<string, Discovery["type"] | "orb" | null> = {
+  "Discover 3 new worlds": "planet",
+  "Reach a blue giant star": "blue-giant",
+  "Collect 5 energy orbs": "orb",
+  "Engage lightspeed": null,
+  "Discover a ringed planet": "ringed-planet",
+};
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -45,6 +55,7 @@ function Play() {
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
+  const [minimap, setMinimap] = useState<MinimapData | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -117,6 +128,7 @@ function Play() {
     let last = performance.now();
     let objIdx = 0;
     let objSwap = 0;
+    let mmAcc = 0;
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
@@ -138,6 +150,14 @@ function Play() {
         warpCharge: scene.warpCharge,
         heading: { pitch: scene.ship.rotation.x, yaw: scene.ship.rotation.y },
       }));
+
+      // Refresh minimap ~10fps
+      mmAcc += dt;
+      if (mmAcc > 0.1) {
+        mmAcc = 0;
+        const target = OBJECTIVE_TARGET[hudRef.current.objective] ?? null;
+        setMinimap(scene.getMinimapSnapshot(target));
+      }
 
       raf = requestAnimationFrame(loop);
     };
@@ -163,6 +183,10 @@ function Play() {
         style={{ background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)" }}
         aria-hidden
       />
+      {/* Star map / minimap */}
+      <div className="pointer-events-none absolute bottom-32 right-6 z-10 font-display text-hud">
+        <Minimap data={minimap} objective={hud.objective} />
+      </div>
       <CockpitHUD
         state={hud}
         onResume={() => {

@@ -1,0 +1,107 @@
+export type MinimapDot = {
+  x: number; // -1..1 (right)
+  z: number; // -1..1 (forward; negative = ahead)
+  kind: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf" | "orb";
+  scanned: boolean;
+  isTarget: boolean;
+  ahead: boolean;
+  distance: number;
+};
+
+export type MinimapData = {
+  dots: MinimapDot[];
+  range: number;
+};
+
+const KIND_COLOR: Record<MinimapDot["kind"], string> = {
+  planet: "#6aa8ff",
+  "ringed-planet": "#e8c97a",
+  star: "#ffe6a0",
+  "blue-giant": "#9ad0ff",
+  "red-dwarf": "#ff7060",
+  orb: "#88ffcc",
+};
+
+const SIZE = 160;
+const R = SIZE / 2;
+
+export function Minimap({ data, objective }: { data: MinimapData | null; objective: string }) {
+  return (
+    <div className="hud-panel rounded-md p-2">
+      <div className="mb-1 flex items-center justify-between px-1 text-[10px] uppercase tracking-widest text-hud-dim">
+        <span>STAR MAP</span>
+        <span className="text-amber">{Math.round((data?.range ?? 800))}u</span>
+      </div>
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
+        {/* Background */}
+        <defs>
+          <radialGradient id="mm-bg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="oklch(0.18 0.05 220)" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="oklch(0.08 0.04 220)" stopOpacity="0.95" />
+          </radialGradient>
+        </defs>
+        <circle cx={R} cy={R} r={R - 1} fill="url(#mm-bg)" stroke="currentColor" strokeOpacity="0.3" className="text-hud" />
+        {/* Range rings */}
+        <circle cx={R} cy={R} r={R * 0.66} fill="none" stroke="currentColor" strokeOpacity="0.15" className="text-hud" />
+        <circle cx={R} cy={R} r={R * 0.33} fill="none" stroke="currentColor" strokeOpacity="0.15" className="text-hud" />
+        {/* Crosshair */}
+        <line x1={R} y1={4} x2={R} y2={SIZE - 4} stroke="currentColor" strokeOpacity="0.15" className="text-hud" />
+        <line x1={4} y1={R} x2={SIZE - 4} y2={R} stroke="currentColor" strokeOpacity="0.15" className="text-hud" />
+        {/* Forward arc highlight */}
+        <path
+          d={`M ${R} ${R} L ${R - R * 0.7} ${R - R * 0.7} A ${R} ${R} 0 0 1 ${R + R * 0.7} ${R - R * 0.7} Z`}
+          fill="currentColor"
+          fillOpacity="0.05"
+          className="text-hud"
+        />
+
+        {/* Dots */}
+        {data?.dots.map((d, i) => {
+          // Map ship-local: x → screen-x, z → screen-y (negative z = ahead = up)
+          const px = R + d.x * (R - 6);
+          const py = R + d.z * (R - 6);
+          const color = KIND_COLOR[d.kind];
+          const isStar = d.kind === "star" || d.kind === "blue-giant" || d.kind === "red-dwarf";
+          const baseR = isStar ? 3 : d.kind === "orb" ? 1.5 : 2.5;
+          const opacity = d.scanned ? 0.4 : 1;
+          return (
+            <g key={i}>
+              {d.isTarget && (
+                <>
+                  <circle cx={px} cy={py} r={9} fill="none" stroke="#ffb347" strokeWidth="1.2">
+                    <animate attributeName="r" values="6;12;6" dur="1.6s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.6s" repeatCount="indefinite" />
+                  </circle>
+                  <path
+                    d={`M ${px - 6} ${py - 6} L ${px - 2} ${py - 6} M ${px + 6} ${py - 6} L ${px + 2} ${py - 6} M ${px - 6} ${py + 6} L ${px - 2} ${py + 6} M ${px + 6} ${py + 6} L ${px + 2} ${py + 6}`}
+                    stroke="#ffb347"
+                    strokeWidth="1.2"
+                    fill="none"
+                  />
+                </>
+              )}
+              <circle cx={px} cy={py} r={baseR} fill={color} opacity={opacity} />
+              {isStar && (
+                <circle cx={px} cy={py} r={baseR + 2} fill={color} opacity={0.25} />
+              )}
+            </g>
+          );
+        })}
+
+        {/* Ship heading triangle (always at center, pointing up) */}
+        <g transform={`translate(${R} ${R})`}>
+          <polygon points="0,-7 -5,5 5,5" fill="oklch(0.85 0.18 200)" stroke="oklch(1 0 0)" strokeWidth="0.5" />
+          <circle r="1.5" fill="oklch(1 0 0)" />
+        </g>
+      </svg>
+      <div className="mt-1 truncate px-1 text-[10px] text-hud-dim">
+        TGT: <span className="text-amber">{shortObjective(objective)}</span>
+      </div>
+    </div>
+  );
+}
+
+function shortObjective(o: string): string {
+  if (o.length <= 22) return o;
+  return o.slice(0, 21) + "…";
+}

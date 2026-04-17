@@ -293,8 +293,9 @@ export class SpaceScene {
       pos[i*3+2] = -Math.random() * 800;
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: 0xaaddff, size: 2, transparent: true, opacity: 0 });
+    const mat = new THREE.PointsMaterial({ color: 0xaaddff, size: 2, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.warpStars = new THREE.Points(geo, mat);
+    this.warpStars.visible = false;
     this.camera.add(this.warpStars);
   }
 
@@ -304,15 +305,21 @@ export class SpaceScene {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 256;
       const ctx = canvas.getContext("2d")!;
+      // Start fully transparent so corners outside the circle have alpha=0 AND rgb=0
+      ctx.clearRect(0, 0, 256, 256);
       const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
       const c = colors[i % colors.length];
       const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
       grad.addColorStop(0, `rgba(${r},${g},${b},0.5)`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 256, 256);
+      // Circular fill avoids opaque corner artifacts under additive blending
+      ctx.beginPath();
+      ctx.arc(128, 128, 128, 0, Math.PI * 2);
+      ctx.fill();
       const tex = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      tex.premultiplyAlpha = true;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
       const sprite = new THREE.Sprite(mat);
       const r2 = 600 + Math.random() * 600;
       const th = Math.random() * Math.PI * 2;
@@ -378,7 +385,7 @@ export class SpaceScene {
         // Soft corona
         const coronaTex = makeRadialTexture(color, 0.9);
         const corona = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+          new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
         );
         corona.scale.set(size * 6, size * 6, 1);
         mesh.add(corona);
@@ -393,6 +400,7 @@ export class SpaceScene {
             depthTest: false,
             blending: THREE.AdditiveBlending,
             opacity: 0,
+            fog: false,
           }),
         );
         flareSprite.scale.set(size * 14, size * 14, 1);
@@ -412,6 +420,7 @@ export class SpaceScene {
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             opacity: 0.85,
+            fog: false,
           }),
         );
         atmo.scale.set(size * 2.6, size * 2.6, 1);
@@ -554,6 +563,7 @@ export class SpaceScene {
     this.warpTimer = 2.5;
     this.warpCharge = 0;
     (this.warpStars.material as THREE.PointsMaterial).opacity = 1;
+    this.warpStars.visible = true;
   }
 
   update(dt: number) {
@@ -614,6 +624,7 @@ export class SpaceScene {
       if (this.warpTimer <= 0) {
         this.isWarping = false;
         (this.warpStars.material as THREE.PointsMaterial).opacity = 0;
+        this.warpStars.visible = false;
         this.systemSeed += 1;
         this.buildSystem(this.systemSeed);
       }

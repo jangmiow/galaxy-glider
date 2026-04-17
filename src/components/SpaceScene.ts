@@ -9,6 +9,8 @@ type Body = {
   id: string;
   name: string;
   scanned: boolean;
+  flare?: THREE.Sprite;
+  isStar?: boolean;
 };
 
 export type SceneCallbacks = {

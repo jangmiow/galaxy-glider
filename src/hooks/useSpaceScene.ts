@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { HUDState } from "@/components/CockpitHUD";
 import type { MinimapData } from "@/components/Minimap";
 import { SpaceScene } from "@/components/SpaceScene";
@@ -137,7 +138,11 @@ export function useSpaceScene(
         } else if (e.code === "KeyT") {
           // Debug: auto-aim at the nearest unscanned body so the lock-on
           // reticle can be triggered without manual mouse-look.
-          scene.aimAtNearestBody();
+          const target = scene.aimAtNearestBody();
+          toast("AUTO-AIM ENGAGED", {
+            description: target ? `Locking ${target.name} · ${target.dist.toFixed(0)}u` : "No target in range",
+            duration: 1500,
+          });
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));

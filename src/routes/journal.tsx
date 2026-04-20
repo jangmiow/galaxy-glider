@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { clearJournal, loadJournal, type Discovery } from "@/lib/journal";
+import { getActivePilot, isUnlocked, type Pilot } from "@/lib/pilots";
 
 export const Route = createFileRoute("/journal")({
   head: () => ({
@@ -11,14 +12,20 @@ export const Route = createFileRoute("/journal")({
       { property: "og:description", content: "Your log of discovered worlds." },
     ],
   }),
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!isUnlocked()) throw redirect({ to: "/" });
+  },
   component: Journal,
 });
 
 function Journal() {
   const [items, setItems] = useState<Discovery[]>([]);
+  const [pilot, setPilot] = useState<Pilot | null>(null);
 
   useEffect(() => {
     setItems(loadJournal());
+    setPilot(getActivePilot());
   }, []);
 
   return (
@@ -31,6 +38,7 @@ function Journal() {
             </Link>
             <h1 className="mt-2 font-display text-4xl text-hud hud-glow">Discovery Journal</h1>
             <p className="mt-1 text-sm text-muted-foreground">
+              {pilot && <span className="mr-2 text-amber">{pilot.callsign}</span>}
               {items.length} celestial {items.length === 1 ? "body" : "bodies"} cataloged
             </p>
           </div>

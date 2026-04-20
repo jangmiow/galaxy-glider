@@ -23,8 +23,26 @@ export type HUDState = {
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
+  const [debug, setDebug] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Backquote") setDebug((d) => !d);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="pointer-events-none absolute inset-0 z-10 select-none font-display text-hud">
+      {debug && (
+        <div className="absolute left-1/2 top-2 z-50 -translate-x-1/2 rounded border border-hud/60 bg-black/80 px-3 py-1.5 text-[10px] leading-tight tracking-widest">
+          <div className="text-hud/60">DEBUG · ` to toggle</div>
+          <div>YAW   {state.heading.yaw.toFixed(3)} rad</div>
+          <div>PITCH {state.heading.pitch.toFixed(3)} rad</div>
+          <div>THRUST {state.thrust.toFixed(3)}</div>
+          <div>VEL   {state.velocity.toFixed(2)}</div>
+        </div>
+      )}
       {/* Cockpit frame: top + bottom dashboards + side struts via SVG */}
       <svg
         className="absolute inset-0 h-full w-full"

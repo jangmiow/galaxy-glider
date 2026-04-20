@@ -1174,13 +1174,19 @@ export class SpaceScene {
         tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp);
       }
       if (b.flare && b.isStar) {
-        tmp.copy(b.mesh.position).sub(this.ship.position).normalize();
+        tmp.copy(b.mesh.position).sub(this.ship.position);
+        const distToStar = tmp.length();
+        tmp.divideScalar(distToStar || 1);
         const align = Math.max(0, tmp.dot(camForward)); // 0..1
-        const intensity = Math.pow(align, 6);
+        // Fade the lens flare out when very close to the star so it can't fill
+        // the screen with white when staring directly at the sun (this was the
+        // "blank screen" symptom right after a scan completed near a star).
+        const proximityFade = Math.min(1, Math.max(0, (distToStar - b.size * 4) / (b.size * 8)));
+        const intensity = Math.pow(align, 6) * proximityFade;
         const mat = b.flare.material as THREE.SpriteMaterial;
-        mat.opacity = intensity * 0.9;
-        const baseScale = b.size * 14;
-        const s = baseScale * (0.6 + intensity * 0.8);
+        mat.opacity = intensity * 0.7;
+        const baseScale = b.size * 10;
+        const s = baseScale * (0.6 + intensity * 0.6);
         b.flare.scale.set(s, s, 1);
       }
     }

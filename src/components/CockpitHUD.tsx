@@ -352,3 +352,94 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
     </div>
   );
 }
+
+/**
+ * Visible cockpit hardware: a yoke that physically tilts with steering input
+ * and a thrust lever that slides with the throttle. Pure SVG so it costs
+ * nothing per frame and inherits the HUD theme via `currentColor`. Hidden on
+ * narrow screens so it doesn't fight the mobile joystick UI.
+ */
+function CockpitControls({
+  yoke,
+  thrust,
+}: {
+  yoke: { pitch: number; yaw: number };
+  thrust: number;
+}) {
+  // Map ship rotation (radians) into yoke deflection. Steering uses small
+  // angles in normal flight, so a generous multiplier keeps the yoke visibly
+  // alive without ever pinning to the rails.
+  const tiltDeg = Math.max(-22, Math.min(22, ((yoke.yaw * 180) / Math.PI) * 0.6));
+  const pitchPx = Math.max(-10, Math.min(10, ((yoke.pitch * 180) / Math.PI) * 0.4));
+  // Lever travel: -1 (full reverse, lever down) → +1 (full forward, lever up).
+  const t = Math.max(-1, Math.min(1, thrust));
+  const leverY = -t * 36; // px offset from neutral
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-[180px] md:block">
+      {/* YOKE — left of the artificial horizon */}
+      <div
+        className="absolute bottom-2 left-1/2"
+        style={{
+          transform: `translateX(-180px) translateY(${pitchPx}px) rotate(${tiltDeg}deg)`,
+          transformOrigin: "50% 90%",
+          transition: "transform 90ms linear",
+        }}
+      >
+        <svg width="140" height="110" viewBox="0 0 140 110" className="text-hud">
+          {/* Column / base */}
+          <rect x="60" y="80" width="20" height="28" rx="3" fill="#0a1118" stroke="currentColor" strokeOpacity="0.5" />
+          <rect x="50" y="98" width="40" height="10" rx="2" fill="#0d1620" stroke="currentColor" strokeOpacity="0.45" />
+          {/* Cross handle */}
+          <rect x="14" y="44" width="112" height="14" rx="6" fill="#101a24" stroke="currentColor" strokeOpacity="0.7" />
+          {/* Center hub */}
+          <circle cx="70" cy="51" r="11" fill="#0a1118" stroke="currentColor" strokeOpacity="0.85" />
+          <circle cx="70" cy="51" r="3" fill="currentColor" opacity="0.85" />
+          {/* Grip caps */}
+          <rect x="6" y="38" width="14" height="26" rx="4" fill="#0a1118" stroke="currentColor" strokeOpacity="0.7" />
+          <rect x="120" y="38" width="14" height="26" rx="4" fill="#0a1118" stroke="currentColor" strokeOpacity="0.7" />
+          {/* Trigger LEDs on each grip — amber when steering hard that side */}
+          <circle cx="13" cy="44" r="1.6" fill="#fbbf24" opacity={tiltDeg < -8 ? 1 : 0.25} />
+          <circle cx="127" cy="44" r="1.6" fill="#fbbf24" opacity={tiltDeg > 8 ? 1 : 0.25} />
+          {/* Hub tick */}
+          <line x1="70" y1="44" x2="70" y2="48" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+      </div>
+
+      {/* THRUST LEVER — right of the artificial horizon */}
+      <div
+        className="absolute bottom-2 left-1/2"
+        style={{ transform: "translateX(120px)" }}
+      >
+        <svg width="60" height="150" viewBox="0 0 60 150" className="text-hud">
+          {/* Track */}
+          <rect x="22" y="14" width="16" height="116" rx="4" fill="#0a1118" stroke="currentColor" strokeOpacity="0.5" />
+          {/* Notch ticks */}
+          <line x1="18" y1="20" x2="42" y2="20" stroke="currentColor" strokeOpacity="0.4" />
+          <line x1="18" y1="72" x2="42" y2="72" stroke="currentColor" strokeOpacity="0.6" />
+          <line x1="18" y1="124" x2="42" y2="124" stroke="currentColor" strokeOpacity="0.4" />
+          <text x="46" y="22" fontSize="6" fill="currentColor" opacity="0.6">F</text>
+          <text x="46" y="74" fontSize="6" fill="currentColor" opacity="0.6">0</text>
+          <text x="46" y="126" fontSize="6" fill="currentColor" opacity="0.6">R</text>
+          {/* Lever */}
+          <g
+            style={{
+              transform: `translateY(${leverY}px)`,
+              transition: "transform 90ms linear",
+            }}
+          >
+            <rect x="14" y="66" width="32" height="14" rx="3" fill="#101a24" stroke="currentColor" strokeOpacity="0.85" />
+            <rect x="18" y="60" width="24" height="6" rx="2" fill="#0a1118" stroke="currentColor" strokeOpacity="0.7" />
+            <circle
+              cx="30"
+              cy="73"
+              r="2"
+              fill={t > 0.05 ? "#22d3ee" : t < -0.05 ? "#fbbf24" : "currentColor"}
+              opacity={Math.abs(t) > 0.05 ? 1 : 0.4}
+            />
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
+}

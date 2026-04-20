@@ -323,15 +323,49 @@ export class SpaceScene {
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i*3] = (Math.random() - 0.5) * 200;
-      pos[i*3+1] = (Math.random() - 0.5) * 200;
-      pos[i*3+2] = -Math.random() * 800;
+      pos[i * 3 + 0] = (Math.random() - 0.5) * 200;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 200;
+      pos[i * 3 + 2] = -Math.random() * 800;
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.PointsMaterial({ color: 0xaaddff, size: 2, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.warpStars = new THREE.Points(geo, mat);
     this.warpStars.visible = false;
     this.camera.add(this.warpStars);
+  }
+
+  /**
+   * Cockpit-relative dust particles. They live in camera space inside a small box
+   * around the ship and are recycled when they exit the volume. The update loop
+   * streaks them backward proportional to current velocity for a parallax feel.
+   */
+  buildDustField() {
+    const count = 600;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    const HALF_X = 120;
+    const HALF_Y = 80;
+    const Z_NEAR = -260; // ahead of camera
+    const Z_FAR = 40;    // slightly behind
+    for (let i = 0; i < count; i++) {
+      pos[i * 3 + 0] = (Math.random() - 0.5) * HALF_X * 2;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * HALF_Y * 2;
+      pos[i * 3 + 2] = Z_NEAR + Math.random() * (Z_FAR - Z_NEAR);
+    }
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xbcd4ff,
+      size: 1.1,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+      fog: false,
+    });
+    this.dustField = new THREE.Points(geo, mat);
+    this.dustField.frustumCulled = false;
+    this.camera.add(this.dustField);
   }
 
   buildNebulae() {

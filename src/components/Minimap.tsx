@@ -17,6 +17,7 @@ export type MinimapData = {
 const KIND_COLOR: Record<MinimapDot["kind"], string> = {
   planet: "#6aa8ff",
   "ringed-planet": "#e8c97a",
+  moon: "#bdb6a8",
   star: "#ffe6a0",
   "blue-giant": "#9ad0ff",
   "red-dwarf": "#ff7060",

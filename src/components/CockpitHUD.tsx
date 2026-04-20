@@ -9,6 +9,8 @@ export type HUDState = {
   heading: { pitch: number; yaw: number };
   score: number;
   rank: string;
+  /** Active pilot's display name. Falls back to "PILOT" if no profile is set. */
+  callsign: string;
   objective: string;
   paused: boolean;
   scanning: { name: string; progress: number; alreadyScanned?: boolean } | null;

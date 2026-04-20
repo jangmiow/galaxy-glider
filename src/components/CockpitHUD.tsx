@@ -175,6 +175,7 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
       <CockpitControls
         yoke={{ pitch: state.heading.pitch, yaw: state.heading.yaw }}
         thrust={state.thrust}
+        boost={state.boost}
       />
 
       {/* Scanning state is shown in the central LockOnReticle above; no

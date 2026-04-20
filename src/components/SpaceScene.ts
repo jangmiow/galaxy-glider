@@ -674,6 +674,45 @@ export class SpaceScene {
     ];
     for (const p of planets) this.addPlanetBody(p);
 
+    // Attach hand-picked moons to a few notable planets so the journal can log them.
+    const findBody = (id: string) => this.bodies.find((b) => b.id === id);
+    const earth = findBody("sol-earth");
+    if (earth) {
+      this.addMoon({ id: "sol-luna", name: "Luna", parent: earth,
+        size: 2.2, color: "#cfc8b8", accentColor: "#807a6c", kind: "barren",
+        radius: 18, speed: 0.35, seed: 11 });
+    }
+    const mars = findBody("sol-mars");
+    if (mars) {
+      this.addMoon({ id: "sol-phobos", name: "Phobos", parent: mars,
+        size: 1.1, color: "#8a7a68", kind: "barren",
+        radius: 12, speed: 0.7, phase: 0.2, seed: 12 });
+      this.addMoon({ id: "sol-deimos", name: "Deimos", parent: mars,
+        size: 0.9, color: "#9a8a78", kind: "barren",
+        radius: 17, speed: 0.45, phase: 2.4, seed: 13 });
+    }
+    const jupiter = findBody("sol-jupiter");
+    if (jupiter) {
+      this.addMoon({ id: "sol-io", name: "Io", parent: jupiter,
+        size: 2.4, color: "#e6cc60", accentColor: "#a07028", kind: "rocky",
+        radius: 44, speed: 0.5, phase: 0.1, seed: 21 });
+      this.addMoon({ id: "sol-europa", name: "Europa", parent: jupiter,
+        size: 2.2, color: "#d8d0b8", accentColor: "#a89870", kind: "icy",
+        radius: 56, speed: 0.4, phase: 1.7, seed: 22 });
+      this.addMoon({ id: "sol-ganymede", name: "Ganymede", parent: jupiter,
+        size: 3.0, color: "#9c8a78", accentColor: "#5a4a38", kind: "rocky",
+        radius: 70, speed: 0.3, phase: 3.0, seed: 23 });
+      this.addMoon({ id: "sol-callisto", name: "Callisto", parent: jupiter,
+        size: 2.8, color: "#6c604c", accentColor: "#3a3020", kind: "barren",
+        radius: 86, speed: 0.22, phase: 4.5, seed: 24 });
+    }
+    const saturn = findBody("sol-saturn");
+    if (saturn) {
+      this.addMoon({ id: "sol-titan", name: "Titan", parent: saturn,
+        size: 2.6, color: "#d8a868", accentColor: "#7a5028", kind: "icy",
+        radius: 90, speed: 0.25, phase: 1.0, tilt: 0.1, seed: 31 });
+    }
+
     for (let i = 0; i < 8; i++) {
       const orb = new THREE.Mesh(
         new THREE.SphereGeometry(2, 16, 12),

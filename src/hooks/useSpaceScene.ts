@@ -106,7 +106,9 @@ export function useSpaceScene(
         audio.discoveryBeep();
         setHud((s) => {
           const score = s.score + 250;
-          return { ...s, score, rank: rankFor(score), lastDiscovery: d.name };
+          const rank = rankFor(score);
+          persistScore(score, rank);
+          return { ...s, score, rank, lastDiscovery: d.name };
         });
         setTimeout(() => setHud((s) => ({ ...s, lastDiscovery: null })), 2500);
       },
@@ -124,7 +126,9 @@ export function useSpaceScene(
         audio.orbPing();
         setHud((s) => {
           const score = s.score + 50;
-          return { ...s, score, rank: rankFor(score) };
+          const rank = rankFor(score);
+          persistScore(score, rank);
+          return { ...s, score, rank };
         });
       },
       onSystemComplete: (info) => {
@@ -136,12 +140,16 @@ export function useSpaceScene(
           description: `All ${info.bodyCount} bodies catalogued. +1000 bonus.`,
           duration: 4000,
         });
+        // Persist the medal under the active pilot.
+        if (pilotIdRef.current) addMedal(pilotIdRef.current, info.systemId);
         setHud((s) => {
           const score = s.score + 1000;
+          const rank = rankFor(score);
+          persistScore(score, rank);
           return {
             ...s,
             score,
-            rank: rankFor(score),
+            rank,
             medal: { systemName: info.systemName, bodyCount: info.bodyCount },
           };
         });

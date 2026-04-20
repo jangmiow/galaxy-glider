@@ -6,12 +6,15 @@ export type MinimapDot = {
   isTarget: boolean;
   ahead: boolean;
   distance: number;
+  name?: string;
 };
 
 export type MinimapData = {
   dots: MinimapDot[];
   range: number;
   offRangeTarget: { x: number; z: number; distance: number } | null;
+  /** Names of bodies scanned in the last few seconds — pulse their dots. */
+  freshlyScanned?: Set<string>;
 };
 
 const KIND_COLOR: Record<MinimapDot["kind"], string> = {
@@ -106,6 +109,7 @@ export function Minimap({
           // Unscanned bodies: hollow ring (still to investigate).
           // Stars and orbs always render solid since they're not "scannable" in the same way.
           const isHollow = !d.scanned && !isStar && d.kind !== "orb";
+          const isFresh = !!(d.name && data?.freshlyScanned?.has(d.name));
           return (
             <g key={i}>
               {d.isTarget && (
@@ -121,6 +125,13 @@ export function Minimap({
                     fill="none"
                   />
                 </>
+              )}
+              {isFresh && (
+                <circle cx={px} cy={py} r={baseR} fill="none" stroke={color} strokeWidth="1.4">
+                  <animate attributeName="r" values={`${baseR};${baseR + 10};${baseR + 14}`} dur="1.6s" repeatCount="3" />
+                  <animate attributeName="opacity" values="1;0.4;0" dur="1.6s" repeatCount="3" />
+                  <animate attributeName="stroke-width" values="1.6;1;0.4" dur="1.6s" repeatCount="3" />
+                </circle>
               )}
               {isHollow ? (
                 <circle cx={px} cy={py} r={baseR} fill="none" stroke={color} strokeWidth={1.2} opacity={0.9} />

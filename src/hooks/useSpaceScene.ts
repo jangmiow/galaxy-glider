@@ -89,6 +89,12 @@ export function useSpaceScene(
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
   const [muted, setMutedState] = useState(false);
 
+  // Tracks recently scanned body names → expiry timestamp (ms). The minimap
+  // pulses any dot whose name is still in this map, drawing the eye to the
+  // freshly catalogued waypoint for a few seconds.
+  const freshlyScannedRef = useRef<Map<string, number>>(new Map());
+  const FRESH_DURATION_MS = 4800;
+
   // Stable ref to adjustRange so the keydown handler doesn't re-bind when the
   // setter identity changes between renders.
   const adjustRangeRef = useRef(adjustRange);
@@ -104,6 +110,8 @@ export function useSpaceScene(
     const scene = new SpaceScene(canvas, {
       onDiscovery: (d) => {
         audio.discoveryBeep();
+        // Mark this body as freshly scanned so the minimap can pulse its dot.
+        freshlyScannedRef.current.set(d.name, performance.now() + FRESH_DURATION_MS);
         setHud((s) => {
           const score = s.score + 250;
           const rank = rankFor(score);
@@ -255,7 +263,15 @@ export function useSpaceScene(
       if (mmAcc > 0.1) {
         mmAcc = 0;
         const target = OBJECTIVE_TARGET[hudRef.current.objective] ?? null;
-        setMinimap(scene.getMinimapSnapshot(target, minimapRangeRef.current ?? 800));
+        const snap = scene.getMinimapSnapshot(target, minimapRangeRef.current ?? 800);
+        // Prune expired fresh-scan entries and forward the live set so the
+        // minimap can render a brief pulse ring on each newly catalogued dot.
+        const nowMs = performance.now();
+        const fresh = freshlyScannedRef.current;
+        for (const [name, expiry] of fresh) {
+          if (expiry <= nowMs) fresh.delete(name);
+        }
+        setMinimap({ ...snap, freshlyScanned: new Set(fresh.keys()) });
       }
 
       raf = requestAnimationFrame(loop);

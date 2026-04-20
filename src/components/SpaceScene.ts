@@ -891,6 +891,7 @@ export class SpaceScene {
       isTarget: boolean;
       ahead: boolean;
       distance: number;
+      name?: string;
     };
 
     const dots: Dot[] = [];
@@ -921,6 +922,7 @@ export class SpaceScene {
         isTarget: false,
         ahead: tmp.z < 0,
         distance,
+        name: b.name,
       });
       if (isTargetCandidate && (!target || distance < target.dist)) {
         target = { dist: distance, idx };

@@ -29,6 +29,8 @@ type Body = {
   shaderMat?: THREE.ShaderMaterial;
   // Override sun source for shading (defaults to scene origin = Sol).
   sunSource?: THREE.Object3D;
+  // Seconds the body has been held within the aim cone (for lock-on scan).
+  aimTime?: number;
 };
 
 export type SceneCallbacks = {

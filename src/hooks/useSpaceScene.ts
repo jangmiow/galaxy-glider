@@ -287,10 +287,10 @@ export function useSpaceScene(
   const thrust = useCallback<ThrustInput>((t) => {
     const scene = sceneRef.current;
     if (!scene) return;
-    scene.keys.delete("KeyW");
-    scene.keys.delete("KeyS");
-    if (t > 0.05) scene.keys.add("KeyW");
-    else if (t < -0.05) scene.keys.add("KeyS");
+    // Feed the slider value as a continuous virtual thrust so the lever and
+    // velocity ramp smoothly with finger position rather than snapping like a key.
+    const clamped = Math.max(-1, Math.min(1, t));
+    scene.virtualThrust = Math.abs(clamped) < 0.05 ? 0 : clamped;
     if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
   }, []);
 

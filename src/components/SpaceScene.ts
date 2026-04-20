@@ -192,6 +192,7 @@ export class SpaceScene {
   orbs: THREE.Mesh[] = [];
   starField!: THREE.Points;
   warpStars!: THREE.Points;
+  dustField!: THREE.Points;
 
   velocity = 0;
   thrust = 0;

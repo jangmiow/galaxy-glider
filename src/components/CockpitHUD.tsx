@@ -14,6 +14,8 @@ export type HUDState = {
   scanning: { name: string; progress: number } | null;
   lastDiscovery: string | null;
   showHints: boolean;
+  /** Set when the pilot fully scans every body in a star system. Cleared after the celebration plays. */
+  medal: { systemName: string; bodyCount: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -190,6 +192,9 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
           <div className="font-display text-6xl text-hud hud-glow scan-pulse">LIGHTSPEED</div>
         </div>
       )}
+
+      {/* System-completion medal — pops when every body in a star system is scanned. */}
+      {state.medal && <SystemMedal systemName={state.medal.systemName} bodyCount={state.medal.bodyCount} />}
 
       {/* Hints */}
       {state.showHints && (

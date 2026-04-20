@@ -231,3 +231,17 @@ function formatDist(d: number): string {
   if (d >= 1000) return `${(d / 1000).toFixed(2)}ku`;
   return `${Math.round(d)}u`;
 }
+
+const KIND_LABEL: Record<MinimapDot["kind"], string> = {
+  planet: "PLANET",
+  "ringed-planet": "RINGED PLANET",
+  moon: "MOON",
+  star: "STAR",
+  "blue-giant": "BLUE GIANT",
+  "red-dwarf": "RED DWARF",
+  orb: "ENERGY ORB",
+};
+
+function formatKind(k: MinimapDot["kind"]): string {
+  return KIND_LABEL[k];
+}

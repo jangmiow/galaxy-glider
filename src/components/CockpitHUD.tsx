@@ -78,17 +78,10 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         <line x1="500" y1="90" x2="500" y2="140" stroke="#22d3ee" strokeOpacity="0.35" strokeWidth="1" />
       </svg>
 
-      {/* Crosshair / reticle */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        <svg width="80" height="80" viewBox="0 0 80 80" className="text-hud opacity-60">
-          <circle cx="40" cy="40" r="28" stroke="currentColor" strokeWidth="1" fill="none" strokeDasharray="2 4" />
-          <circle cx="40" cy="40" r="2" fill="currentColor" />
-          <line x1="40" y1="8" x2="40" y2="20" stroke="currentColor" strokeWidth="1" />
-          <line x1="40" y1="60" x2="40" y2="72" stroke="currentColor" strokeWidth="1" />
-          <line x1="8" y1="40" x2="20" y2="40" stroke="currentColor" strokeWidth="1" />
-          <line x1="60" y1="40" x2="72" y2="40" stroke="currentColor" strokeWidth="1" />
-        </svg>
-      </div>
+      {/* Crosshair / lock-on reticle. Idle: subtle dashed ring + tick marks.
+          Scanning: corner brackets light up amber, a circular progress ring
+          fills clockwise around the center, and the target name appears below. */}
+      <LockOnReticle scanning={state.scanning} />
 
       {/* Top-left: status */}
       <div className="absolute left-6 top-6 hud-panel rounded-md px-4 py-3 text-xs">

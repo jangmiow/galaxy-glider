@@ -79,6 +79,7 @@ export function Minimap({
           </button>
         </div>
       </div>
+      <div className="relative" style={{ width: SIZE, height: SIZE }}>
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
         {/* Background */}
         <defs>

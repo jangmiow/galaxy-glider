@@ -6,12 +6,15 @@ export type MinimapDot = {
   isTarget: boolean;
   ahead: boolean;
   distance: number;
+  name?: string;
 };
 
 export type MinimapData = {
   dots: MinimapDot[];
   range: number;
   offRangeTarget: { x: number; z: number; distance: number } | null;
+  /** Names of bodies scanned in the last few seconds — pulse their dots. */
+  freshlyScanned?: Set<string>;
 };
 
 const KIND_COLOR: Record<MinimapDot["kind"], string> = {

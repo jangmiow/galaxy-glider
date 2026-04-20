@@ -147,6 +147,16 @@ export function Minimap({
               {isStar && (
                 <circle cx={px} cy={py} r={baseR + 2} fill={color} opacity={0.25} />
               )}
+              {/* Transparent hit-target for hover tooltip (always large enough to grab). */}
+              <circle
+                cx={px}
+                cy={py}
+                r={Math.max(7, baseR + 4)}
+                fill="transparent"
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHover({ dot: d, x: px, y: py })}
+                onMouseLeave={() => setHover((h) => (h?.dot === d ? null : h))}
+              />
             </g>
           );
         })}

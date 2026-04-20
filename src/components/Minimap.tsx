@@ -102,7 +102,10 @@ export function Minimap({
           const color = KIND_COLOR[d.kind];
           const isStar = d.kind === "star" || d.kind === "blue-giant" || d.kind === "red-dwarf";
           const baseR = isStar ? 3 : d.kind === "orb" ? 1.5 : d.kind === "moon" ? 1.4 : 2.5;
-          const opacity = d.scanned ? 0.4 : 1;
+          // Scanned bodies: solid filled dot (catalogued — known waypoint).
+          // Unscanned bodies: hollow ring (still to investigate).
+          // Stars and orbs always render solid since they're not "scannable" in the same way.
+          const isHollow = !d.scanned && !isStar && d.kind !== "orb";
           return (
             <g key={i}>
               {d.isTarget && (
@@ -119,7 +122,11 @@ export function Minimap({
                   />
                 </>
               )}
-              <circle cx={px} cy={py} r={baseR} fill={color} opacity={opacity} />
+              {isHollow ? (
+                <circle cx={px} cy={py} r={baseR} fill="none" stroke={color} strokeWidth={1.2} opacity={0.9} />
+              ) : (
+                <circle cx={px} cy={py} r={baseR} fill={color} opacity={1} />
+              )}
               {isStar && (
                 <circle cx={px} cy={py} r={baseR + 2} fill={color} opacity={0.25} />
               )}

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 export type HUDState = {
   velocity: number;
@@ -234,6 +235,19 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
   const dashOffset = C * (1 - progress);
   const locked = progress >= 0.999;
 
+  // Brackets animate between "expanded" (outside the reticle, invisible) and
+  // "snapped" (resting position, visible). We delay the active->snapped state
+  // by a tick so the CSS transition always plays, even on first acquisition.
+  const [snapped, setSnapped] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setSnapped(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setSnapped(true));
+    return () => cancelAnimationFrame(id);
+  }, [active]);
+
   return (
     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
       <svg
@@ -287,14 +301,30 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
               transform="rotate(-90 50 50)"
               style={{ transition: "stroke-dashoffset 80ms linear" }}
             />
-            {/* Corner lock brackets */}
+            {/* Corner lock brackets — scale outward from center when not yet
+                snapped, then ease into resting position. Each bracket has its
+                own transform-origin so they fly in from their own corner. */}
             {[
-              "M14,26 L14,14 L26,14",
-              "M74,14 L86,14 L86,26",
-              "M86,74 L86,86 L74,86",
-              "M26,86 L14,86 L14,74",
-            ].map((d) => (
-              <path key={d} d={d} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
+              { d: "M14,26 L14,14 L26,14", origin: "14px 14px" },
+              { d: "M74,14 L86,14 L86,26", origin: "86px 14px" },
+              { d: "M86,74 L86,86 L74,86", origin: "86px 86px" },
+              { d: "M26,86 L14,86 L14,74", origin: "14px 86px" },
+            ].map(({ d, origin }) => (
+              <path
+                key={d}
+                d={d}
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                style={{
+                  transformOrigin: origin,
+                  transform: snapped ? "scale(1)" : "scale(1.6)",
+                  opacity: snapped ? 1 : 0,
+                  transition:
+                    "transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 160ms ease-out",
+                }}
+              />
             ))}
           </>
         )}

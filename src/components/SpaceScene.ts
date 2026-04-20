@@ -1006,6 +1006,14 @@ export class SpaceScene {
       }
     }
 
+    // Ease bloom boost back to zero (slower decay for a lingering afterglow).
+    if (this.bloomBoost > 0.001) {
+      this.bloomBoost = Math.max(0, this.bloomBoost - dt * 1.4);
+    } else {
+      this.bloomBoost = 0;
+    }
+    this.bloomPass.strength = this.bloomBase + this.bloomBoost;
+
     this.composer.render();
   }
 

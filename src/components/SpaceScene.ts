@@ -352,7 +352,9 @@ export class SpaceScene {
    * streaks them backward proportional to current velocity for a parallax feel.
    */
   buildDustField() {
-    const count = 600;
+    // Far fewer, smaller, dimmer particles — meant to read as faint cockpit motes
+    // that streak only when moving fast. Previously this looked like fog.
+    const count = 180;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     const HALF_X = 120;
@@ -366,8 +368,8 @@ export class SpaceScene {
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.PointsMaterial({
-      color: 0xbcd4ff,
-      size: 1.1,
+      color: 0x8aa8d0,
+      size: 0.6,
       transparent: true,
       opacity: 0,
       depthWrite: false,
@@ -1111,12 +1113,14 @@ export class SpaceScene {
     // effect is invisible at rest and pronounced at boost.
     {
       const speed = Math.abs(this.velocity);
-      const speedNorm = Math.min(1, speed / 150); // 0..1 across normal flight
+      // Only start fading dust in once we're actually moving briskly. Below ~30 u/s
+      // it stays invisible so we don't get the "fog in the cockpit" look at rest.
+      const speedNorm = Math.max(0, Math.min(1, (speed - 30) / 170));
       const dustMat = this.dustField.material as THREE.PointsMaterial;
-      // Hide entirely during warp (warp field takes over) and when nearly stationary.
-      const targetOpacity = this.isWarping ? 0 : 0.55 * speedNorm;
+      // Hide entirely during warp (warp field takes over) and when not moving fast.
+      const targetOpacity = this.isWarping ? 0 : 0.18 * speedNorm;
       dustMat.opacity += (targetOpacity - dustMat.opacity) * Math.min(1, dt * 6);
-      dustMat.size = 0.9 + speedNorm * 1.6;
+      dustMat.size = 0.5 + speedNorm * 0.7;
 
       if (dustMat.opacity > 0.01) {
         const positions = this.dustField.geometry.attributes.position as THREE.BufferAttribute;

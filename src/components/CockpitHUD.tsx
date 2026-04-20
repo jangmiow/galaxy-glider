@@ -165,6 +165,14 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         </svg>
       </div>
 
+      {/* Physical cockpit hardware: a flight yoke that tilts with steering and a
+          thrust lever that slides with the throttle. Sits just inside the bottom
+          dashboard. Hidden on small screens to avoid crowding mobile controls. */}
+      <CockpitControls
+        yoke={{ pitch: state.heading.pitch, yaw: state.heading.yaw }}
+        thrust={state.thrust}
+      />
+
       {/* Scanning state is shown in the central LockOnReticle above; no
           duplicate panel needed here. */}
 

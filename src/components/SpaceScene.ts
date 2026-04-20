@@ -204,6 +204,9 @@ export class SpaceScene {
   warpTimer = 0;
   boost = 1;
   paused = false;
+  // Bloom: base strength captured at init; spiked during warp jumps for a cinematic flash.
+  bloomBase = 0.9;
+  bloomBoost = 0;
 
   // Inputs
   mouseX = 0;
@@ -803,6 +806,8 @@ export class SpaceScene {
     this.warpCharge = 0;
     (this.warpStars.material as THREE.PointsMaterial).opacity = 1;
     this.warpStars.visible = true;
+    // Cinematic bloom flash — spike then ease back via update loop.
+    this.bloomBoost = 2.4;
   }
 
   update(dt: number) {
@@ -1000,6 +1005,14 @@ export class SpaceScene {
         b.flare.scale.set(s, s, 1);
       }
     }
+
+    // Ease bloom boost back to zero (slower decay for a lingering afterglow).
+    if (this.bloomBoost > 0.001) {
+      this.bloomBoost = Math.max(0, this.bloomBoost - dt * 1.4);
+    } else {
+      this.bloomBoost = 0;
+    }
+    this.bloomPass.strength = this.bloomBase + this.bloomBoost;
 
     this.composer.render();
   }

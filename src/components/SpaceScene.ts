@@ -4,6 +4,16 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { generateName, saveDiscovery, type Discovery } from "@/lib/journal";
+import {
+  makeBarrenMaterial,
+  makeGasGiantMaterial,
+  makeIcyMaterial,
+  makeLavaMaterial,
+  makeOceanMaterial,
+  makeRockyMaterial,
+  tickPlanetUniforms,
+  type PlanetKind,
+} from "./planetShaders";
 
 type Body = {
   mesh: THREE.Mesh;
@@ -15,6 +25,10 @@ type Body = {
   scanned: boolean;
   flare?: THREE.Sprite;
   isStar?: boolean;
+  // Custom shader on the planet surface (when present, drives uniforms each frame).
+  shaderMat?: THREE.ShaderMaterial;
+  // Override sun source for shading (defaults to scene origin = Sol).
+  sunSource?: THREE.Object3D;
 };
 
 export type SceneCallbacks = {

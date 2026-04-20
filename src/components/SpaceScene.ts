@@ -773,7 +773,7 @@ export class SpaceScene {
         id: `s${seed}-b${i}`, name: generateName(seed * 1000 + i),
         type: TYPE_FOR_KIND[kind], kind,
         size, color: cols.base, accentColor: cols.accent, atmoColor: cols.atmo,
-        cloudiness: kind === "ocean" ? 0.5 : 0,
+        cloudiness: kind === "ocean" ? 0.5 : kind === "rocky" ? rng() * 0.4 : 0,
         position: new THREE.Vector3(Math.cos(angle) * dist, elev, Math.sin(angle) * dist),
         rings: kind === "ringed"
           ? { inner: size * 1.4, outer: size * (2.2 + rng() * 0.6), tilt: rng() * 0.9 - 0.1 }

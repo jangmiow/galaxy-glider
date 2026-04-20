@@ -134,6 +134,10 @@ export function useSpaceScene(
           adjustRangeRef.current(-1);
         } else if (e.code === "Minus" || e.code === "NumpadSubtract") {
           adjustRangeRef.current(1);
+        } else if (e.code === "KeyT") {
+          // Debug: auto-aim at the nearest unscanned body so the lock-on
+          // reticle can be triggered without manual mouse-look.
+          scene.aimAtNearestBody();
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));

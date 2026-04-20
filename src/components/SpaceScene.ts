@@ -826,6 +826,30 @@ export class SpaceScene {
   }
 
   /**
+   * Debug helper: snap the ship to face the nearest unscanned body so the
+   * crosshair lands on a scannable target without manual mouse-look. Also
+   * resets mouse-look input so the ship stops drifting after the snap.
+   */
+  aimAtNearestBody() {
+    let nearest: { dist: number; pos: THREE.Vector3 } | null = null;
+    for (const b of this.bodies) {
+      if (b.scanned) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (!nearest || d < nearest.dist) nearest = { dist: d, pos: b.mesh.position };
+    }
+    if (!nearest) return;
+    // Build a rotation matrix that looks from the ship toward the target.
+    // Three.js's lookAt orients the +Z axis toward the target, but our ship's
+    // forward is -Z, so we flip by looking AWAY from the target instead.
+    const m = new THREE.Matrix4();
+    const flipped = this.ship.position.clone().multiplyScalar(2).sub(nearest.pos);
+    m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
+    this.ship.quaternion.setFromRotationMatrix(m);
+    this.mouseX = 0;
+    this.mouseY = 0;
+  }
+
+  /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
    */

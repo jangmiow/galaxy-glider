@@ -245,6 +245,7 @@ export class SpaceScene {
 
     this.buildStarfield();
     this.buildWarpField();
+    this.buildDustField();
     this.buildNebulae();
     this.buildSolSystem();
 

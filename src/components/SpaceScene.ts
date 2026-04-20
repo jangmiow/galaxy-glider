@@ -49,7 +49,7 @@ export type SystemCompletion = {
 
 export type SceneCallbacks = {
   onDiscovery: (d: Discovery) => void;
-  onScanProgress: (info: { name: string; progress: number } | null) => void;
+  onScanProgress: (info: { name: string; progress: number; alreadyScanned?: boolean } | null) => void;
   onOrbCollected: () => void;
   onSystemComplete: (info: SystemCompletion) => void;
 };

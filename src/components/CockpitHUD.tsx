@@ -11,7 +11,7 @@ export type HUDState = {
   rank: string;
   objective: string;
   paused: boolean;
-  scanning: { name: string; progress: number } | null;
+  scanning: { name: string; progress: number; alreadyScanned?: boolean } | null;
   lastDiscovery: string | null;
   showHints: boolean;
   /** Set when the pilot fully scans every body in a star system. Cleared after the celebration plays. */

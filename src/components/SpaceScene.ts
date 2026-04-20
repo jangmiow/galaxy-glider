@@ -776,6 +776,30 @@ export class SpaceScene {
           : undefined,
         seed: seed + i * 0.7,
       });
+
+      // Maybe attach 1–2 moons. Bigger planets are more likely to have them.
+      const parent = this.bodies[this.bodies.length - 1];
+      const moonChance = kind === "gas" || kind === "ringed" ? 0.85 : size > 8 ? 0.45 : 0.15;
+      const moonCount = rng() < moonChance ? 1 + Math.floor(rng() * 2) : 0;
+      const moonKinds: Array<"barren" | "rocky" | "icy"> = ["barren", "rocky", "icy"];
+      const moonPalette = ["#cfc8b8", "#9c8a78", "#d8d0c0", "#a89870", "#8a7a68"];
+      for (let m = 0; m < moonCount; m++) {
+        const mkind = moonKinds[Math.floor(rng() * moonKinds.length)];
+        const mcolor = moonPalette[Math.floor(rng() * moonPalette.length)];
+        this.addMoon({
+          id: `s${seed}-b${i}-m${m}`,
+          name: `${parent.name} ${String.fromCharCode(97 + m)}`,
+          parent,
+          size: Math.max(0.8, size * (0.12 + rng() * 0.18)),
+          color: mcolor,
+          kind: mkind,
+          radius: size * (2.4 + m * 1.1) + rng() * 4,
+          speed: 0.15 + rng() * 0.5,
+          phase: rng() * Math.PI * 2,
+          tilt: (rng() - 0.5) * 0.4,
+          seed: seed + i * 7 + m * 3,
+        });
+      }
     }
 
     for (let i = 0; i < 8; i++) {

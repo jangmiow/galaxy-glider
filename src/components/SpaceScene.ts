@@ -484,7 +484,10 @@ export class SpaceScene {
           break;
         case "rocky":
         default:
-          shaderMat = makeRockyMaterial({ base: config.color, accent, atmo, seed });
+          shaderMat = makeRockyMaterial({
+            base: config.color, accent, atmo, seed,
+            cloudiness: config.cloudiness,
+          });
       }
       mat = shaderMat;
     }
@@ -657,6 +660,7 @@ export class SpaceScene {
         position: new THREE.Vector3(-310, -2, 80), seed: 3.3 },
       { id: "sol-mars", name: "Mars", type: "planet", kind: "rocky",
         size: 5.5, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
+        cloudiness: 0.25,
         position: new THREE.Vector3(120, 8, -340), seed: 4.4 },
       { id: "sol-jupiter", name: "Jupiter", type: "planet", kind: "gas",
         size: 28, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",
@@ -769,7 +773,7 @@ export class SpaceScene {
         id: `s${seed}-b${i}`, name: generateName(seed * 1000 + i),
         type: TYPE_FOR_KIND[kind], kind,
         size, color: cols.base, accentColor: cols.accent, atmoColor: cols.atmo,
-        cloudiness: kind === "ocean" ? 0.5 : 0,
+        cloudiness: kind === "ocean" ? 0.5 : kind === "rocky" ? rng() * 0.4 : 0,
         position: new THREE.Vector3(Math.cos(angle) * dist, elev, Math.sin(angle) * dist),
         rings: kind === "ringed"
           ? { inner: size * 1.4, outer: size * (2.2 + rng() * 0.6), tilt: rng() * 0.9 - 0.1 }

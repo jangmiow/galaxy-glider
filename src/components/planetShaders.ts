@@ -133,9 +133,18 @@ export function makeRockyMaterial(opts: {
   atmo: string;
   seed: number;
   atmoStrength?: number;
+  /** 0 = no clouds (Mercury), 0.2–0.4 = sparse wispy patches (Mars-like). */
+  cloudiness?: number;
 }): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, opts.atmoStrength ?? 0.55, 0),
+    uniforms: makeUniforms(
+      opts.base,
+      opts.accent,
+      opts.atmo,
+      opts.seed,
+      opts.atmoStrength ?? 0.55,
+      opts.cloudiness ?? 0,
+    ),
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
@@ -149,6 +158,17 @@ export function makeRockyMaterial(opts: {
         // Polar ice caps
         float lat = abs(normalize(vPosW).y);
         col = mix(col, vec3(0.92, 0.95, 1.0), smoothstep(0.78, 0.95, lat));
+        // Sparse high-altitude cloud patches — slowly drift, only appear in
+        // isolated tufts. Higher threshold than ocean clouds so coverage stays low.
+        if (uCloudiness > 0.001) {
+          vec3 cp = p * 1.8 + vec3(uTime * 0.006, 0.0, uTime * 0.004);
+          float cloudMask = fbm(cp * 1.6);
+          // Two-stage threshold: only the brightest fbm peaks become clouds,
+          // and a wider noise field gates them into rare patches.
+          float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
+          float clouds = smoothstep(0.62, 0.78, cloudMask) * patches;
+          col = mix(col, vec3(0.95, 0.92, 0.86), clouds * uCloudiness);
+        }
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,
@@ -199,7 +219,7 @@ export function makeGasGiantMaterial(opts: {
 }): THREE.ShaderMaterial {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
-      ...makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 0.8, 0),
+      ...makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 0.8, 0.7),
       uBandStrength: { value: opts.bandStrength ?? 0.7 },
     },
     vertexShader: VERT,
@@ -219,6 +239,17 @@ export function makeGasGiantMaterial(opts: {
         col = mix(col, uAccentColor * 1.4, spots * 0.4);
         // Subtle equatorial darkening
         col *= 1.0 - 0.15 * smoothstep(0.6, 0.0, abs(lat));
+
+        // High-altitude banded cloud layer — thin streaks that flow zonally
+        // (faster along longitude, latitude-locked) and drift over time. They
+        // brighten the lit hemisphere and trace finer detail than the base bands.
+        vec3 cloudP = n * 4.0 + vec3(uTime * 0.05, 0.0, 0.0);
+        float cloudBands = sin(lat * 14.0 + fbm(cloudP) * 1.6 + uTime * 0.08) * 0.5 + 0.5;
+        cloudBands = pow(cloudBands, 2.2);
+        // Break the bands into wisps with a higher-frequency noise gate
+        float wisps = smoothstep(0.45, 0.85, fbm(n * 8.0 + warp * 1.4 + uTime * 0.03));
+        float clouds = cloudBands * wisps * uCloudiness;
+        col = mix(col, mix(uBaseColor, vec3(1.0), 0.85), clouds * 0.55);
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,

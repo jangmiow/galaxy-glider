@@ -64,146 +64,10 @@ function mulberry32(seed: number) {
   };
 }
 
-// 2D value-noise with octaves on a canvas, returning a CanvasTexture.
-function makePlanetTexture(
-  type: Discovery["type"],
-  baseColor: string,
-  rng: () => number,
-): THREE.CanvasTexture {
-  const W = 512;
-  const H = 256;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-  const img = ctx.createImageData(W, H);
+// Legacy 2D canvas planet/cloud texture helpers were removed in favor of the
+// GLSL shader pipeline in `./planetShaders.ts` (see `addPlanetBody`).
 
-  const base = new THREE.Color(baseColor);
-  // Pick contrasting accent depending on type
-  const accent = new THREE.Color(baseColor).offsetHSL(
-    type === "ringed-planet" ? 0.05 : (rng() - 0.5) * 0.3,
-    0,
-    type === "red-dwarf" ? -0.2 : -0.25,
-  );
-  const highlight = new THREE.Color(baseColor).offsetHSL(0, -0.1, 0.25);
 
-  // Hash-based value noise
-  const seed = Math.floor(rng() * 100000);
-  const hash = (x: number, y: number) => {
-    let h = x * 374761393 + y * 668265263 + seed * 1442695040;
-    h = (h ^ (h >>> 13)) * 1274126177;
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  };
-  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-  const smooth = (t: number) => t * t * (3 - 2 * t);
-  const valueNoise = (x: number, y: number) => {
-    const xi = Math.floor(x), yi = Math.floor(y);
-    const xf = x - xi, yf = y - yi;
-    const v00 = hash(xi, yi);
-    const v10 = hash(xi + 1, yi);
-    const v01 = hash(xi, yi + 1);
-    const v11 = hash(xi + 1, yi + 1);
-    const u = smooth(xf), v = smooth(yf);
-    return lerp(lerp(v00, v10, u), lerp(v01, v11, u), v);
-  };
-  const fbm = (x: number, y: number, oct: number) => {
-    let amp = 0.5, freq = 1, sum = 0, norm = 0;
-    for (let i = 0; i < oct; i++) {
-      sum += valueNoise(x * freq, y * freq) * amp;
-      norm += amp;
-      amp *= 0.5;
-      freq *= 2;
-    }
-    return sum / norm;
-  };
-
-  // Style varies by type
-  const isGasGiant = type === "ringed-planet" || rng() < 0.35;
-  const scale = isGasGiant ? 3 : 5 + rng() * 4;
-  const bandStrength = isGasGiant ? 0.7 + rng() * 0.3 : 0;
-
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const u = x / W;
-      const v = y / H;
-      // Spherical-ish coords
-      const nx = u * scale * 2;
-      const ny = v * scale;
-      let n = fbm(nx, ny, 5);
-      if (isGasGiant) {
-        // Horizontal bands with turbulence
-        const band = Math.sin(v * Math.PI * (4 + rng() * 4) + n * 4) * 0.5 + 0.5;
-        n = n * (1 - bandStrength) + band * bandStrength;
-      }
-      // Pole darkening
-      const pole = 1 - Math.pow(Math.abs(v - 0.5) * 2, 2) * 0.4;
-      n *= pole;
-
-      const t = Math.max(0, Math.min(1, n));
-      let r: number, g: number, b: number;
-      if (t < 0.4) {
-        const k = t / 0.4;
-        r = lerp(accent.r, base.r, k);
-        g = lerp(accent.g, base.g, k);
-        b = lerp(accent.b, base.b, k);
-      } else {
-        const k = (t - 0.4) / 0.6;
-        r = lerp(base.r, highlight.r, k);
-        g = lerp(base.g, highlight.g, k);
-        b = lerp(base.b, highlight.b, k);
-      }
-      const idx = (y * W + x) * 4;
-      img.data[idx] = (r * 255) | 0;
-      img.data[idx + 1] = (g * 255) | 0;
-      img.data[idx + 2] = (b * 255) | 0;
-      img.data[idx + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
-}
-
-// Cloud layer texture: wispy noise blobs on transparent background, wraps in U.
-function makeCloudTexture(rng: () => number): THREE.CanvasTexture {
-  const W = 512;
-  const H = 256;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, W, H);
-  const blobs = 80 + Math.floor(rng() * 80);
-  ctx.globalCompositeOperation = "lighter";
-  for (let i = 0; i < blobs; i++) {
-    const x = rng() * W;
-    const y = rng() * H;
-    const r = 12 + rng() * 48;
-    const latFade = 1 - Math.abs(y / H - 0.5) * 1.2;
-    const a = 0.08 + rng() * 0.18 * Math.max(0.1, latFade);
-    const drawBlob = (cx: number) => {
-      const grad = ctx.createRadialGradient(cx, y, 0, cx, y, r);
-      grad.addColorStop(0, `rgba(255,255,255,${a})`);
-      grad.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(cx, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    };
-    drawBlob(x);
-    if (x < r) drawBlob(x + W);
-    else if (x > W - r) drawBlob(x - W);
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.anisotropy = 4;
-  return tex;
-}
-
-// Soft radial sprite texture (used for atmosphere glow + lens flare core).
 function makeRadialTexture(color: string, innerAlpha = 0.9, falloff = 1): THREE.CanvasTexture {
   const S = 256;
   const canvas = document.createElement("canvas");
@@ -1018,19 +882,23 @@ export class SpaceScene {
     // Keep starfield centered around ship for parallax illusion
     this.starField.position.copy(this.ship.position);
 
-    // Planet spin + lens flare alignment
+    // Planet spin + shader uniform tick + lens flare alignment.
+    // Sun source for shading: the first star body in the scene (Sol or generated star).
     const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
     const tmp = new THREE.Vector3();
+    const sunBody = this.bodies.find((b) => b.isStar);
+    const sunPos = sunBody ? sunBody.mesh.position : new THREE.Vector3(0, 0, 0);
+    const sunDirTmp = new THREE.Vector3();
+    const nowSec = performance.now() * 0.001;
     for (const b of this.bodies) {
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
-      const clouds = (b.mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds;
-      if (clouds) {
-        const cs = (clouds as THREE.Mesh & { _cloudSpin?: number })._cloudSpin ?? 0;
-        const cd = (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift ?? 0;
-        clouds.rotation.y += cs * dt;
-        const mat = clouds.material as THREE.MeshStandardMaterial;
-        if (mat.map) mat.map.offset.x = (mat.map.offset.x + cd * dt) % 1;
+      // Drive shader uniforms (time + sun direction in world space, pointing FROM planet TO sun)
+      if (b.shaderMat) {
+        sunDirTmp.copy(sunPos).sub(b.mesh.position);
+        if (sunDirTmp.lengthSq() < 1e-6) sunDirTmp.set(1, 0.3, 0.5);
+        sunDirTmp.normalize();
+        tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp);
       }
       if (b.flare && b.isStar) {
         tmp.copy(b.mesh.position).sub(this.ship.position).normalize();

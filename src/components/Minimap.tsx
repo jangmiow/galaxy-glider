@@ -1,7 +1,7 @@
 export type MinimapDot = {
   x: number; // -1..1 (right)
   z: number; // -1..1 (forward; negative = ahead)
-  kind: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf" | "orb";
+  kind: "planet" | "ringed-planet" | "moon" | "star" | "blue-giant" | "red-dwarf" | "orb";
   scanned: boolean;
   isTarget: boolean;
   ahead: boolean;

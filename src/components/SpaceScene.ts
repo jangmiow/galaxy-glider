@@ -204,6 +204,9 @@ export class SpaceScene {
   warpTimer = 0;
   boost = 1;
   paused = false;
+  // Bloom: base strength captured at init; spiked during warp jumps for a cinematic flash.
+  bloomBase = 0.9;
+  bloomBoost = 0;
 
   // Inputs
   mouseX = 0;

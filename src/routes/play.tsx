@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef } from "react";
 import { CockpitHUD } from "@/components/CockpitHUD";
 import { Minimap } from "@/components/Minimap";
@@ -7,6 +7,7 @@ import { MuteButton } from "@/components/MuteButton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMinimapRange } from "@/hooks/useMinimapRange";
 import { useSpaceScene } from "@/hooks/useSpaceScene";
+import { getActivePilotId, isUnlocked } from "@/lib/pilots";
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -20,6 +21,15 @@ export const Route = createFileRoute("/play")({
       { property: "og:description", content: "Pilot your starship through the galaxy." },
     ],
   }),
+  // Redirect to the home gate if the player skipped the pilot picker.
+  // beforeLoad runs on both server and client; only check on the client to
+  // avoid SSR localStorage access.
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    if (!isUnlocked() || !getActivePilotId()) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: Play,
 });
 
@@ -33,14 +43,12 @@ function Play() {
     <div className="relative h-screen w-screen overflow-hidden bg-background">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair" />
 
-      {/* Vignette */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)" }}
         aria-hidden
       />
 
-      {/* Star map / minimap */}
       <div className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud">
         <Minimap
           data={minimap}

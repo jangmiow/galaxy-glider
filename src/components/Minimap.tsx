@@ -217,6 +217,21 @@ export function Minimap({
           {target ? formatDist(target.distance) : data?.offRangeTarget ? formatDist(data.offRangeTarget.distance) : "—"}
         </span>
       </div>
+      <div className="mt-0.5 flex items-center gap-2 px-1 text-[9px] uppercase tracking-wider text-hud-dim">
+        <span className="flex items-center gap-1">
+          <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden>
+            <circle cx="4" cy="4" r="2.5" fill="none" stroke="currentColor" strokeWidth="1" className="text-hud" />
+          </svg>
+          unscanned
+        </span>
+        <span aria-hidden>·</span>
+        <span className="flex items-center gap-1">
+          <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden>
+            <circle cx="4" cy="4" r="2.5" fill="currentColor" className="text-hud" />
+          </svg>
+          catalogued
+        </span>
+      </div>
     </div>
   );
 }

@@ -31,6 +31,14 @@ type Body = {
   sunSource?: THREE.Object3D;
   // Seconds the body has been held within the aim cone (for lock-on scan).
   aimTime?: number;
+  // Optional orbit around a parent body (used for moons).
+  orbit?: {
+    parent: THREE.Object3D;
+    radius: number;
+    speed: number; // radians per second
+    phase: number; // initial angle
+    tilt: number; // inclination (radians)
+  };
 };
 
 export type SceneCallbacks = {

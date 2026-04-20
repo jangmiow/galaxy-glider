@@ -5,6 +5,13 @@ import type { MinimapData } from "@/components/Minimap";
 import { SpaceScene } from "@/components/SpaceScene";
 import { CockpitAudio } from "@/lib/audio";
 import { OBJECTIVES, OBJECTIVE_TARGET, rankFor } from "@/lib/cockpit";
+import {
+  addMedal,
+  getActivePilot,
+  loadStats,
+  saveStats,
+  type PilotStats,
+} from "@/lib/pilots";
 
 type SteerInput = (x: number, y: number) => void;
 type ThrustInput = (t: number) => void;
@@ -38,14 +45,22 @@ export function useSpaceScene(
   const sceneRef = useRef<SpaceScene | null>(null);
   const audioRef = useRef<CockpitAudio | null>(null);
 
+  // Read the active pilot synchronously so the first render shows the right
+  // callsign/score (no flash from CADET → real values).
+  const initialPilot = typeof window !== "undefined" ? getActivePilot() : null;
+  const initialStats: PilotStats = initialPilot
+    ? loadStats(initialPilot.id)
+    : { score: 0, rank: "CADET", medals: [] };
+
   const [hud, setHud] = useState<HUDState>({
     velocity: 0,
     thrust: 0,
     warpCharge: 0,
     isWarping: false,
     heading: { pitch: 0, yaw: 0 },
-    score: 0,
-    rank: "CADET",
+    score: initialStats.score,
+    rank: initialStats.rank,
+    callsign: initialPilot?.callsign ?? "PILOT",
     objective: OBJECTIVES[0],
     paused: false,
     scanning: null,
@@ -56,6 +71,20 @@ export function useSpaceScene(
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
+
+  // Stable ref to the active pilot id used by score/medal persistence.
+  const pilotIdRef = useRef<string | null>(initialPilot?.id ?? null);
+
+  /**
+   * Persist score+rank to the active pilot's stats. Medals are written
+   * separately by `addMedal` when a system is fully surveyed.
+   */
+  const persistScore = (score: number, rank: string) => {
+    const id = pilotIdRef.current;
+    if (!id) return;
+    const stats = loadStats(id);
+    saveStats(id, { ...stats, score, rank });
+  };
 
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
   const [muted, setMutedState] = useState(false);

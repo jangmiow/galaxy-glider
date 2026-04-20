@@ -110,6 +110,8 @@ export function useSpaceScene(
     const scene = new SpaceScene(canvas, {
       onDiscovery: (d) => {
         audio.discoveryBeep();
+        // Mark this body as freshly scanned so the minimap can pulse its dot.
+        freshlyScannedRef.current.set(d.name, performance.now() + FRESH_DURATION_MS);
         setHud((s) => {
           const score = s.score + 250;
           const rank = rankFor(score);

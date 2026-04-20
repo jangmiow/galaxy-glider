@@ -938,6 +938,39 @@ export class SpaceScene {
     // Keep starfield centered around ship for parallax illusion
     this.starField.position.copy(this.ship.position);
 
+    // Cockpit dust streaks: drift toward the camera based on current velocity.
+    // Particles live in camera-local space, so we just push +Z (toward viewer)
+    // and recycle when they pass behind. Opacity/size scale with speed so the
+    // effect is invisible at rest and pronounced at boost.
+    {
+      const speed = Math.abs(this.velocity);
+      const speedNorm = Math.min(1, speed / 150); // 0..1 across normal flight
+      const dustMat = this.dustField.material as THREE.PointsMaterial;
+      // Hide entirely during warp (warp field takes over) and when nearly stationary.
+      const targetOpacity = this.isWarping ? 0 : 0.55 * speedNorm;
+      dustMat.opacity += (targetOpacity - dustMat.opacity) * Math.min(1, dt * 6);
+      dustMat.size = 0.9 + speedNorm * 1.6;
+
+      if (dustMat.opacity > 0.01) {
+        const positions = this.dustField.geometry.attributes.position as THREE.BufferAttribute;
+        const drift = 30 + speed * 1.4; // units/sec backward in camera space
+        const HALF_X = 120;
+        const HALF_Y = 80;
+        const Z_NEAR = -260;
+        const Z_FAR = 40;
+        for (let i = 0; i < positions.count; i++) {
+          let z = positions.getZ(i) + drift * dt;
+          if (z > Z_FAR) {
+            z = Z_NEAR;
+            positions.setX(i, (Math.random() - 0.5) * HALF_X * 2);
+            positions.setY(i, (Math.random() - 0.5) * HALF_Y * 2);
+          }
+          positions.setZ(i, z);
+        }
+        positions.needsUpdate = true;
+      }
+    }
+
     // Planet spin + shader uniform tick + lens flare alignment.
     // Sun source for shading: the first star body in the scene (Sol or generated star).
     const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);

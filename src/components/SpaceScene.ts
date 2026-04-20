@@ -1018,19 +1018,23 @@ export class SpaceScene {
     // Keep starfield centered around ship for parallax illusion
     this.starField.position.copy(this.ship.position);
 
-    // Planet spin + lens flare alignment
+    // Planet spin + shader uniform tick + lens flare alignment.
+    // Sun source for shading: the first star body in the scene (Sol or generated star).
     const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
     const tmp = new THREE.Vector3();
+    const sunBody = this.bodies.find((b) => b.isStar);
+    const sunPos = sunBody ? sunBody.mesh.position : new THREE.Vector3(0, 0, 0);
+    const sunDirTmp = new THREE.Vector3();
+    const nowSec = performance.now() * 0.001;
     for (const b of this.bodies) {
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
-      const clouds = (b.mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds;
-      if (clouds) {
-        const cs = (clouds as THREE.Mesh & { _cloudSpin?: number })._cloudSpin ?? 0;
-        const cd = (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift ?? 0;
-        clouds.rotation.y += cs * dt;
-        const mat = clouds.material as THREE.MeshStandardMaterial;
-        if (mat.map) mat.map.offset.x = (mat.map.offset.x + cd * dt) % 1;
+      // Drive shader uniforms (time + sun direction in world space, pointing FROM planet TO sun)
+      if (b.shaderMat) {
+        sunDirTmp.copy(sunPos).sub(b.mesh.position);
+        if (sunDirTmp.lengthSq() < 1e-6) sunDirTmp.set(1, 0.3, 0.5);
+        sunDirTmp.normalize();
+        tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp);
       }
       if (b.flare && b.isStar) {
         tmp.copy(b.mesh.position).sub(this.ship.position).normalize();

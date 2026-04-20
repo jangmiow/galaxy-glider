@@ -219,7 +219,7 @@ export function makeGasGiantMaterial(opts: {
 }): THREE.ShaderMaterial {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
-      ...makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 0.8, 0),
+      ...makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 0.8, 0.7),
       uBandStrength: { value: opts.bandStrength ?? 0.7 },
     },
     vertexShader: VERT,
@@ -239,6 +239,17 @@ export function makeGasGiantMaterial(opts: {
         col = mix(col, uAccentColor * 1.4, spots * 0.4);
         // Subtle equatorial darkening
         col *= 1.0 - 0.15 * smoothstep(0.6, 0.0, abs(lat));
+
+        // High-altitude banded cloud layer — thin streaks that flow zonally
+        // (faster along longitude, latitude-locked) and drift over time. They
+        // brighten the lit hemisphere and trace finer detail than the base bands.
+        vec3 cloudP = n * 4.0 + vec3(uTime * 0.05, 0.0, 0.0);
+        float cloudBands = sin(lat * 14.0 + fbm(cloudP) * 1.6 + uTime * 0.08) * 0.5 + 0.5;
+        cloudBands = pow(cloudBands, 2.2);
+        // Break the bands into wisps with a higher-frequency noise gate
+        float wisps = smoothstep(0.45, 0.85, fbm(n * 8.0 + warp * 1.4 + uTime * 0.03));
+        float clouds = cloudBands * wisps * uCloudiness;
+        col = mix(col, mix(uBaseColor, vec3(1.0), 0.85), clouds * 0.55);
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,

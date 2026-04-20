@@ -891,6 +891,7 @@ export class SpaceScene {
       isTarget: boolean;
       ahead: boolean;
       distance: number;
+      name?: string;
     };
 
     const dots: Dot[] = [];

@@ -16,6 +16,8 @@ export type HUDState = {
   showHints: boolean;
   /** Set when the pilot fully scans every body in a star system. Cleared after the celebration plays. */
   medal: { systemName: string; bodyCount: number } | null;
+  /** True while SHIFT is held — drives the cockpit BOOST indicator. */
+  boost: boolean;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -173,6 +175,7 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
       <CockpitControls
         yoke={{ pitch: state.heading.pitch, yaw: state.heading.yaw }}
         thrust={state.thrust}
+        boost={state.boost}
       />
 
       {/* Scanning state is shown in the central LockOnReticle above; no
@@ -367,9 +370,11 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
 function CockpitControls({
   yoke,
   thrust,
+  boost,
 }: {
   yoke: { pitch: number; yaw: number };
   thrust: number;
+  boost: boolean;
 }) {
   // Map ship rotation (radians) into yoke deflection. Steering uses small
   // angles in normal flight, so a generous multiplier keeps the yoke visibly
@@ -443,6 +448,63 @@ function CockpitControls({
               opacity={Math.abs(t) > 0.05 ? 1 : 0.4}
             />
           </g>
+        </svg>
+      </div>
+
+      {/* BOOST INDICATOR — circular button beside the thrust lever. Lights
+          red and pulses while SHIFT is held. Cosmetic; the actual boost is
+          driven by the SHIFT key listener in the scene. */}
+      <div
+        className="pointer-events-none absolute bottom-4 left-1/2"
+        style={{ transform: "translateX(190px)" }}
+        aria-label={boost ? "Boost engaged" : "Boost ready"}
+      >
+        <svg width="56" height="80" viewBox="0 0 56 80" className="text-hud">
+          {/* Mount plate */}
+          <rect x="6" y="44" width="44" height="30" rx="4" fill="#0a1118" stroke="currentColor" strokeOpacity="0.55" />
+          {/* Outer bezel */}
+          <circle
+            cx="28"
+            cy="28"
+            r="22"
+            fill="#0a1118"
+            stroke={boost ? "#ef4444" : "currentColor"}
+            strokeOpacity={boost ? 1 : 0.7}
+            strokeWidth="2"
+            style={{
+              filter: boost
+                ? "drop-shadow(0 0 6px #ef4444) drop-shadow(0 0 14px rgba(239,68,68,0.7))"
+                : "none",
+              transition: "filter 120ms linear",
+            }}
+          />
+          {/* Inner button face */}
+          <circle
+            cx="28"
+            cy="28"
+            r="16"
+            fill={boost ? "#7f1d1d" : "#101a24"}
+            stroke={boost ? "#fca5a5" : "currentColor"}
+            strokeOpacity={boost ? 0.9 : 0.5}
+          />
+          {/* Lightning bolt glyph */}
+          <path
+            d="M30,17 L21,31 L27,31 L25,40 L34,26 L28,26 L30,17 Z"
+            fill={boost ? "#fde68a" : "currentColor"}
+            opacity={boost ? 1 : 0.55}
+          />
+          {/* Label */}
+          <text
+            x="28"
+            y="62"
+            textAnchor="middle"
+            fontSize="8"
+            letterSpacing="1.5"
+            fill={boost ? "#ef4444" : "currentColor"}
+            opacity={boost ? 1 : 0.65}
+          >
+            BOOST
+          </text>
         </svg>
       </div>
 

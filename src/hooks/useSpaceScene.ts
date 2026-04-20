@@ -52,6 +52,7 @@ export function useSpaceScene(
     lastDiscovery: null,
     showHints: true,
     medal: null,
+    boost: false,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -207,6 +208,7 @@ export function useSpaceScene(
         thrust: scene.thrust,
         warpCharge: scene.warpCharge,
         heading: { pitch: scene.ship.rotation.x, yaw: scene.ship.rotation.y },
+        boost: scene.boost > 1,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

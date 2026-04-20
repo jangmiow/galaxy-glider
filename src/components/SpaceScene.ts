@@ -212,6 +212,8 @@ export class SpaceScene {
 
   velocity = 0;
   thrust = 0;
+  /** Continuous thrust input (-1..1) from the mobile slider; combined with key input each frame. */
+  virtualThrust = 0;
   pitch = 0;
   yaw = 0;
   roll = 0;
@@ -1014,10 +1016,12 @@ export class SpaceScene {
     if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) rollInput -= 1;
     this.ship.rotateZ(rollInput * 1.2 * dt);
 
-    // Thrust
+    // Thrust — combine keyboard with continuous virtual input (mobile slider).
     let thrustInput = 0;
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) thrustInput += 1;
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) thrustInput -= 0.6;
+    thrustInput += this.virtualThrust;
+    thrustInput = Math.max(-1, Math.min(1, thrustInput));
     this.boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 2.5 : 1;
     this.thrust = thrustInput;
 

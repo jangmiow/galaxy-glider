@@ -430,7 +430,7 @@ function CockpitControls({
   const leverY = -t * 36; // px offset from neutral
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-[180px] md:block">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 block h-[180px]">
       {/* YOKE — left of the artificial horizon */}
       <div
         className="absolute bottom-2 left-1/2"

@@ -352,7 +352,9 @@ export class SpaceScene {
    * streaks them backward proportional to current velocity for a parallax feel.
    */
   buildDustField() {
-    const count = 600;
+    // Far fewer, smaller, dimmer particles — meant to read as faint cockpit motes
+    // that streak only when moving fast. Previously this looked like fog.
+    const count = 180;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     const HALF_X = 120;
@@ -366,8 +368,8 @@ export class SpaceScene {
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.PointsMaterial({
-      color: 0xbcd4ff,
-      size: 1.1,
+      color: 0x8aa8d0,
+      size: 0.6,
       transparent: true,
       opacity: 0,
       depthWrite: false,
@@ -1111,12 +1113,14 @@ export class SpaceScene {
     // effect is invisible at rest and pronounced at boost.
     {
       const speed = Math.abs(this.velocity);
-      const speedNorm = Math.min(1, speed / 150); // 0..1 across normal flight
+      // Only start fading dust in once we're actually moving briskly. Below ~30 u/s
+      // it stays invisible so we don't get the "fog in the cockpit" look at rest.
+      const speedNorm = Math.max(0, Math.min(1, (speed - 30) / 170));
       const dustMat = this.dustField.material as THREE.PointsMaterial;
-      // Hide entirely during warp (warp field takes over) and when nearly stationary.
-      const targetOpacity = this.isWarping ? 0 : 0.55 * speedNorm;
+      // Hide entirely during warp (warp field takes over) and when not moving fast.
+      const targetOpacity = this.isWarping ? 0 : 0.18 * speedNorm;
       dustMat.opacity += (targetOpacity - dustMat.opacity) * Math.min(1, dt * 6);
-      dustMat.size = 0.9 + speedNorm * 1.6;
+      dustMat.size = 0.5 + speedNorm * 0.7;
 
       if (dustMat.opacity > 0.01) {
         const positions = this.dustField.geometry.attributes.position as THREE.BufferAttribute;
@@ -1170,13 +1174,19 @@ export class SpaceScene {
         tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp);
       }
       if (b.flare && b.isStar) {
-        tmp.copy(b.mesh.position).sub(this.ship.position).normalize();
+        tmp.copy(b.mesh.position).sub(this.ship.position);
+        const distToStar = tmp.length();
+        tmp.divideScalar(distToStar || 1);
         const align = Math.max(0, tmp.dot(camForward)); // 0..1
-        const intensity = Math.pow(align, 6);
+        // Fade the lens flare out when very close to the star so it can't fill
+        // the screen with white when staring directly at the sun (this was the
+        // "blank screen" symptom right after a scan completed near a star).
+        const proximityFade = Math.min(1, Math.max(0, (distToStar - b.size * 4) / (b.size * 8)));
+        const intensity = Math.pow(align, 6) * proximityFade;
         const mat = b.flare.material as THREE.SpriteMaterial;
-        mat.opacity = intensity * 0.9;
-        const baseScale = b.size * 14;
-        const s = baseScale * (0.6 + intensity * 0.8);
+        mat.opacity = intensity * 0.7;
+        const baseScale = b.size * 10;
+        const s = baseScale * (0.6 + intensity * 0.6);
         b.flare.scale.set(s, s, 1);
       }
     }

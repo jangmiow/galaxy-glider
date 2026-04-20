@@ -49,7 +49,7 @@ export type SystemCompletion = {
 
 export type SceneCallbacks = {
   onDiscovery: (d: Discovery) => void;
-  onScanProgress: (info: { name: string; progress: number } | null) => void;
+  onScanProgress: (info: { name: string; progress: number; alreadyScanned?: boolean } | null) => void;
   onOrbCollected: () => void;
   onSystemComplete: (info: SystemCompletion) => void;
 };
@@ -1067,18 +1067,27 @@ export class SpaceScene {
     const aimForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
     const toBody = new THREE.Vector3();
     let scanning: { body: Body; progress: number } | null = null;
+    // Track the nearest aligned ALREADY-scanned body so we can show a small
+    // "already catalogued" cyan hint on the reticle without re-running the scan.
+    let alreadyScannedHit: Body | null = null;
+    let alreadyScannedDist = Infinity;
     for (const b of this.bodies) {
-      if (b.scanned) continue;
       toBody.copy(b.mesh.position).sub(this.ship.position);
       const dist = toBody.length();
       if (dist > MAX_LOCK_RANGE) {
-        b.aimTime = 0;
+        if (!b.scanned) b.aimTime = 0;
         continue;
       }
       toBody.divideScalar(dist || 1);
-      // Effective cone widens slightly for larger bodies (angular radius).
       const angularRadius = Math.min(0.2, b.size / Math.max(dist, 1));
       const aligned = aimForward.dot(toBody) >= AIM_COS - angularRadius;
+      if (b.scanned) {
+        if (aligned && dist < alreadyScannedDist) {
+          alreadyScannedHit = b;
+          alreadyScannedDist = dist;
+        }
+        continue;
+      }
       if (aligned) {
         b.aimTime = (b.aimTime ?? 0) + dt;
         const progress = Math.min(1, b.aimTime / SCAN_HOLD);
@@ -1092,7 +1101,7 @@ export class SpaceScene {
     }
     if (scanning) {
       const b = scanning.body;
-      this.callbacks.onScanProgress({ name: b.name, progress: scanning.progress });
+      this.callbacks.onScanProgress({ name: b.name, progress: scanning.progress, alreadyScanned: false });
       if (scanning.progress >= 1) {
         b.scanned = true;
         const discovery: Discovery = {
@@ -1122,6 +1131,13 @@ export class SpaceScene {
           });
         }
       }
+    } else if (alreadyScannedHit) {
+      // Cyan "already catalogued" reticle hint (progress=1 + flag).
+      this.callbacks.onScanProgress({
+        name: alreadyScannedHit.name,
+        progress: 1,
+        alreadyScanned: true,
+      });
     } else {
       this.callbacks.onScanProgress(null);
     }

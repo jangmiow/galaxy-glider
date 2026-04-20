@@ -83,9 +83,11 @@ export function useSpaceScene(
       },
       onScanProgress: (info) =>
         setHud((s) => {
-          // Fire a one-shot chirp the moment progress crosses into LOCKED.
-          const wasLocked = (s.scanning?.progress ?? 0) >= 0.999;
-          const isLocked = (info?.progress ?? 0) >= 0.999;
+          // Fire a one-shot chirp the moment progress crosses into LOCKED,
+          // but suppress it for the cyan "already catalogued" hint so we
+          // don't ping every time the pilot glances at a known body.
+          const wasLocked = (s.scanning?.progress ?? 0) >= 0.999 && !s.scanning?.alreadyScanned;
+          const isLocked = (info?.progress ?? 0) >= 0.999 && !info?.alreadyScanned;
           if (isLocked && !wasLocked) audio.lockChirp();
           return { ...s, scanning: info };
         }),

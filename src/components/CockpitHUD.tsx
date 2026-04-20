@@ -244,12 +244,13 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
  */
 function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
   const active = scanning != null;
+  const alreadyScanned = scanning?.alreadyScanned === true;
   const progress = scanning?.progress ?? 0;
   // Ring geometry — circumference drives the dashoffset for a clockwise fill.
   const R = 36;
   const C = 2 * Math.PI * R;
   const dashOffset = C * (1 - progress);
-  const locked = progress >= 0.999;
+  const locked = progress >= 0.999 && !alreadyScanned;
 
   // Brackets animate between "expanded" (outside the reticle, invisible) and
   // "snapped" (resting position, visible). We delay the active->snapped state
@@ -264,14 +265,17 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
     return () => cancelAnimationFrame(id);
   }, [active]);
 
+  // Color theme: amber while scanning a fresh body, cyan (text-hud) when the
+  // body is already catalogued so the pilot knows not to bother re-aiming.
+  const themeClass = !active
+    ? "text-hud opacity-60"
+    : alreadyScanned
+      ? "text-hud"
+      : "text-amber";
+
   return (
     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-      <svg
-        width="100"
-        height="100"
-        viewBox="0 0 100 100"
-        className={active ? "text-amber" : "text-hud opacity-60"}
-      >
+      <svg width="100" height="100" viewBox="0 0 100 100" className={themeClass}>
         {/* Idle dashed ring (always present, dims when active) */}
         <circle
           cx="50"
@@ -291,7 +295,7 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
         <line x1="14" y1="50" x2="22" y2="50" stroke="currentColor" strokeWidth="1" />
         <line x1="78" y1="50" x2="86" y2="50" stroke="currentColor" strokeWidth="1" />
 
-        {active && (
+        {active && !alreadyScanned && (
           <>
             {/* Progress track */}
             <circle
@@ -317,9 +321,14 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
               transform="rotate(-90 50 50)"
               style={{ transition: "stroke-dashoffset 80ms linear" }}
             />
-            {/* Corner lock brackets — scale outward from center when not yet
-                snapped, then ease into resting position. Each bracket has its
-                own transform-origin so they fly in from their own corner. */}
+          </>
+        )}
+
+        {active && (
+          <>
+            {/* Corner lock brackets — fly in from their own corner. For an
+                already-scanned target they stay small/solid and don't pulse,
+                so the reticle reads as "info, not action required". */}
             {[
               { d: "M14,26 L14,14 L26,14", origin: "14px 14px" },
               { d: "M74,14 L86,14 L86,26", origin: "86px 14px" },
@@ -330,13 +339,18 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
                 key={d}
                 d={d}
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth={alreadyScanned ? 1.4 : 2}
                 fill="none"
                 strokeLinecap="round"
+                opacity={alreadyScanned ? 0.85 : 1}
                 style={{
                   transformOrigin: origin,
-                  transform: snapped ? "scale(1)" : "scale(1.6)",
-                  opacity: snapped ? 1 : 0,
+                  transform: snapped
+                    ? alreadyScanned
+                      ? "scale(0.78)"
+                      : "scale(1)"
+                    : "scale(1.6)",
+                  opacity: snapped ? (alreadyScanned ? 0.85 : 1) : 0,
                   transition:
                     "transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 160ms ease-out",
                 }}
@@ -347,11 +361,19 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
       </svg>
       {active && (
         <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-center">
-          <div className="text-[10px] tracking-widest text-hud-dim">
-            {locked ? "LOCKED" : "SCANNING"}
+          <div
+            className={`text-[10px] tracking-widest ${alreadyScanned ? "text-hud" : "text-hud-dim"}`}
+          >
+            {alreadyScanned ? "CATALOGUED" : locked ? "LOCKED" : "SCANNING"}
           </div>
           <div
-            className={`text-sm tracking-wider ${locked ? "text-amber hud-glow scan-pulse" : "text-amber"}`}
+            className={`text-sm tracking-wider ${
+              alreadyScanned
+                ? "text-hud opacity-80"
+                : locked
+                  ? "text-amber hud-glow scan-pulse"
+                  : "text-amber"
+            }`}
           >
             {scanning?.name}
           </div>

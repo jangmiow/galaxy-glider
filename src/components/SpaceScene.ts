@@ -1119,6 +1119,19 @@ export class SpaceScene {
     const sunDirTmp = new THREE.Vector3();
     const nowSec = performance.now() * 0.001;
     for (const b of this.bodies) {
+      // Orbital motion for moons (and any other body with orbit data).
+      if (b.orbit) {
+        b.orbit.phase += b.orbit.speed * dt;
+        const r = b.orbit.radius;
+        const c = Math.cos(b.orbit.phase);
+        const s = Math.sin(b.orbit.phase);
+        const t = b.orbit.tilt;
+        b.mesh.position.set(
+          b.orbit.parent.position.x + c * r,
+          b.orbit.parent.position.y + s * r * Math.sin(t),
+          b.orbit.parent.position.z + s * r * Math.cos(t),
+        );
+      }
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
       // Drive shader uniforms (time + sun direction in world space, pointing FROM planet TO sun)

@@ -660,6 +660,7 @@ export class SpaceScene {
         position: new THREE.Vector3(-310, -2, 80), seed: 3.3 },
       { id: "sol-mars", name: "Mars", type: "planet", kind: "rocky",
         size: 5.5, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
+        cloudiness: 0.25,
         position: new THREE.Vector3(120, 8, -340), seed: 4.4 },
       { id: "sol-jupiter", name: "Jupiter", type: "planet", kind: "gas",
         size: 28, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",

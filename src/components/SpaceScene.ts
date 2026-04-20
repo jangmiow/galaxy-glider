@@ -379,7 +379,7 @@ export class SpaceScene {
     this.buildStarfield();
     this.buildWarpField();
     this.buildNebulae();
-    this.buildSystem(1);
+    this.buildSolSystem();
 
     // Lights
     const ambient = new THREE.AmbientLight(0x222244, 0.6);

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export type MinimapDot = {
   x: number; // -1..1 (right)
   z: number; // -1..1 (forward; negative = ahead)

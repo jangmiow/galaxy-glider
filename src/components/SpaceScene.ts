@@ -571,6 +571,68 @@ export class SpaceScene {
     });
   }
 
+  /**
+   * Add a small moon orbiting a parent planet body. The moon is a fully scannable
+   * Body in its own right, gets its own shader, and is positioned each frame by
+   * the orbit data in the update loop. `kind` controls its visual archetype.
+   */
+  private addMoon(config: {
+    id: string;
+    name: string;
+    parent: Body;
+    size: number;
+    color: string;
+    accentColor?: string;
+    kind?: "barren" | "rocky" | "icy";
+    radius: number; // orbital radius from parent center
+    speed?: number; // radians/sec; defaults to a slow drift
+    phase?: number; // initial angle
+    tilt?: number; // orbital inclination in radians
+    seed?: number;
+  }) {
+    const kind = config.kind ?? "barren";
+    const seed = config.seed ?? Math.random() * 100;
+    const accent = config.accentColor ?? config.color;
+    const geo = new THREE.SphereGeometry(config.size, 32, 24);
+
+    let shaderMat: THREE.ShaderMaterial;
+    switch (kind) {
+      case "icy":
+        shaderMat = makeIcyMaterial({ base: config.color, accent, atmo: accent, seed });
+        break;
+      case "rocky":
+        shaderMat = makeRockyMaterial({ base: config.color, accent, atmo: accent, seed });
+        break;
+      case "barren":
+      default:
+        shaderMat = makeBarrenMaterial({ base: config.color, accent, seed });
+    }
+
+    const mesh = new THREE.Mesh(geo, shaderMat);
+    // Initial position computed by orbit; placeholder until first update tick.
+    mesh.position.copy(config.parent.mesh.position);
+    (mesh as THREE.Mesh & { _spin?: number })._spin = (Math.random() - 0.5) * 0.08;
+    this.scene.add(mesh);
+
+    this.bodies.push({
+      mesh,
+      type: "moon",
+      size: config.size,
+      color: config.color,
+      id: config.id,
+      name: config.name,
+      scanned: false,
+      shaderMat,
+      orbit: {
+        parent: config.parent.mesh,
+        radius: config.radius,
+        speed: config.speed ?? 0.15,
+        phase: config.phase ?? Math.random() * Math.PI * 2,
+        tilt: config.tilt ?? (Math.random() - 0.5) * 0.5,
+      },
+    });
+  }
+
   /** Hand-authored Sol system: Sun + 8 planets at scaled distances. */
   buildSolSystem() {
     this.clearSystem();

@@ -133,9 +133,18 @@ export function makeRockyMaterial(opts: {
   atmo: string;
   seed: number;
   atmoStrength?: number;
+  /** 0 = no clouds (Mercury), 0.2–0.4 = sparse wispy patches (Mars-like). */
+  cloudiness?: number;
 }): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, opts.atmoStrength ?? 0.55, 0),
+    uniforms: makeUniforms(
+      opts.base,
+      opts.accent,
+      opts.atmo,
+      opts.seed,
+      opts.atmoStrength ?? 0.55,
+      opts.cloudiness ?? 0,
+    ),
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
@@ -149,6 +158,17 @@ export function makeRockyMaterial(opts: {
         // Polar ice caps
         float lat = abs(normalize(vPosW).y);
         col = mix(col, vec3(0.92, 0.95, 1.0), smoothstep(0.78, 0.95, lat));
+        // Sparse high-altitude cloud patches — slowly drift, only appear in
+        // isolated tufts. Higher threshold than ocean clouds so coverage stays low.
+        if (uCloudiness > 0.001) {
+          vec3 cp = p * 1.8 + vec3(uTime * 0.006, 0.0, uTime * 0.004);
+          float cloudMask = fbm(cp * 1.6);
+          // Two-stage threshold: only the brightest fbm peaks become clouds,
+          // and a wider noise field gates them into rare patches.
+          float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
+          float clouds = smoothstep(0.62, 0.78, cloudMask) * patches;
+          col = mix(col, vec3(0.95, 0.92, 0.86), clouds * uCloudiness);
+        }
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,

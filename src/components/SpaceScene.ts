@@ -850,7 +850,7 @@ export class SpaceScene {
     if (!best) {
       // eslint-disable-next-line no-console
       console.warn("[auto-aim] no scannable body within range");
-      return;
+      return null;
     }
     // eslint-disable-next-line no-console
     console.log(`[auto-aim] snapping to ${best.name} at ${best.dist.toFixed(0)}u`);
@@ -863,6 +863,7 @@ export class SpaceScene {
     this.ship.quaternion.setFromRotationMatrix(m);
     this.mouseX = 0;
     this.mouseY = 0;
+    return { name: best.name, dist: best.dist };
   }
 
   /**

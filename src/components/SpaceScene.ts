@@ -806,6 +806,8 @@ export class SpaceScene {
     this.warpCharge = 0;
     (this.warpStars.material as THREE.PointsMaterial).opacity = 1;
     this.warpStars.visible = true;
+    // Cinematic bloom flash — spike then ease back via update loop.
+    this.bloomBoost = 2.4;
   }
 
   update(dt: number) {

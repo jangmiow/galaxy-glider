@@ -188,6 +188,26 @@ export function Minimap({
           <circle r="1.5" fill="oklch(1 0 0)" />
         </g>
       </svg>
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-hud/50 bg-background/95 px-1.5 py-1 text-[10px] leading-tight text-hud shadow"
+          style={{
+            // Position above-and-right of the dot; flip to left if near right edge.
+            left: hover.x > SIZE - 80 ? hover.x - 8 : hover.x + 8,
+            top: hover.y > SIZE - 40 ? hover.y - 8 : hover.y + 8,
+            transform: `translate(${hover.x > SIZE - 80 ? "-100%" : "0"}, ${hover.y > SIZE - 40 ? "-100%" : "0"})`,
+          }}
+        >
+          <div className="font-display text-amber">{hover.dot.name ?? formatKind(hover.dot.kind)}</div>
+          <div className="text-hud-dim">
+            {formatKind(hover.dot.kind)} · {formatDist(hover.dot.distance)}
+            {hover.dot.kind !== "orb" && (hover.dot.kind === "star" || hover.dot.kind === "blue-giant" || hover.dot.kind === "red-dwarf"
+              ? ""
+              : hover.dot.scanned ? " · CATALOGUED" : " · UNSCANNED")}
+          </div>
+        </div>
+      )}
+      </div>
       <div className="mt-1 truncate px-1 text-[10px] text-hud-dim">
         TGT: <span className="text-amber">{shortObjective(objective)}</span>
       </div>

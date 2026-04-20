@@ -699,7 +699,7 @@ export class SpaceScene {
     type Dot = {
       x: number;
       z: number;
-      kind: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf" | "orb";
+      kind: "planet" | "ringed-planet" | "moon" | "star" | "blue-giant" | "red-dwarf" | "orb";
       scanned: boolean;
       isTarget: boolean;
       ahead: boolean;

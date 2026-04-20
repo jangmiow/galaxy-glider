@@ -833,11 +833,16 @@ export class SpaceScene {
    * resets mouse-look input so the ship stops drifting after the snap.
    */
   aimAtNearestBody() {
+    // Pick the nearest unscanned, non-star body within scan range. Stars are
+    // excluded because aiming at Sol washes the screen out, and bodies past
+    // MAX_LOCK_RANGE (2000u) can't be scanned anyway.
+    const MAX = 2000;
     let nearest: { dist: number; pos: THREE.Vector3 } | null = null;
     for (const b of this.bodies) {
-      if (b.scanned) continue;
+      if (b.scanned || b.isStar) continue;
       const d = b.mesh.position.distanceTo(this.ship.position);
-      if (!nearest || d < nearest.dist) nearest = { dist: d, pos: b.mesh.position };
+      if (d > MAX) continue;
+      if (!nearest || d < nearest.dist) nearest = { dist: d, pos: b.mesh.position.clone() };
     }
     if (!nearest) return;
     // Build a rotation matrix that looks from the ship toward the target.

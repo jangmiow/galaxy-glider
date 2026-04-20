@@ -1,7 +1,7 @@
 export type MinimapDot = {
   x: number; // -1..1 (right)
   z: number; // -1..1 (forward; negative = ahead)
-  kind: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf" | "orb";
+  kind: "planet" | "ringed-planet" | "moon" | "star" | "blue-giant" | "red-dwarf" | "orb";
   scanned: boolean;
   isTarget: boolean;
   ahead: boolean;
@@ -17,6 +17,7 @@ export type MinimapData = {
 const KIND_COLOR: Record<MinimapDot["kind"], string> = {
   planet: "#6aa8ff",
   "ringed-planet": "#e8c97a",
+  moon: "#bdb6a8",
   star: "#ffe6a0",
   "blue-giant": "#9ad0ff",
   "red-dwarf": "#ff7060",
@@ -100,7 +101,7 @@ export function Minimap({
           const py = R + d.z * (R - 6);
           const color = KIND_COLOR[d.kind];
           const isStar = d.kind === "star" || d.kind === "blue-giant" || d.kind === "red-dwarf";
-          const baseR = isStar ? 3 : d.kind === "orb" ? 1.5 : 2.5;
+          const baseR = isStar ? 3 : d.kind === "orb" ? 1.5 : d.kind === "moon" ? 1.4 : 2.5;
           const opacity = d.scanned ? 0.4 : 1;
           return (
             <g key={i}>

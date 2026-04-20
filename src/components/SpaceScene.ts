@@ -31,6 +31,14 @@ type Body = {
   sunSource?: THREE.Object3D;
   // Seconds the body has been held within the aim cone (for lock-on scan).
   aimTime?: number;
+  // Optional orbit around a parent body (used for moons).
+  orbit?: {
+    parent: THREE.Object3D;
+    radius: number;
+    speed: number; // radians per second
+    phase: number; // initial angle
+    tilt: number; // inclination (radians)
+  };
 };
 
 export type SceneCallbacks = {
@@ -42,6 +50,7 @@ export type SceneCallbacks = {
 const TYPE_COLORS: Record<Discovery["type"], string[]> = {
   planet: ["#6aa8ff", "#a86aff", "#ffaa6a", "#88dd88", "#dd6688"],
   "ringed-planet": ["#e8c97a", "#c9a86a", "#9aa8e8"],
+  moon: ["#c8c0b4", "#9a948a", "#d8d0c0"],
   star: ["#ffe6a0", "#ffd070"],
   "blue-giant": ["#9ad0ff", "#bce0ff"],
   "red-dwarf": ["#ff7060", "#e85040"],
@@ -562,6 +571,68 @@ export class SpaceScene {
     });
   }
 
+  /**
+   * Add a small moon orbiting a parent planet body. The moon is a fully scannable
+   * Body in its own right, gets its own shader, and is positioned each frame by
+   * the orbit data in the update loop. `kind` controls its visual archetype.
+   */
+  private addMoon(config: {
+    id: string;
+    name: string;
+    parent: Body;
+    size: number;
+    color: string;
+    accentColor?: string;
+    kind?: "barren" | "rocky" | "icy";
+    radius: number; // orbital radius from parent center
+    speed?: number; // radians/sec; defaults to a slow drift
+    phase?: number; // initial angle
+    tilt?: number; // orbital inclination in radians
+    seed?: number;
+  }) {
+    const kind = config.kind ?? "barren";
+    const seed = config.seed ?? Math.random() * 100;
+    const accent = config.accentColor ?? config.color;
+    const geo = new THREE.SphereGeometry(config.size, 32, 24);
+
+    let shaderMat: THREE.ShaderMaterial;
+    switch (kind) {
+      case "icy":
+        shaderMat = makeIcyMaterial({ base: config.color, accent, atmo: accent, seed });
+        break;
+      case "rocky":
+        shaderMat = makeRockyMaterial({ base: config.color, accent, atmo: accent, seed });
+        break;
+      case "barren":
+      default:
+        shaderMat = makeBarrenMaterial({ base: config.color, accent, seed });
+    }
+
+    const mesh = new THREE.Mesh(geo, shaderMat);
+    // Initial position computed by orbit; placeholder until first update tick.
+    mesh.position.copy(config.parent.mesh.position);
+    (mesh as THREE.Mesh & { _spin?: number })._spin = (Math.random() - 0.5) * 0.08;
+    this.scene.add(mesh);
+
+    this.bodies.push({
+      mesh,
+      type: "moon",
+      size: config.size,
+      color: config.color,
+      id: config.id,
+      name: config.name,
+      scanned: false,
+      shaderMat,
+      orbit: {
+        parent: config.parent.mesh,
+        radius: config.radius,
+        speed: config.speed ?? 0.15,
+        phase: config.phase ?? Math.random() * Math.PI * 2,
+        tilt: config.tilt ?? (Math.random() - 0.5) * 0.5,
+      },
+    });
+  }
+
   /** Hand-authored Sol system: Sun + 8 planets at scaled distances. */
   buildSolSystem() {
     this.clearSystem();
@@ -602,6 +673,45 @@ export class SpaceScene {
         position: new THREE.Vector3(820, -40, -680), seed: 8.8 },
     ];
     for (const p of planets) this.addPlanetBody(p);
+
+    // Attach hand-picked moons to a few notable planets so the journal can log them.
+    const findBody = (id: string) => this.bodies.find((b) => b.id === id);
+    const earth = findBody("sol-earth");
+    if (earth) {
+      this.addMoon({ id: "sol-luna", name: "Luna", parent: earth,
+        size: 2.2, color: "#cfc8b8", accentColor: "#807a6c", kind: "barren",
+        radius: 18, speed: 0.35, seed: 11 });
+    }
+    const mars = findBody("sol-mars");
+    if (mars) {
+      this.addMoon({ id: "sol-phobos", name: "Phobos", parent: mars,
+        size: 1.1, color: "#8a7a68", kind: "barren",
+        radius: 12, speed: 0.7, phase: 0.2, seed: 12 });
+      this.addMoon({ id: "sol-deimos", name: "Deimos", parent: mars,
+        size: 0.9, color: "#9a8a78", kind: "barren",
+        radius: 17, speed: 0.45, phase: 2.4, seed: 13 });
+    }
+    const jupiter = findBody("sol-jupiter");
+    if (jupiter) {
+      this.addMoon({ id: "sol-io", name: "Io", parent: jupiter,
+        size: 2.4, color: "#e6cc60", accentColor: "#a07028", kind: "rocky",
+        radius: 44, speed: 0.5, phase: 0.1, seed: 21 });
+      this.addMoon({ id: "sol-europa", name: "Europa", parent: jupiter,
+        size: 2.2, color: "#d8d0b8", accentColor: "#a89870", kind: "icy",
+        radius: 56, speed: 0.4, phase: 1.7, seed: 22 });
+      this.addMoon({ id: "sol-ganymede", name: "Ganymede", parent: jupiter,
+        size: 3.0, color: "#9c8a78", accentColor: "#5a4a38", kind: "rocky",
+        radius: 70, speed: 0.3, phase: 3.0, seed: 23 });
+      this.addMoon({ id: "sol-callisto", name: "Callisto", parent: jupiter,
+        size: 2.8, color: "#6c604c", accentColor: "#3a3020", kind: "barren",
+        radius: 86, speed: 0.22, phase: 4.5, seed: 24 });
+    }
+    const saturn = findBody("sol-saturn");
+    if (saturn) {
+      this.addMoon({ id: "sol-titan", name: "Titan", parent: saturn,
+        size: 2.6, color: "#d8a868", accentColor: "#7a5028", kind: "icy",
+        radius: 90, speed: 0.25, phase: 1.0, tilt: 0.1, seed: 31 });
+    }
 
     for (let i = 0; i < 8; i++) {
       const orb = new THREE.Mesh(
@@ -666,6 +776,30 @@ export class SpaceScene {
           : undefined,
         seed: seed + i * 0.7,
       });
+
+      // Maybe attach 1–2 moons. Bigger planets are more likely to have them.
+      const parent = this.bodies[this.bodies.length - 1];
+      const moonChance = kind === "gas" || kind === "ringed" ? 0.85 : size > 8 ? 0.45 : 0.15;
+      const moonCount = rng() < moonChance ? 1 + Math.floor(rng() * 2) : 0;
+      const moonKinds: Array<"barren" | "rocky" | "icy"> = ["barren", "rocky", "icy"];
+      const moonPalette = ["#cfc8b8", "#9c8a78", "#d8d0c0", "#a89870", "#8a7a68"];
+      for (let m = 0; m < moonCount; m++) {
+        const mkind = moonKinds[Math.floor(rng() * moonKinds.length)];
+        const mcolor = moonPalette[Math.floor(rng() * moonPalette.length)];
+        this.addMoon({
+          id: `s${seed}-b${i}-m${m}`,
+          name: `${parent.name} ${String.fromCharCode(97 + m)}`,
+          parent,
+          size: Math.max(0.8, size * (0.12 + rng() * 0.18)),
+          color: mcolor,
+          kind: mkind,
+          radius: size * (2.4 + m * 1.1) + rng() * 4,
+          speed: 0.15 + rng() * 0.5,
+          phase: rng() * Math.PI * 2,
+          tilt: (rng() - 0.5) * 0.4,
+          seed: seed + i * 7 + m * 3,
+        });
+      }
     }
 
     for (let i = 0; i < 8; i++) {
@@ -698,7 +832,7 @@ export class SpaceScene {
     type Dot = {
       x: number;
       z: number;
-      kind: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf" | "orb";
+      kind: "planet" | "ringed-planet" | "moon" | "star" | "blue-giant" | "red-dwarf" | "orb";
       scanned: boolean;
       isTarget: boolean;
       ahead: boolean;
@@ -985,6 +1119,19 @@ export class SpaceScene {
     const sunDirTmp = new THREE.Vector3();
     const nowSec = performance.now() * 0.001;
     for (const b of this.bodies) {
+      // Orbital motion for moons (and any other body with orbit data).
+      if (b.orbit) {
+        b.orbit.phase += b.orbit.speed * dt;
+        const r = b.orbit.radius;
+        const c = Math.cos(b.orbit.phase);
+        const s = Math.sin(b.orbit.phase);
+        const t = b.orbit.tilt;
+        b.mesh.position.set(
+          b.orbit.parent.position.x + c * r,
+          b.orbit.parent.position.y + s * r * Math.sin(t),
+          b.orbit.parent.position.z + s * r * Math.cos(t),
+        );
+      }
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
       // Drive shader uniforms (time + sun direction in world space, pointing FROM planet TO sun)

@@ -16,6 +16,8 @@ export type HUDState = {
   showHints: boolean;
   /** Set when the pilot fully scans every body in a star system. Cleared after the celebration plays. */
   medal: { systemName: string; bodyCount: number } | null;
+  /** True while SHIFT is held — drives the cockpit BOOST indicator. */
+  boost: boolean;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

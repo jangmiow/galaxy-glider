@@ -9,6 +9,8 @@ export type HUDState = {
   heading: { pitch: number; yaw: number };
   score: number;
   rank: string;
+  /** Active pilot's display name. Falls back to "PILOT" if no profile is set. */
+  callsign: string;
   objective: string;
   paused: boolean;
   scanning: { name: string; progress: number; alreadyScanned?: boolean } | null;
@@ -90,8 +92,10 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
 
       {/* Top-left: status */}
       <div className="absolute left-6 top-6 hud-panel rounded-md px-4 py-3 text-xs">
-        <div className="text-hud-dim">PILOT RANK</div>
-        <div className="mt-1 text-base hud-glow">{state.rank}</div>
+        <div className="text-hud-dim">PILOT</div>
+        <div className="mt-1 font-display text-lg tracking-widest text-hud hud-glow">{state.callsign}</div>
+        <div className="mt-2 text-hud-dim">RANK</div>
+        <div className="text-sm">{state.rank}</div>
         <div className="mt-2 text-hud-dim">SCORE</div>
         <div className="text-base">{state.score.toLocaleString()}</div>
       </div>

@@ -41,10 +41,17 @@ type Body = {
   };
 };
 
+export type SystemCompletion = {
+  systemId: string;
+  systemName: string;
+  bodyCount: number;
+};
+
 export type SceneCallbacks = {
   onDiscovery: (d: Discovery) => void;
   onScanProgress: (info: { name: string; progress: number } | null) => void;
   onOrbCollected: () => void;
+  onSystemComplete: (info: SystemCompletion) => void;
 };
 
 const TYPE_COLORS: Record<Discovery["type"], string[]> = {

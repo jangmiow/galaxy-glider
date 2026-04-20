@@ -126,4 +126,19 @@
     50% { opacity: 1; }
   }
   .scan-pulse { animation: scan-pulse 2s ease-in-out infinite; }
+
+  /* System-completion medal: spring in with overshoot, hold, then fade. */
+  @keyframes medal-pop {
+    0%   { transform: scale(0.4) translateY(20px); opacity: 0; filter: blur(6px); }
+    35%  { transform: scale(1.12) translateY(0); opacity: 1; filter: blur(0); }
+    50%  { transform: scale(1) translateY(0); opacity: 1; }
+    85%  { transform: scale(1) translateY(0); opacity: 1; }
+    100% { transform: scale(0.96) translateY(-6px); opacity: 0; }
+  }
+  .medal-pop {
+    animation: medal-pop 4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    box-shadow:
+      0 0 40px color-mix(in oklab, var(--amber) 50%, transparent),
+      0 0 80px color-mix(in oklab, var(--amber) 25%, transparent);
+  }
 }

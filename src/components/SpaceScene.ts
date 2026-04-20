@@ -41,10 +41,17 @@ type Body = {
   };
 };
 
+export type SystemCompletion = {
+  systemId: string;
+  systemName: string;
+  bodyCount: number;
+};
+
 export type SceneCallbacks = {
   onDiscovery: (d: Discovery) => void;
   onScanProgress: (info: { name: string; progress: number } | null) => void;
   onOrbCollected: () => void;
+  onSystemComplete: (info: SystemCompletion) => void;
 };
 
 const TYPE_COLORS: Record<Discovery["type"], string[]> = {
@@ -1100,6 +1107,20 @@ export class SpaceScene {
         saveDiscovery(discovery);
         this.callbacks.onDiscovery(discovery);
         this.callbacks.onScanProgress(null);
+
+        // System completion: id prefix before the first '-' identifies a system
+        // (e.g. "sol-earth" → "sol", "s12345-b3-m1" → "s12345"). When every
+        // body sharing that prefix is scanned, fire the medal callback.
+        const systemId = b.id.split("-")[0];
+        const peers = this.bodies.filter((x) => x.id.split("-")[0] === systemId);
+        if (peers.length > 1 && peers.every((x) => x.scanned)) {
+          const star = peers.find((x) => x.isStar);
+          this.callbacks.onSystemComplete({
+            systemId,
+            systemName: star?.name ?? systemId.toUpperCase(),
+            bodyCount: peers.length,
+          });
+        }
       }
     } else {
       this.callbacks.onScanProgress(null);

@@ -14,6 +14,8 @@ export type HUDState = {
   scanning: { name: string; progress: number } | null;
   lastDiscovery: string | null;
   showHints: boolean;
+  /** Set when the pilot fully scans every body in a star system. Cleared after the celebration plays. */
+  medal: { systemName: string; bodyCount: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -190,6 +192,9 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
           <div className="font-display text-6xl text-hud hud-glow scan-pulse">LIGHTSPEED</div>
         </div>
       )}
+
+      {/* System-completion medal — pops when every body in a star system is scanned. */}
+      {state.medal && <SystemMedal systemName={state.medal.systemName} bodyCount={state.medal.bodyCount} />}
 
       {/* Hints */}
       {state.showHints && (
@@ -439,6 +444,56 @@ function CockpitControls({
             />
           </g>
         </svg>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Celebratory medal that pops onto the HUD when the pilot completes scanning
+ * every body in a star system. Pure SVG so it inherits the HUD palette and
+ * stays crisp at any size.
+ */
+function SystemMedal({ systemName, bodyCount }: { systemName: string; bodyCount: number }) {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 text-center">
+      <div className="medal-pop hud-panel rounded-xl px-6 py-5">
+        <svg width="120" height="120" viewBox="0 0 120 120" className="mx-auto block text-amber">
+          {/* Ribbon */}
+          <path d="M40,10 L52,52 L60,46 L68,52 L80,10 Z" fill="#7c2d12" stroke="currentColor" strokeOpacity="0.85" strokeWidth="1.5" />
+          <path d="M40,10 L60,46 L80,10" fill="#9a3412" opacity="0.85" />
+          {/* Outer medal disc */}
+          <circle cx="60" cy="76" r="32" fill="#1a1208" stroke="currentColor" strokeWidth="2" />
+          <circle cx="60" cy="76" r="28" fill="none" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1" strokeDasharray="2 3" />
+          {/* Laurel leaves around the rim */}
+          {Array.from({ length: 8 }).map((_, i) => {
+            const a = (i / 8) * Math.PI * 2;
+            const cx = 60 + Math.cos(a) * 30;
+            const cy = 76 + Math.sin(a) * 30;
+            return (
+              <ellipse
+                key={i}
+                cx={cx}
+                cy={cy}
+                rx="4"
+                ry="2.2"
+                fill="currentColor"
+                opacity="0.75"
+                transform={`rotate(${(a * 180) / Math.PI + 90} ${cx} ${cy})`}
+              />
+            );
+          })}
+          {/* Star at center */}
+          <path
+            d="M60,58 L64,70 L77,70 L66.5,77.5 L70.5,90 L60,82 L49.5,90 L53.5,77.5 L43,70 L56,70 Z"
+            fill="currentColor"
+            stroke="#7c2d12"
+            strokeWidth="1"
+          />
+        </svg>
+        <div className="mt-2 text-[10px] tracking-[0.3em] text-hud-dim">SYSTEM SURVEYED</div>
+        <div className="mt-1 font-display text-2xl text-amber hud-glow">{systemName}</div>
+        <div className="mt-1 text-xs text-hud-dim">{bodyCount} bodies catalogued · +1000</div>
       </div>
     </div>
   );

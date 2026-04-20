@@ -51,6 +51,7 @@ export function useSpaceScene(
     scanning: null,
     lastDiscovery: null,
     showHints: true,
+    medal: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -93,6 +94,27 @@ export function useSpaceScene(
           const score = s.score + 50;
           return { ...s, score, rank: rankFor(score) };
         });
+      },
+      onSystemComplete: (info) => {
+        // Reuse the lock chirp + a follow-up discovery beep so the moment
+        // sounds bigger than a single body scan without any new audio assets.
+        audio.lockChirp();
+        setTimeout(() => audio.discoveryBeep(), 220);
+        toast(`SYSTEM SURVEYED · ${info.systemName}`, {
+          description: `All ${info.bodyCount} bodies catalogued. +1000 bonus.`,
+          duration: 4000,
+        });
+        setHud((s) => {
+          const score = s.score + 1000;
+          return {
+            ...s,
+            score,
+            rank: rankFor(score),
+            medal: { systemName: info.systemName, bodyCount: info.bodyCount },
+          };
+        });
+        // Clear the medal overlay after the pop animation finishes (4s).
+        setTimeout(() => setHud((s) => ({ ...s, medal: null })), 4000);
       },
     });
     sceneRef.current = scene;

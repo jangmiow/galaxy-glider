@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export type MinimapDot = {
   x: number; // -1..1 (right)
   z: number; // -1..1 (forward; negative = ahead)
@@ -41,6 +43,9 @@ export function Minimap({
   onZoomIn?: () => void;
   onZoomOut?: () => void;
 }) {
+  // Track the dot under the cursor for the hover tooltip.
+  const [hover, setHover] = useState<{ dot: MinimapDot; x: number; y: number } | null>(null);
+
   // Find nearest target dot for live distance readout
   const target = data?.dots.reduce<MinimapDot | null>((best, d) => {
     if (!d.isTarget) return best;
@@ -74,6 +79,7 @@ export function Minimap({
           </button>
         </div>
       </div>
+      <div className="relative" style={{ width: SIZE, height: SIZE }}>
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
         {/* Background */}
         <defs>
@@ -141,6 +147,16 @@ export function Minimap({
               {isStar && (
                 <circle cx={px} cy={py} r={baseR + 2} fill={color} opacity={0.25} />
               )}
+              {/* Transparent hit-target for hover tooltip (always large enough to grab). */}
+              <circle
+                cx={px}
+                cy={py}
+                r={Math.max(7, baseR + 4)}
+                fill="transparent"
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHover({ dot: d, x: px, y: py })}
+                onMouseLeave={() => setHover((h) => (h?.dot === d ? null : h))}
+              />
             </g>
           );
         })}
@@ -172,6 +188,26 @@ export function Minimap({
           <circle r="1.5" fill="oklch(1 0 0)" />
         </g>
       </svg>
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-hud/50 bg-background/95 px-1.5 py-1 text-[10px] leading-tight text-hud shadow"
+          style={{
+            // Position above-and-right of the dot; flip to left if near right edge.
+            left: hover.x > SIZE - 80 ? hover.x - 8 : hover.x + 8,
+            top: hover.y > SIZE - 40 ? hover.y - 8 : hover.y + 8,
+            transform: `translate(${hover.x > SIZE - 80 ? "-100%" : "0"}, ${hover.y > SIZE - 40 ? "-100%" : "0"})`,
+          }}
+        >
+          <div className="font-display text-amber">{hover.dot.name ?? formatKind(hover.dot.kind)}</div>
+          <div className="text-hud-dim">
+            {formatKind(hover.dot.kind)} · {formatDist(hover.dot.distance)}
+            {hover.dot.kind !== "orb" && (hover.dot.kind === "star" || hover.dot.kind === "blue-giant" || hover.dot.kind === "red-dwarf"
+              ? ""
+              : hover.dot.scanned ? " · CATALOGUED" : " · UNSCANNED")}
+          </div>
+        </div>
+      )}
+      </div>
       <div className="mt-1 truncate px-1 text-[10px] text-hud-dim">
         TGT: <span className="text-amber">{shortObjective(objective)}</span>
       </div>
@@ -194,4 +230,18 @@ function formatDist(d: number): string {
   if (d >= 10000) return `${(d / 1000).toFixed(1)}ku`;
   if (d >= 1000) return `${(d / 1000).toFixed(2)}ku`;
   return `${Math.round(d)}u`;
+}
+
+const KIND_LABEL: Record<MinimapDot["kind"], string> = {
+  planet: "PLANET",
+  "ringed-planet": "RINGED PLANET",
+  moon: "MOON",
+  star: "STAR",
+  "blue-giant": "BLUE GIANT",
+  "red-dwarf": "RED DWARF",
+  orb: "ENERGY ORB",
+};
+
+function formatKind(k: MinimapDot["kind"]): string {
+  return KIND_LABEL[k];
 }

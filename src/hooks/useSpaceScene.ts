@@ -263,7 +263,15 @@ export function useSpaceScene(
       if (mmAcc > 0.1) {
         mmAcc = 0;
         const target = OBJECTIVE_TARGET[hudRef.current.objective] ?? null;
-        setMinimap(scene.getMinimapSnapshot(target, minimapRangeRef.current ?? 800));
+        const snap = scene.getMinimapSnapshot(target, minimapRangeRef.current ?? 800);
+        // Prune expired fresh-scan entries and forward the live set so the
+        // minimap can render a brief pulse ring on each newly catalogued dot.
+        const nowMs = performance.now();
+        const fresh = freshlyScannedRef.current;
+        for (const [name, expiry] of fresh) {
+          if (expiry <= nowMs) fresh.delete(name);
+        }
+        setMinimap({ ...snap, freshlyScanned: new Set(fresh.keys()) });
       }
 
       raf = requestAnimationFrame(loop);

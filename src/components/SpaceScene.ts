@@ -4,6 +4,16 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { generateName, saveDiscovery, type Discovery } from "@/lib/journal";
+import {
+  makeBarrenMaterial,
+  makeGasGiantMaterial,
+  makeIcyMaterial,
+  makeLavaMaterial,
+  makeOceanMaterial,
+  makeRockyMaterial,
+  tickPlanetUniforms,
+  type PlanetKind,
+} from "./planetShaders";
 
 type Body = {
   mesh: THREE.Mesh;
@@ -15,6 +25,10 @@ type Body = {
   scanned: boolean;
   flare?: THREE.Sprite;
   isStar?: boolean;
+  // Custom shader on the planet surface (when present, drives uniforms each frame).
+  shaderMat?: THREE.ShaderMaterial;
+  // Override sun source for shading (defaults to scene origin = Sol).
+  sunSource?: THREE.Object3D;
 };
 
 export type SceneCallbacks = {
@@ -365,7 +379,7 @@ export class SpaceScene {
     this.buildStarfield();
     this.buildWarpField();
     this.buildNebulae();
-    this.buildSystem(1);
+    this.buildSolSystem();
 
     // Lights
     const ambient = new THREE.AmbientLight(0x222244, 0.6);
@@ -499,164 +513,262 @@ export class SpaceScene {
     this.orbs = [];
   }
 
+  /**
+   * Build a single planet/star body and add it to the scene + bodies array.
+   * Centralizes shader material selection, atmosphere, rings, and clouds.
+   */
+  private addPlanetBody(config: {
+    id: string;
+    name: string;
+    type: Discovery["type"];
+    kind: PlanetKind | "star";
+    size: number;
+    color: string;
+    accentColor?: string;
+    atmoColor?: string;
+    position: THREE.Vector3;
+    rings?: { inner: number; outer: number; tilt: number; color?: string };
+    cloudiness?: number;
+    seed?: number;
+    spin?: number;
+  }) {
+    const seed = config.seed ?? Math.random() * 100;
+    const accent = config.accentColor ?? config.color;
+    const atmo = config.atmoColor ?? config.color;
+    const isStar = config.kind === "star";
+    const geo = new THREE.SphereGeometry(config.size, isStar ? 48 : 64, isStar ? 32 : 48);
+
+    let mat: THREE.Material;
+    let shaderMat: THREE.ShaderMaterial | undefined;
+    if (isStar) {
+      mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(config.color) });
+    } else {
+      switch (config.kind) {
+        case "ocean":
+          shaderMat = makeOceanMaterial({
+            oceanColor: config.color,
+            landColor: accent,
+            atmo,
+            seed,
+            cloudiness: config.cloudiness ?? 0.55,
+          });
+          break;
+        case "gas":
+          shaderMat = makeGasGiantMaterial({ base: config.color, accent, atmo, seed });
+          break;
+        case "icy":
+          shaderMat = makeIcyMaterial({ base: config.color, accent, atmo, seed });
+          break;
+        case "lava":
+          shaderMat = makeLavaMaterial({ base: config.color, accent, atmo, seed });
+          break;
+        case "barren":
+          shaderMat = makeBarrenMaterial({ base: config.color, accent, seed });
+          break;
+        case "ringed":
+          shaderMat = makeGasGiantMaterial({ base: config.color, accent, atmo, seed, bandStrength: 0.85 });
+          break;
+        case "rocky":
+        default:
+          shaderMat = makeRockyMaterial({ base: config.color, accent, atmo, seed });
+      }
+      mat = shaderMat;
+    }
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(config.position);
+    mesh.rotation.y = Math.random() * Math.PI * 2;
+    (mesh as THREE.Mesh & { _spin?: number })._spin = config.spin ?? (Math.random() - 0.5) * 0.05;
+
+    let flareSprite: THREE.Sprite | undefined;
+
+    if (isStar) {
+      const coronaTex = makeRadialTexture(config.color, 0.9);
+      const corona = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
+      );
+      corona.scale.set(config.size * 6, config.size * 6, 1);
+      mesh.add(corona);
+
+      const flareTex = makeFlareStreakTexture(config.color);
+      flareSprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: flareTex,
+          transparent: true,
+          depthWrite: false,
+          depthTest: false,
+          blending: THREE.AdditiveBlending,
+          opacity: 0,
+          fog: false,
+        }),
+      );
+      flareSprite.scale.set(config.size * 14, config.size * 14, 1);
+      flareSprite.renderOrder = 999;
+      mesh.add(flareSprite);
+
+      const light = new THREE.PointLight(new THREE.Color(config.color), 1.4, 4000);
+      mesh.add(light);
+    }
+
+    if (config.rings) {
+      const innerR = config.rings.inner;
+      const outerR = config.rings.outer;
+      const ringGeom = new THREE.RingGeometry(innerR, outerR, 192, 1);
+      const pos = ringGeom.attributes.position;
+      const uv = ringGeom.attributes.uv;
+      for (let v = 0; v < pos.count; v++) {
+        const x = pos.getX(v);
+        const y = pos.getY(v);
+        const r = Math.sqrt(x * x + y * y);
+        const u = (r - innerR) / (outerR - innerR);
+        const a = Math.atan2(y, x) / (Math.PI * 2) + 0.5;
+        uv.setXY(v, u, a);
+      }
+      uv.needsUpdate = true;
+      const ringTex = makeRingTexture(config.rings.color ?? config.color, () => Math.random());
+      const ring = new THREE.Mesh(
+        ringGeom,
+        new THREE.MeshBasicMaterial({
+          map: ringTex,
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+          fog: false,
+        }),
+      );
+      ring.rotation.x = Math.PI / 2 - config.rings.tilt;
+      mesh.add(ring);
+    }
+
+    this.scene.add(mesh);
+    this.bodies.push({
+      mesh,
+      type: config.type,
+      size: config.size,
+      color: config.color,
+      id: config.id,
+      name: config.name,
+      scanned: false,
+      flare: flareSprite,
+      isStar,
+      shaderMat,
+    });
+  }
+
+  /** Hand-authored Sol system: Sun + 8 planets at scaled distances. */
+  buildSolSystem() {
+    this.clearSystem();
+    this.systemSeed = 0;
+
+    this.addPlanetBody({
+      id: "sol-sun", name: "Sol", type: "star", kind: "star",
+      size: 80, color: "#fff2c0",
+      position: new THREE.Vector3(0, 0, 0), spin: 0.01,
+    });
+
+    const planets: Array<Parameters<SpaceScene["addPlanetBody"]>[0]> = [
+      { id: "sol-mercury", name: "Mercury", type: "planet", kind: "barren",
+        size: 4, color: "#9a8b7a", accentColor: "#5c4f44",
+        position: new THREE.Vector3(180, 0, 0), seed: 1.1 },
+      { id: "sol-venus", name: "Venus", type: "planet", kind: "lava",
+        size: 7, color: "#d9a460", accentColor: "#7c5828", atmoColor: "#ffd089",
+        position: new THREE.Vector3(0, 4, 240), seed: 2.2 },
+      { id: "sol-earth", name: "Earth", type: "planet", kind: "ocean",
+        size: 7.5, color: "#1c5cb8", accentColor: "#3a8a3c", atmoColor: "#7ab8ff",
+        cloudiness: 0.6,
+        position: new THREE.Vector3(-310, -2, 80), seed: 3.3 },
+      { id: "sol-mars", name: "Mars", type: "planet", kind: "rocky",
+        size: 5.5, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
+        position: new THREE.Vector3(120, 8, -340), seed: 4.4 },
+      { id: "sol-jupiter", name: "Jupiter", type: "planet", kind: "gas",
+        size: 28, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",
+        position: new THREE.Vector3(-480, 0, -380), seed: 5.5 },
+      { id: "sol-saturn", name: "Saturn", type: "ringed-planet", kind: "ringed",
+        size: 24, color: "#e0c084", accentColor: "#9a7438", atmoColor: "#ffe6b0",
+        position: new THREE.Vector3(620, -10, 220),
+        rings: { inner: 38, outer: 70, tilt: 0.45, color: "#d8c89c" }, seed: 6.6 },
+      { id: "sol-uranus", name: "Uranus", type: "planet", kind: "icy",
+        size: 14, color: "#a8e0e0", accentColor: "#5cb0c0", atmoColor: "#cdf0ff",
+        position: new THREE.Vector3(-720, 30, 540), seed: 7.7 },
+      { id: "sol-neptune", name: "Neptune", type: "planet", kind: "icy",
+        size: 13.5, color: "#3859d8", accentColor: "#1d2c80", atmoColor: "#7090ff",
+        position: new THREE.Vector3(820, -40, -680), seed: 8.8 },
+    ];
+    for (const p of planets) this.addPlanetBody(p);
+
+    for (let i = 0; i < 8; i++) {
+      const orb = new THREE.Mesh(
+        new THREE.SphereGeometry(2, 16, 12),
+        new THREE.MeshBasicMaterial({ color: 0x88ffcc }),
+      );
+      orb.position.set((Math.random() - 0.5) * 1400, (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 1400);
+      this.scene.add(orb);
+      this.orbs.push(orb);
+    }
+  }
+
   buildSystem(seed: number) {
     this.clearSystem();
     const rng = mulberry32(seed * 1000 + 7);
     const count = 6 + Math.floor(rng() * 5);
-    for (let i = 0; i < count; i++) {
-      const type = randType(rng);
-      const colors = TYPE_COLORS[type];
-      const color = colors[Math.floor(rng() * colors.length)];
-      const isStar = type === "star" || type === "blue-giant" || type === "red-dwarf";
-      const size = isStar ? 30 + rng() * 60 : 8 + rng() * 22;
-      const dist = 150 + i * 90 + rng() * 80;
+
+    const starOptions: Array<{ type: Discovery["type"]; color: string; size: number }> = [
+      { type: "star", color: "#ffe6a0", size: 60 },
+      { type: "star", color: "#ffd070", size: 70 },
+      { type: "blue-giant", color: "#9ad0ff", size: 90 },
+      { type: "red-dwarf", color: "#ff7060", size: 35 },
+    ];
+    const star = starOptions[Math.floor(rng() * starOptions.length)];
+    this.addPlanetBody({
+      id: `s${seed}-star`, name: generateName(seed * 1000),
+      type: star.type, kind: "star",
+      size: star.size, color: star.color,
+      position: new THREE.Vector3(0, 0, 0), spin: 0.005,
+    });
+
+    const KINDS: PlanetKind[] = ["rocky", "gas", "icy", "ocean", "ringed", "lava", "barren"];
+    const TYPE_FOR_KIND: Record<PlanetKind, Discovery["type"]> = {
+      rocky: "planet", gas: "planet", icy: "planet", ocean: "planet",
+      ringed: "ringed-planet", lava: "planet", barren: "planet",
+    };
+    const PALETTE: Record<PlanetKind, { base: string; accent: string; atmo: string }> = {
+      rocky: { base: "#a86040", accent: "#5c2a18", atmo: "#ff9070" },
+      gas: { base: "#c89878", accent: "#6a3a20", atmo: "#ffd9a8" },
+      icy: { base: "#b0d0e8", accent: "#3870a0", atmo: "#a0d8ff" },
+      ocean: { base: "#1f5fc0", accent: "#3a8a3c", atmo: "#7ab8ff" },
+      ringed: { base: "#d8b478", accent: "#8a5a30", atmo: "#ffd89c" },
+      lava: { base: "#cc4020", accent: "#3a0a05", atmo: "#ff8050" },
+      barren: { base: "#888070", accent: "#403828", atmo: "#000000" },
+    };
+
+    for (let i = 1; i < count; i++) {
+      const kind = KINDS[Math.floor(rng() * KINDS.length)];
+      const dist = 220 + i * 160 + rng() * 140;
       const angle = rng() * Math.PI * 2;
-      const elev = (rng() - 0.5) * 60;
-
-      const geo = new THREE.SphereGeometry(size, 48, 32);
-      let mat: THREE.Material;
-      if (isStar) {
-        mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
-      } else {
-        const tex = makePlanetTexture(type, color, rng);
-        mat = new THREE.MeshStandardMaterial({
-          map: tex,
-          color: 0xffffff,
-          roughness: 0.92,
-          metalness: 0.02,
-        });
-      }
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(Math.cos(angle) * dist, elev, Math.sin(angle) * dist);
-      // Slow axial spin for life
-      mesh.rotation.y = rng() * Math.PI * 2;
-      (mesh as THREE.Mesh & { _spin?: number })._spin = (rng() - 0.5) * 0.05;
-
-      let flareSprite: THREE.Sprite | undefined;
-
-      if (isStar) {
-        // Soft corona
-        const coronaTex = makeRadialTexture(color, 0.9);
-        const corona = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: coronaTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
-        );
-        corona.scale.set(size * 6, size * 6, 1);
-        mesh.add(corona);
-
-        // Lens flare (cross/streak), scaled per-frame based on view alignment
-        const flareTex = makeFlareStreakTexture(color);
-        flareSprite = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: flareTex,
-            transparent: true,
-            depthWrite: false,
-            depthTest: false,
-            blending: THREE.AdditiveBlending,
-            opacity: 0,
-            fog: false,
-          }),
-        );
-        flareSprite.scale.set(size * 14, size * 14, 1);
-        flareSprite.renderOrder = 999;
-        mesh.add(flareSprite);
-
-        const light = new THREE.PointLight(new THREE.Color(color), 1.2, 600);
-        mesh.add(light);
-      } else {
-        // Atmospheric rim glow (slightly larger billboard behind the planet, additive)
-        const atmoColor = new THREE.Color(color).offsetHSL(0.02, 0.1, 0.15).getStyle();
-        const atmoTex = makeRadialTexture(atmoColor, 0.55, 1);
-        const atmo = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: atmoTex,
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-            opacity: 0.85,
-            fog: false,
-          }),
-        );
-        atmo.scale.set(size * 2.6, size * 2.6, 1);
-        mesh.add(atmo);
-
-        // Drifting cloud layer on ~55% of planets (skip ringed gas giants ~half the time)
-        const wantsClouds = rng() < (type === "ringed-planet" ? 0.3 : 0.55);
-        if (wantsClouds) {
-          const cloudTex = makeCloudTexture(rng);
-          const cloudMat = new THREE.MeshStandardMaterial({
-            map: cloudTex,
-            transparent: true,
-            depthWrite: false,
-            opacity: 0.55 + rng() * 0.25,
-            roughness: 1,
-            metalness: 0,
-          });
-          const cloudGeo = new THREE.SphereGeometry(size * 1.025, 48, 32);
-          const clouds = new THREE.Mesh(cloudGeo, cloudMat);
-          clouds.rotation.y = rng() * Math.PI * 2;
-          clouds.rotation.z = (rng() - 0.5) * 0.4;
-          (clouds as THREE.Mesh & { _cloudSpin?: number; _cloudDrift?: number })._cloudSpin =
-            (rng() - 0.5) * 0.08;
-          (clouds as THREE.Mesh & { _cloudDrift?: number })._cloudDrift = (rng() - 0.5) * 0.02;
-          mesh.add(clouds);
-          (mesh as THREE.Mesh & { _clouds?: THREE.Mesh })._clouds = clouds;
-        }
-      }
-
-      if (type === "ringed-planet") {
-        const innerR = size * (1.25 + rng() * 0.25);
-        const outerR = innerR + size * (0.6 + rng() * 1.1);
-        const ringGeom = new THREE.RingGeometry(innerR, outerR, 128, 1);
-        // Remap UVs so U runs along the radius (for banded radial texture)
-        const pos = ringGeom.attributes.position;
-        const uv = ringGeom.attributes.uv;
-        for (let v = 0; v < pos.count; v++) {
-          const x = pos.getX(v);
-          const y = pos.getY(v);
-          const r = Math.sqrt(x * x + y * y);
-          const u = (r - innerR) / (outerR - innerR);
-          const a = Math.atan2(y, x) / (Math.PI * 2) + 0.5;
-          uv.setXY(v, u, a);
-        }
-        uv.needsUpdate = true;
-        const ringTex = makeRingTexture(color, rng);
-        const ring = new THREE.Mesh(
-          ringGeom,
-          new THREE.MeshBasicMaterial({
-            map: ringTex,
-            color: 0xffffff,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.85,
-            depthWrite: false,
-            fog: false,
-          }),
-        );
-        // Per-planet tilt + slight roll for variety
-        ring.rotation.x = Math.PI / 2 - (rng() * 0.9 - 0.1);
-        ring.rotation.y = (rng() - 0.5) * 0.6;
-        ring.rotation.z = (rng() - 0.5) * 0.4;
-        mesh.add(ring);
-      }
-
-      this.scene.add(mesh);
-      const id = `s${seed}-b${i}`;
-      this.bodies.push({
-        mesh, type, size, color, id,
-        name: generateName(seed * 1000 + i),
-        scanned: false,
-        flare: flareSprite,
-        isStar,
+      const elev = (rng() - 0.5) * 80;
+      const size = kind === "gas" || kind === "ringed" ? 18 + rng() * 18 : 6 + rng() * 8;
+      const cols = PALETTE[kind];
+      this.addPlanetBody({
+        id: `s${seed}-b${i}`, name: generateName(seed * 1000 + i),
+        type: TYPE_FOR_KIND[kind], kind,
+        size, color: cols.base, accentColor: cols.accent, atmoColor: cols.atmo,
+        cloudiness: kind === "ocean" ? 0.5 : 0,
+        position: new THREE.Vector3(Math.cos(angle) * dist, elev, Math.sin(angle) * dist),
+        rings: kind === "ringed"
+          ? { inner: size * 1.4, outer: size * (2.2 + rng() * 0.6), tilt: rng() * 0.9 - 0.1 }
+          : undefined,
+        seed: seed + i * 0.7,
       });
     }
 
-    // Energy orbs
     for (let i = 0; i < 8; i++) {
       const orb = new THREE.Mesh(
         new THREE.SphereGeometry(2, 16, 12),
-        new THREE.MeshBasicMaterial({ color: 0x88ffcc })
+        new THREE.MeshBasicMaterial({ color: 0x88ffcc }),
       );
-      orb.position.set((rng() - 0.5) * 600, (rng() - 0.5) * 100, (rng() - 0.5) * 600);
+      orb.position.set((rng() - 0.5) * 1200, (rng() - 0.5) * 100, (rng() - 0.5) * 1200);
       this.scene.add(orb);
       this.orbs.push(orb);
     }

@@ -42,6 +42,7 @@ export type SceneCallbacks = {
 const TYPE_COLORS: Record<Discovery["type"], string[]> = {
   planet: ["#6aa8ff", "#a86aff", "#ffaa6a", "#88dd88", "#dd6688"],
   "ringed-planet": ["#e8c97a", "#c9a86a", "#9aa8e8"],
+  moon: ["#c8c0b4", "#9a948a", "#d8d0c0"],
   star: ["#ffe6a0", "#ffd070"],
   "blue-giant": ["#9ad0ff", "#bce0ff"],
   "red-dwarf": ["#ff7060", "#e85040"],

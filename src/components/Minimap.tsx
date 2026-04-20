@@ -43,6 +43,9 @@ export function Minimap({
   onZoomIn?: () => void;
   onZoomOut?: () => void;
 }) {
+  // Track the dot under the cursor for the hover tooltip.
+  const [hover, setHover] = useState<{ dot: MinimapDot; x: number; y: number } | null>(null);
+
   // Find nearest target dot for live distance readout
   const target = data?.dots.reduce<MinimapDot | null>((best, d) => {
     if (!d.isTarget) return best;

@@ -445,6 +445,75 @@ function CockpitControls({
           </g>
         </svg>
       </div>
+
+      {/* TOGGLE SWITCH ROW — purely cosmetic flight-deck detail above the
+          thrust lever. Each switch flips on click with a subtle LED + label. */}
+      <ToggleSwitchPanel />
+    </div>
+  );
+}
+
+/**
+ * Decorative cockpit switch row: LIGHTS / SHIELDS / SCANNER. Each toggle is
+ * a small SVG that animates between up (on) and down (off) positions and
+ * lights an LED. State is local — these don't affect gameplay.
+ */
+function ToggleSwitchPanel() {
+  const [switches, setSwitches] = useState<Record<string, boolean>>({
+    LIGHTS: true,
+    SHIELDS: true,
+    SCANNER: true,
+  });
+  const labels = ["LIGHTS", "SHIELDS", "SCANNER"] as const;
+  const ledColor: Record<(typeof labels)[number], string> = {
+    LIGHTS: "#22d3ee",
+    SHIELDS: "#a78bfa",
+    SCANNER: "#fbbf24",
+  };
+
+  return (
+    <div
+      className="pointer-events-auto absolute bottom-[150px] left-1/2 flex gap-3 hud-panel rounded-md px-3 py-2"
+      style={{ transform: "translateX(90px)" }}
+      aria-label="Cockpit toggle switches"
+    >
+      {labels.map((label) => {
+        const on = switches[label];
+        return (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setSwitches((s) => ({ ...s, [label]: !s[label] }))}
+            className="flex flex-col items-center gap-1 px-1 outline-none"
+            aria-pressed={on}
+            aria-label={`${label} ${on ? "on" : "off"}`}
+          >
+            <svg width="22" height="40" viewBox="0 0 22 40" className="text-hud">
+              {/* Switch frame */}
+              <rect x="3" y="4" width="16" height="32" rx="3" fill="#0a1118" stroke="currentColor" strokeOpacity="0.6" />
+              {/* Up/Down notch markers */}
+              <line x1="6" y1="9" x2="16" y2="9" stroke="currentColor" strokeOpacity="0.3" />
+              <line x1="6" y1="31" x2="16" y2="31" stroke="currentColor" strokeOpacity="0.3" />
+              {/* Toggle bat — slides between top (on) and bottom (off) */}
+              <g
+                style={{
+                  transform: on ? "translateY(0px)" : "translateY(14px)",
+                  transition: "transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                }}
+              >
+                <rect x="8" y="8" width="6" height="14" rx="2" fill="#1a2532" stroke="currentColor" strokeOpacity="0.85" />
+                <circle cx="11" cy="10" r="1.6" fill={on ? ledColor[label] : "currentColor"} opacity={on ? 1 : 0.35} />
+              </g>
+            </svg>
+            <span
+              className="text-[8px] tracking-[0.15em]"
+              style={{ color: on ? ledColor[label] : "var(--hud-dim)" }}
+            >
+              {label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

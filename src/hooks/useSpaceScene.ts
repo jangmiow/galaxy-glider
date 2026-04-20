@@ -78,7 +78,14 @@ export function useSpaceScene(
         });
         setTimeout(() => setHud((s) => ({ ...s, lastDiscovery: null })), 2500);
       },
-      onScanProgress: (info) => setHud((s) => ({ ...s, scanning: info })),
+      onScanProgress: (info) =>
+        setHud((s) => {
+          // Fire a one-shot chirp the moment progress crosses into LOCKED.
+          const wasLocked = (s.scanning?.progress ?? 0) >= 0.999;
+          const isLocked = (info?.progress ?? 0) >= 0.999;
+          if (isLocked && !wasLocked) audio.lockChirp();
+          return { ...s, scanning: info };
+        }),
       onOrbCollected: () => {
         audio.orbPing();
         setHud((s) => {

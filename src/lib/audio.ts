@@ -190,6 +190,28 @@ export class CockpitAudio {
     });
   }
 
+  /** Subtle confirming chirp when a scan locks on. Two quick ascending sine
+   *  blips kept lower in level than discoveryBeep so it reads as "lock", not "found". */
+  lockChirp() {
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    const now = ctx.currentTime;
+    const tones = [1100, 1650];
+    tones.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const g = ctx.createGain();
+      const start = now + i * 0.05;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.09, start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      osc.connect(g).connect(this.master!);
+      osc.start(start);
+      osc.stop(start + 0.2);
+    });
+  }
+
   /** Tiny pickup tick for orbs. */
   orbPing() {
     const ctx = this.ensure();

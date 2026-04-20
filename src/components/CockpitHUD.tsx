@@ -218,3 +218,99 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
     </div>
   );
 }
+
+/**
+ * Centered cockpit reticle. When `scanning` is null we render the idle
+ * crosshair; when a target is being scanned we light up corner brackets,
+ * draw a circular progress ring (clockwise fill via stroke-dashoffset),
+ * and label the target underneath.
+ */
+function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
+  const active = scanning != null;
+  const progress = scanning?.progress ?? 0;
+  // Ring geometry — circumference drives the dashoffset for a clockwise fill.
+  const R = 36;
+  const C = 2 * Math.PI * R;
+  const dashOffset = C * (1 - progress);
+  const locked = progress >= 0.999;
+
+  return (
+    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <svg
+        width="100"
+        height="100"
+        viewBox="0 0 100 100"
+        className={active ? "text-amber" : "text-hud opacity-60"}
+      >
+        {/* Idle dashed ring (always present, dims when active) */}
+        <circle
+          cx="50"
+          cy="50"
+          r="28"
+          stroke="currentColor"
+          strokeWidth="1"
+          fill="none"
+          strokeDasharray="2 4"
+          opacity={active ? 0.25 : 1}
+        />
+        {/* Center dot */}
+        <circle cx="50" cy="50" r="2" fill="currentColor" />
+        {/* Idle crosshair tick marks */}
+        <line x1="50" y1="14" x2="50" y2="22" stroke="currentColor" strokeWidth="1" />
+        <line x1="50" y1="78" x2="50" y2="86" stroke="currentColor" strokeWidth="1" />
+        <line x1="14" y1="50" x2="22" y2="50" stroke="currentColor" strokeWidth="1" />
+        <line x1="78" y1="50" x2="86" y2="50" stroke="currentColor" strokeWidth="1" />
+
+        {active && (
+          <>
+            {/* Progress track */}
+            <circle
+              cx="50"
+              cy="50"
+              r={R}
+              stroke="currentColor"
+              strokeOpacity="0.2"
+              strokeWidth="2"
+              fill="none"
+            />
+            {/* Progress ring — rotate -90deg so it starts at 12 o'clock */}
+            <circle
+              cx="50"
+              cy="50"
+              r={R}
+              stroke="currentColor"
+              strokeWidth="2.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={C}
+              strokeDashoffset={dashOffset}
+              transform="rotate(-90 50 50)"
+              style={{ transition: "stroke-dashoffset 80ms linear" }}
+            />
+            {/* Corner lock brackets */}
+            {[
+              "M14,26 L14,14 L26,14",
+              "M74,14 L86,14 L86,26",
+              "M86,74 L86,86 L74,86",
+              "M26,86 L14,86 L14,74",
+            ].map((d) => (
+              <path key={d} d={d} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
+            ))}
+          </>
+        )}
+      </svg>
+      {active && (
+        <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-center">
+          <div className="text-[10px] tracking-widest text-hud-dim">
+            {locked ? "LOCKED" : "SCANNING"}
+          </div>
+          <div
+            className={`text-sm tracking-wider ${locked ? "text-amber hud-glow scan-pulse" : "text-amber"}`}
+          >
+            {scanning?.name}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

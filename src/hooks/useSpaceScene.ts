@@ -52,6 +52,7 @@ export function useSpaceScene(
     lastDiscovery: null,
     showHints: true,
     medal: null,
+    boost: false,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;

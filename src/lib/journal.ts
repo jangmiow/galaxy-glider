@@ -1,7 +1,7 @@
 export type Discovery = {
   id: string;
   name: string;
-  type: "planet" | "ringed-planet" | "star" | "blue-giant" | "red-dwarf";
+  type: "planet" | "ringed-planet" | "moon" | "star" | "blue-giant" | "red-dwarf";
   size: number;
   color: string;
   distance: number;

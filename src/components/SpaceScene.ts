@@ -658,32 +658,32 @@ export class SpaceScene {
 
     const planets: Array<Parameters<SpaceScene["addPlanetBody"]>[0]> = [
       { id: "sol-mercury", name: "Mercury", type: "planet", kind: "barren",
-        size: 4, color: "#9a8b7a", accentColor: "#5c4f44",
-        position: new THREE.Vector3(180, 0, 0), seed: 1.1 },
+        size: 6, color: "#9a8b7a", accentColor: "#5c4f44",
+        position: new THREE.Vector3(270, 0, 0), seed: 1.1 },
       { id: "sol-venus", name: "Venus", type: "planet", kind: "lava",
-        size: 7, color: "#d9a460", accentColor: "#7c5828", atmoColor: "#ffd089",
-        position: new THREE.Vector3(0, 4, 240), seed: 2.2 },
+        size: 10, color: "#d9a460", accentColor: "#7c5828", atmoColor: "#ffd089",
+        position: new THREE.Vector3(0, 6, 360), seed: 2.2 },
       { id: "sol-earth", name: "Earth", type: "planet", kind: "ocean",
-        size: 7.5, color: "#1c5cb8", accentColor: "#3a8a3c", atmoColor: "#7ab8ff",
+        size: 11, color: "#1c5cb8", accentColor: "#3a8a3c", atmoColor: "#7ab8ff",
         cloudiness: 0.6,
-        position: new THREE.Vector3(-310, -2, 80), seed: 3.3 },
+        position: new THREE.Vector3(-465, -3, 120), seed: 3.3 },
       { id: "sol-mars", name: "Mars", type: "planet", kind: "rocky",
-        size: 5.5, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
+        size: 8, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
         cloudiness: 0.25,
-        position: new THREE.Vector3(120, 8, -340), seed: 4.4 },
+        position: new THREE.Vector3(180, 12, -510), seed: 4.4 },
       { id: "sol-jupiter", name: "Jupiter", type: "planet", kind: "gas",
-        size: 28, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",
-        position: new THREE.Vector3(-480, 0, -380), seed: 5.5 },
+        size: 40, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",
+        position: new THREE.Vector3(-720, 0, -570), seed: 5.5 },
       { id: "sol-saturn", name: "Saturn", type: "ringed-planet", kind: "ringed",
-        size: 24, color: "#e0c084", accentColor: "#9a7438", atmoColor: "#ffe6b0",
-        position: new THREE.Vector3(620, -10, 220),
-        rings: { inner: 38, outer: 70, tilt: 0.45, color: "#d8c89c" }, seed: 6.6 },
+        size: 34, color: "#e0c084", accentColor: "#9a7438", atmoColor: "#ffe6b0",
+        position: new THREE.Vector3(930, -15, 330),
+        rings: { inner: 54, outer: 100, tilt: 0.45, color: "#d8c89c" }, seed: 6.6 },
       { id: "sol-uranus", name: "Uranus", type: "planet", kind: "icy",
-        size: 14, color: "#a8e0e0", accentColor: "#5cb0c0", atmoColor: "#cdf0ff",
-        position: new THREE.Vector3(-720, 30, 540), seed: 7.7 },
+        size: 20, color: "#a8e0e0", accentColor: "#5cb0c0", atmoColor: "#cdf0ff",
+        position: new THREE.Vector3(-1080, 45, 810), seed: 7.7 },
       { id: "sol-neptune", name: "Neptune", type: "planet", kind: "icy",
-        size: 13.5, color: "#3859d8", accentColor: "#1d2c80", atmoColor: "#7090ff",
-        position: new THREE.Vector3(820, -40, -680), seed: 8.8 },
+        size: 19, color: "#3859d8", accentColor: "#1d2c80", atmoColor: "#7090ff",
+        position: new THREE.Vector3(1230, -60, -1020), seed: 8.8 },
     ];
     for (const p of planets) this.addPlanetBody(p);
 
@@ -773,10 +773,10 @@ export class SpaceScene {
 
     for (let i = 1; i < count; i++) {
       const kind = KINDS[Math.floor(rng() * KINDS.length)];
-      const dist = 220 + i * 160 + rng() * 140;
+      const dist = 330 + i * 240 + rng() * 200;
       const angle = rng() * Math.PI * 2;
-      const elev = (rng() - 0.5) * 80;
-      const size = kind === "gas" || kind === "ringed" ? 18 + rng() * 18 : 6 + rng() * 8;
+      const elev = (rng() - 0.5) * 120;
+      const size = kind === "gas" || kind === "ringed" ? 26 + rng() * 24 : 9 + rng() * 11;
       const cols = PALETTE[kind];
       this.addPlanetBody({
         id: `s${seed}-b${i}`, name: generateName(seed * 1000 + i),
@@ -1028,6 +1028,29 @@ export class SpaceScene {
     // Move ship along its forward (-Z)
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
     this.ship.position.addScaledVector(forward, this.velocity * dt);
+
+    // Planet collision: if the ship enters a body's "hull" radius, push it out
+    // along the surface normal so it slides around the atmosphere instead of
+    // tunneling through. Skipped during warp so jumps aren't snagged.
+    if (!this.isWarping) {
+      const pushOut = new THREE.Vector3();
+      for (const b of this.bodies) {
+        // Atmospheric buffer: stars get a wider exclusion (corona), planets a
+        // small skin above the surface so you can graze the edge.
+        const buffer = b.isStar ? b.size * 1.4 : b.size * 1.08;
+        pushOut.copy(this.ship.position).sub(b.mesh.position);
+        const d = pushOut.length();
+        if (d > 0 && d < buffer) {
+          pushOut.multiplyScalar(buffer / d);
+          this.ship.position.copy(b.mesh.position).add(pushOut);
+          // Cancel inward velocity component so we slide tangentially rather
+          // than grinding into the surface.
+          const normal = pushOut.normalize();
+          const inward = forward.dot(normal);
+          if (inward < 0) this.velocity *= 0.6;
+        }
+      }
+    }
 
     // Warp charging
     if (!this.isWarping && this.warpCharge < 1) {

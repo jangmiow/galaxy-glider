@@ -89,6 +89,12 @@ export function useSpaceScene(
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
   const [muted, setMutedState] = useState(false);
 
+  // Tracks recently scanned body names → expiry timestamp (ms). The minimap
+  // pulses any dot whose name is still in this map, drawing the eye to the
+  // freshly catalogued waypoint for a few seconds.
+  const freshlyScannedRef = useRef<Map<string, number>>(new Map());
+  const FRESH_DURATION_MS = 4800;
+
   // Stable ref to adjustRange so the keydown handler doesn't re-bind when the
   // setter identity changes between renders.
   const adjustRangeRef = useRef(adjustRange);

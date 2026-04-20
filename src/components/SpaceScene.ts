@@ -192,6 +192,7 @@ export class SpaceScene {
   orbs: THREE.Mesh[] = [];
   starField!: THREE.Points;
   warpStars!: THREE.Points;
+  dustField!: THREE.Points;
 
   velocity = 0;
   thrust = 0;
@@ -244,6 +245,7 @@ export class SpaceScene {
 
     this.buildStarfield();
     this.buildWarpField();
+    this.buildDustField();
     this.buildNebulae();
     this.buildSolSystem();
 
@@ -321,15 +323,49 @@ export class SpaceScene {
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i*3] = (Math.random() - 0.5) * 200;
-      pos[i*3+1] = (Math.random() - 0.5) * 200;
-      pos[i*3+2] = -Math.random() * 800;
+      pos[i * 3 + 0] = (Math.random() - 0.5) * 200;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 200;
+      pos[i * 3 + 2] = -Math.random() * 800;
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.PointsMaterial({ color: 0xaaddff, size: 2, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.warpStars = new THREE.Points(geo, mat);
     this.warpStars.visible = false;
     this.camera.add(this.warpStars);
+  }
+
+  /**
+   * Cockpit-relative dust particles. They live in camera space inside a small box
+   * around the ship and are recycled when they exit the volume. The update loop
+   * streaks them backward proportional to current velocity for a parallax feel.
+   */
+  buildDustField() {
+    const count = 600;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    const HALF_X = 120;
+    const HALF_Y = 80;
+    const Z_NEAR = -260; // ahead of camera
+    const Z_FAR = 40;    // slightly behind
+    for (let i = 0; i < count; i++) {
+      pos[i * 3 + 0] = (Math.random() - 0.5) * HALF_X * 2;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * HALF_Y * 2;
+      pos[i * 3 + 2] = Z_NEAR + Math.random() * (Z_FAR - Z_NEAR);
+    }
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xbcd4ff,
+      size: 1.1,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+      fog: false,
+    });
+    this.dustField = new THREE.Points(geo, mat);
+    this.dustField.frustumCulled = false;
+    this.camera.add(this.dustField);
   }
 
   buildNebulae() {
@@ -901,6 +937,39 @@ export class SpaceScene {
 
     // Keep starfield centered around ship for parallax illusion
     this.starField.position.copy(this.ship.position);
+
+    // Cockpit dust streaks: drift toward the camera based on current velocity.
+    // Particles live in camera-local space, so we just push +Z (toward viewer)
+    // and recycle when they pass behind. Opacity/size scale with speed so the
+    // effect is invisible at rest and pronounced at boost.
+    {
+      const speed = Math.abs(this.velocity);
+      const speedNorm = Math.min(1, speed / 150); // 0..1 across normal flight
+      const dustMat = this.dustField.material as THREE.PointsMaterial;
+      // Hide entirely during warp (warp field takes over) and when nearly stationary.
+      const targetOpacity = this.isWarping ? 0 : 0.55 * speedNorm;
+      dustMat.opacity += (targetOpacity - dustMat.opacity) * Math.min(1, dt * 6);
+      dustMat.size = 0.9 + speedNorm * 1.6;
+
+      if (dustMat.opacity > 0.01) {
+        const positions = this.dustField.geometry.attributes.position as THREE.BufferAttribute;
+        const drift = 30 + speed * 1.4; // units/sec backward in camera space
+        const HALF_X = 120;
+        const HALF_Y = 80;
+        const Z_NEAR = -260;
+        const Z_FAR = 40;
+        for (let i = 0; i < positions.count; i++) {
+          let z = positions.getZ(i) + drift * dt;
+          if (z > Z_FAR) {
+            z = Z_NEAR;
+            positions.setX(i, (Math.random() - 0.5) * HALF_X * 2);
+            positions.setY(i, (Math.random() - 0.5) * HALF_Y * 2);
+          }
+          positions.setZ(i, z);
+        }
+        positions.needsUpdate = true;
+      }
+    }
 
     // Planet spin + shader uniform tick + lens flare alignment.
     // Sun source for shading: the first star body in the scene (Sol or generated star).

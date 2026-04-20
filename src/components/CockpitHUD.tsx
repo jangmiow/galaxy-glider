@@ -164,16 +164,8 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         </svg>
       </div>
 
-      {/* Scanning indicator */}
-      {state.scanning && (
-        <div className="absolute left-1/2 top-1/3 -translate-x-1/2 hud-panel rounded-md px-6 py-3 text-center">
-          <div className="text-xs text-hud-dim">SCANNING</div>
-          <div className="mt-1 text-lg text-hud hud-glow">{state.scanning.name}</div>
-          <div className="mt-2 h-1 w-48 rounded bg-hud/10">
-            <div className="h-full rounded bg-hud" style={{ width: `${state.scanning.progress * 100}%` }} />
-          </div>
-        </div>
-      )}
+      {/* Scanning state is shown in the central LockOnReticle above; no
+          duplicate panel needed here. */}
 
       {/* New discovery flash */}
       {state.lastDiscovery && (

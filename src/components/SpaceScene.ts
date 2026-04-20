@@ -833,22 +833,40 @@ export class SpaceScene {
       }
     }
 
-    // Discoveries: scan nearby bodies
-    let scanning: { body: Body; dist: number } | null = null;
+    // Discoveries: lock-on scan. Hold the body within the aim cone for 4s.
+    const SCAN_HOLD = 4; // seconds
+    const AIM_COS = Math.cos((6 * Math.PI) / 180); // ~6° cone half-angle
+    const MAX_LOCK_RANGE = 2000;
+    const aimForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
+    const toBody = new THREE.Vector3();
+    let scanning: { body: Body; progress: number } | null = null;
     for (const b of this.bodies) {
       if (b.scanned) continue;
-      const d = b.mesh.position.distanceTo(this.ship.position);
-      const scanRange = b.size * 6 + 40;
-      if (d < scanRange) {
-        if (!scanning || d < scanning.dist) scanning = { body: b, dist: d };
+      toBody.copy(b.mesh.position).sub(this.ship.position);
+      const dist = toBody.length();
+      if (dist > MAX_LOCK_RANGE) {
+        b.aimTime = 0;
+        continue;
+      }
+      toBody.divideScalar(dist || 1);
+      // Effective cone widens slightly for larger bodies (angular radius).
+      const angularRadius = Math.min(0.2, b.size / Math.max(dist, 1));
+      const aligned = aimForward.dot(toBody) >= AIM_COS - angularRadius;
+      if (aligned) {
+        b.aimTime = (b.aimTime ?? 0) + dt;
+        const progress = Math.min(1, b.aimTime / SCAN_HOLD);
+        if (!scanning || progress > scanning.progress) {
+          scanning = { body: b, progress };
+        }
+      } else {
+        // Decay so brief glances don't accumulate forever.
+        b.aimTime = Math.max(0, (b.aimTime ?? 0) - dt * 2);
       }
     }
     if (scanning) {
       const b = scanning.body;
-      const range = b.size * 6 + 40;
-      const progress = Math.max(0, Math.min(1, 1 - scanning.dist / range));
-      this.callbacks.onScanProgress({ name: b.name, progress });
-      if (progress > 0.85) {
+      this.callbacks.onScanProgress({ name: b.name, progress: scanning.progress });
+      if (scanning.progress >= 1) {
         b.scanned = true;
         const discovery: Discovery = {
           id: b.id,

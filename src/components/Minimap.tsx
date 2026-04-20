@@ -101,7 +101,7 @@ export function Minimap({
           const py = R + d.z * (R - 6);
           const color = KIND_COLOR[d.kind];
           const isStar = d.kind === "star" || d.kind === "blue-giant" || d.kind === "red-dwarf";
-          const baseR = isStar ? 3 : d.kind === "orb" ? 1.5 : 2.5;
+          const baseR = isStar ? 3 : d.kind === "orb" ? 1.5 : d.kind === "moon" ? 1.4 : 2.5;
           const opacity = d.scanned ? 0.4 : 1;
           return (
             <g key={i}>

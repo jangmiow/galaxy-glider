@@ -1,3 +1,5 @@
+import { getActivePilotId, pilotKey } from "./pilots";
+
 export type Discovery = {
   id: string;
   name: string;
@@ -8,12 +10,21 @@ export type Discovery = {
   discoveredAt: number;
 };
 
-const KEY = "cosmic-drift:journal";
+/**
+ * Journal storage is scoped per-pilot via the active pilot id from
+ * `lib/pilots`. If no pilot is active we fall back to a shared "guest" key
+ * so the game still functions (e.g. opening /play without picking a pilot
+ * doesn't crash).
+ */
+function journalKey(): string {
+  const id = getActivePilotId();
+  return id ? pilotKey(id, "journal") : "cosmic-drift:journal:guest";
+}
 
 export function loadJournal(): Discovery[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(journalKey());
     return raw ? (JSON.parse(raw) as Discovery[]) : [];
   } catch {
     return [];
@@ -24,12 +35,12 @@ export function saveDiscovery(d: Discovery): Discovery[] {
   const list = loadJournal();
   if (list.some((x) => x.id === d.id)) return list;
   const next = [d, ...list].slice(0, 200);
-  localStorage.setItem(KEY, JSON.stringify(next));
+  localStorage.setItem(journalKey(), JSON.stringify(next));
   return next;
 }
 
 export function clearJournal() {
-  localStorage.removeItem(KEY);
+  localStorage.removeItem(journalKey());
 }
 
 const PREFIXES = ["Kepler", "Nyx", "Vega", "Orion", "Lyra", "Cygnus", "Helios", "Astra", "Zenith", "Nova", "Eos", "Pyxis"];

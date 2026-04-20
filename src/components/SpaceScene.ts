@@ -484,7 +484,10 @@ export class SpaceScene {
           break;
         case "rocky":
         default:
-          shaderMat = makeRockyMaterial({ base: config.color, accent, atmo, seed });
+          shaderMat = makeRockyMaterial({
+            base: config.color, accent, atmo, seed,
+            cloudiness: config.cloudiness,
+          });
       }
       mat = shaderMat;
     }

@@ -370,9 +370,11 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
 function CockpitControls({
   yoke,
   thrust,
+  boost,
 }: {
   yoke: { pitch: number; yaw: number };
   thrust: number;
+  boost: boolean;
 }) {
   // Map ship rotation (radians) into yoke deflection. Steering uses small
   // angles in normal flight, so a generous multiplier keeps the yoke visibly

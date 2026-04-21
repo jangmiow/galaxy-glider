@@ -293,6 +293,16 @@ export function useSpaceScene(
             description: target ? `Locking ${target.name} · ${target.dist.toFixed(0)}u` : "No target in range",
             duration: 1500,
           });
+        } else if (e.code === "KeyF") {
+          // Cinematic frame-target: smoothly tween to face the nearest
+          // unscanned body over ~1.2s. Pairs with T (snap) for two flavors.
+          const target = scene.frameNearestBody();
+          if (target) {
+            toast("FRAMING TARGET", {
+              description: `${target.name} · ${target.dist.toFixed(0)}u`,
+              duration: 1500,
+            });
+          }
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));

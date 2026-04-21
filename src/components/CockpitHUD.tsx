@@ -32,6 +32,8 @@ export type HUDState = {
   boostRemaining: number;
   /** 0..1 progress of the hold-Space-to-warp gesture (1 = warp engages). */
   warpHoldProgress: number;
+  /** Closeness (0..1) and atmosphere color of the nearest body, if any. */
+  proximity: { closeness: number; color: string } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -239,6 +241,18 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         <div className="absolute inset-0 flex items-center justify-center bg-hud/10">
           <div className="font-display text-6xl text-hud hud-glow scan-pulse">LIGHTSPEED</div>
         </div>
+      )}
+
+      {/* Proximity vignette: tints the screen edges with the nearest body's
+          atmosphere color when the ship is within ~6× its radius. */}
+      {state.proximity && state.proximity.closeness > 0.05 && (
+        <div
+          className="proximity-vignette"
+          style={{
+            opacity: Math.min(0.85, state.proximity.closeness * 0.9),
+            background: `radial-gradient(ellipse at center, transparent 40%, ${state.proximity.color}55 80%, ${state.proximity.color}cc 100%)`,
+          }}
+        />
       )}
 
       {/* System-completion medal — pops when every body in a star system is scanned. */}

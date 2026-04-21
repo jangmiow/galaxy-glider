@@ -75,6 +75,7 @@ export function useSpaceScene(
     boostDuration: 2,
     boostRemaining: 0,
     warpHoldProgress: 0,
+    proximity: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;

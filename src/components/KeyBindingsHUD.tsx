@@ -62,6 +62,19 @@ export function KeyBindingsHUD() {
           </div>
         </div>
 
+        {/* Cinematic framing: Q/E roll, F to frame nearest body */}
+        <div className="mb-2 flex items-center gap-3">
+          <div className="flex gap-1">
+            <Key label="Q" active={isDown("KeyQ")} />
+            <Key label="E" active={isDown("KeyE")} />
+            <Key label="F" active={isDown("KeyF")} />
+          </div>
+          <div className="text-hud/60 leading-tight">
+            <div>Q/E · ROLL</div>
+            <div>F · FRAME TARGET</div>
+          </div>
+        </div>
+
         {/* Boost / Warp on the spacebar */}
         <div className="flex items-center gap-3">
           <Key label="SPACE" wide active={isDown("Space")} />

@@ -229,4 +229,16 @@
       0 0 40px color-mix(in oklab, var(--amber) 50%, transparent),
       0 0 80px color-mix(in oklab, var(--amber) 25%, transparent);
   }
+
+  /* Proximity vignette: fades in when the ship is close to a planet, tinting
+     the screen edges with the body's atmosphere color. Driven inline from HUD
+     state — opacity + background are set per-frame on the element. */
+  .proximity-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    transition: opacity 200ms ease-out;
+    will-change: opacity;
+  }
 }

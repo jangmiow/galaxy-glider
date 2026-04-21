@@ -375,7 +375,7 @@ export function CockpitHUD({
                 <li><span className="text-hud">SHIFT</span> · sustained afterburner</li>
                 <li><span className="text-hud">SPACE (tap)</span> · 2-second boost burst <span className="text-hud-dim">(1s cooldown)</span></li>
                 <li><span className="text-hud">SPACE (hold 1s)</span> · engage lightspeed (10s, jumps systems)</li>
-                <li><span className="text-hud">F / G / H</span> · frame · approach · flyby</li>
+                <li><span className="text-hud">F / G / H</span> · frame · approach · flyby · <span className="text-hud">X</span> abort</li>
                 <li><span className="text-hud">[ ]</span> alt · <span className="text-hud">; '</span> offset · <span className="text-hud">, .</span> duration</li>
                 <li><span className="text-hud">+ / −</span> · minimap zoom</li>
                 <li><span className="text-hud">ESC</span> · pause / resume</li>

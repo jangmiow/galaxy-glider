@@ -62,7 +62,7 @@ export function KeyBindingsHUD() {
           </div>
         </div>
 
-        {/* Cinematic framing: Q/E roll, F frame, G approach autopilot */}
+        {/* Cinematic framing: Q/E roll, F frame, G approach, H flyby, X abort */}
         <div className="mb-2 flex items-center gap-3">
           <div className="flex gap-1">
             <Key label="Q" active={isDown("KeyQ")} />
@@ -70,10 +70,11 @@ export function KeyBindingsHUD() {
             <Key label="F" active={isDown("KeyF")} />
             <Key label="G" active={isDown("KeyG")} />
             <Key label="H" active={isDown("KeyH")} />
+            <Key label="X" active={isDown("KeyX")} />
           </div>
           <div className="text-hud/60 leading-tight">
-            <div>Q/E · ROLL · F · FRAME</div>
-            <div>G · APPROACH · H · FLYBY</div>
+            <div>Q/E ROLL · F FRAME</div>
+            <div>G APPR · H FLY · X ABORT</div>
           </div>
         </div>
 

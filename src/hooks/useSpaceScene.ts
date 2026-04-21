@@ -38,6 +38,8 @@ export type CockpitController = {
   toggleApproach: () => void;
   /** Toggle the cinematic flyby autopilot. */
   toggleFlyby: () => void;
+  /** Universal autopilot abort — kills approach + flyby in one call. */
+  abortAutopilot: () => void;
   /** Read current flyby tuning (for the settings panel). */
   getFlybyConfig: () => { altitudeMul: number; offsetMul: number; durationMul: number };
   /** Update flyby tuning (applied to the next engagement). */
@@ -355,6 +357,19 @@ export function useSpaceScene(
               toast("FLYBY UNAVAILABLE", { description: "No body in range" });
             }
           }
+        } else if (e.code === "KeyX") {
+          // Universal autopilot abort — kills whichever autopilot is active
+          // without any side effects on manual flight controls.
+          const wasFlyby = scene.flyby.active;
+          const wasApproach = scene.approach.active;
+          if (wasFlyby) scene.disengageFlyby();
+          if (wasApproach) scene.disengageApproach();
+          if (wasFlyby || wasApproach) {
+            toast("AUTOPILOT ABORTED", {
+              description: wasFlyby && wasApproach ? "all systems disengaged" : wasFlyby ? "flyby disengaged" : "approach disengaged",
+              duration: 1200,
+            });
+          }
         } else if (
           e.code === "BracketLeft" || e.code === "BracketRight" ||
           e.code === "Semicolon" || e.code === "Quote" ||
@@ -643,6 +658,23 @@ export function useSpaceScene(
     [],
   );
 
+  const abortAutopilot = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const wasFlyby = scene.flyby.active;
+    const wasApproach = scene.approach.active;
+    if (wasFlyby) scene.disengageFlyby();
+    if (wasApproach) scene.disengageApproach();
+    if (wasFlyby || wasApproach) {
+      toast("AUTOPILOT ABORTED", {
+        description: wasFlyby && wasApproach
+          ? "all systems disengaged"
+          : wasFlyby ? "flyby disengaged" : "approach disengaged",
+        duration: 1200,
+      });
+    }
+  }, []);
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -654,6 +686,7 @@ export function useSpaceScene(
     muted,
     toggleApproach,
     toggleFlyby,
+    abortAutopilot,
     getFlybyConfig,
     setFlybyConfig,
   };

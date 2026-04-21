@@ -96,6 +96,7 @@ function Play() {
           onPause={controller.togglePause}
           onApproach={controller.toggleApproach}
           onFlyby={controller.toggleFlyby}
+          onAbort={controller.abortAutopilot}
         />
       )}
     </div>

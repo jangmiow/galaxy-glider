@@ -8,12 +8,13 @@ type Props = {
   onPause: () => void;
   onApproach: () => void;
   onFlyby: () => void;
+  onAbort: () => void;
   warpReady: boolean;
   approachActive: boolean;
   flybyActive: boolean;
 };
 
-export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, onFlyby, warpReady, approachActive, flybyActive }: Props) {
+export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, onFlyby, onAbort, warpReady, approachActive, flybyActive }: Props) {
   const padRef = useRef<HTMLDivElement | null>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const activeId = useRef<number | null>(null);
@@ -161,6 +162,15 @@ export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, on
         >
           FLY
         </button>
+        {(approachActive || flybyActive) && (
+          <button
+            onClick={onAbort}
+            className="rounded-md border border-destructive/70 bg-destructive/20 px-4 py-2 font-display text-[11px] tracking-widest text-destructive backdrop-blur-sm hover:bg-destructive/30 active:scale-95"
+            aria-label="Abort all autopilots"
+          >
+            ABORT
+          </button>
+        )}
         <button
           onClick={onBoost}
           className="rounded-md border border-hud/60 bg-hud/10 px-4 py-2 font-display text-[11px] tracking-widest text-hud backdrop-blur-sm hover:bg-hud/20 active:scale-95"

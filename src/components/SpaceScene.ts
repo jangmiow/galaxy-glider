@@ -951,13 +951,13 @@ export class SpaceScene {
   frameNearestBody() {
     const MAX = 2500;
     const MIN = 50;
-    let best: { dist: number; pos: THREE.Vector3; name: string } | null = null;
+    let best: { dist: number; pos: THREE.Vector3; name: string; id: string } | null = null;
     for (const b of this.bodies) {
       if (b.scanned || b.isStar) continue;
       const d = b.mesh.position.distanceTo(this.ship.position);
       if (d > MAX || d < MIN + b.size) continue;
       if (!best || d < best.dist) {
-        best = { dist: d, pos: b.mesh.position.clone(), name: b.name };
+        best = { dist: d, pos: b.mesh.position.clone(), name: b.name, id: b.id };
       }
     }
     if (!best) return null;
@@ -970,6 +970,8 @@ export class SpaceScene {
       to,
       elapsed: 0,
       duration: 1.2,
+      targetId: best.id,
+      targetName: best.name,
     };
     this.mouseX = 0;
     this.mouseY = 0;

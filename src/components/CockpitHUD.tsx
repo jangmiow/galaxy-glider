@@ -118,7 +118,7 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
       {/* Crosshair / lock-on reticle. Idle: subtle dashed ring + tick marks.
           Scanning: corner brackets light up amber, a circular progress ring
           fills clockwise around the center, and the target name appears below. */}
-      <LockOnReticle scanning={state.scanning} />
+      <LockOnReticle scanning={state.scanning} warpHoldProgress={state.warpHoldProgress} />
 
       {/* Top-left: status */}
       <div className="absolute left-6 top-6 hud-panel rounded-md px-4 py-3 text-xs">
@@ -381,7 +381,20 @@ function BoostIndicator({
  * draw a circular progress ring (clockwise fill via stroke-dashoffset),
  * and label the target underneath.
  */
-function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
+function LockOnReticle({
+  scanning,
+  warpHoldProgress,
+}: {
+  scanning: HUDState["scanning"];
+  warpHoldProgress: number;
+}) {
+  // Outer "charging" ring shown while the pilot holds Space toward warp.
+  // Lives outside the scan reticle (r=44) so it never collides visually.
+  const WR = 44;
+  const WC = 2 * Math.PI * WR;
+  const charging = warpHoldProgress > 0.01;
+  const warpReady = warpHoldProgress >= 0.999;
+  const warpDashOffset = WC * (1 - Math.min(1, warpHoldProgress));
   const active = scanning != null;
   const alreadyScanned = scanning?.alreadyScanned === true;
   const progress = scanning?.progress ?? 0;
@@ -415,6 +428,49 @@ function LockOnReticle({ scanning }: { scanning: HUDState["scanning"] }) {
   return (
     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
       <svg width="100" height="100" viewBox="0 0 100 100" className={themeClass}>
+        {/* Warp hold-charge ring — sits outside the scan reticle and fills
+            clockwise as the pilot holds Space. Flashes amber on lock. */}
+        {charging && (
+          <g className={warpReady ? "text-amber" : "text-hud"}>
+            <circle
+              cx="50"
+              cy="50"
+              r={WR}
+              stroke="currentColor"
+              strokeOpacity="0.18"
+              strokeWidth="1.5"
+              fill="none"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r={WR}
+              stroke="currentColor"
+              strokeWidth={warpReady ? 3 : 2}
+              strokeLinecap="round"
+              fill="none"
+              strokeDasharray={WC}
+              strokeDashoffset={warpDashOffset}
+              transform="rotate(-90 50 50)"
+              className={warpReady ? "hud-glow" : ""}
+              style={{ transition: "stroke-dashoffset 60ms linear" }}
+              opacity={0.95}
+            />
+            {/* Tiny "WARP" label below the reticle while charging. */}
+            <text
+              x="50"
+              y="100"
+              textAnchor="middle"
+              fontSize="6"
+              letterSpacing="2"
+              fill="currentColor"
+              opacity={warpReady ? 1 : 0.8}
+              className={warpReady ? "scan-pulse" : ""}
+            >
+              {warpReady ? "ENGAGE" : "WARP…"}
+            </text>
+          </g>
+        )}
         {/* Idle dashed ring (always present, dims when active) */}
         <circle
           cx="50"

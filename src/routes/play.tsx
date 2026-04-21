@@ -41,7 +41,20 @@ function Play() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair" />
+      {/* Canvas + boost FX layer. The wrapper handles screen-shake so HUD
+          chrome (minimap, panels) stays steady while the world jitters. */}
+      <div className={`absolute inset-0 ${hud.boostBurst ? "boost-shake" : ""}`}>
+        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair" />
+        {hud.boostBurst && (
+          <>
+            {/* Chromatic aberration: red on the left edge, cyan on the right. */}
+            <div className="ca-overlay ca-red" aria-hidden />
+            <div className="ca-overlay ca-cyan" aria-hidden />
+            {/* Speed-tunnel vignette. */}
+            <div className="boost-vignette" aria-hidden />
+          </>
+        )}
+      </div>
 
       <div
         className="pointer-events-none absolute inset-0"

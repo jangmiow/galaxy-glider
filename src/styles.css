@@ -188,6 +188,33 @@
     will-change: opacity;
   }
 
+  /* Radial speed-lines: a conic burst of bright streaks from screen center
+     the instant a boost engages. Quick 400ms fade so it reads as an impact
+     flash, not a sustained effect. */
+  @keyframes boost-speedlines {
+    0%   { opacity: 0; transform: scale(0.6); }
+    15%  { opacity: 0.9; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.6); }
+  }
+  .boost-speedlines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    animation: boost-speedlines 400ms ease-out forwards;
+    will-change: opacity, transform;
+    background:
+      repeating-conic-gradient(
+        from 0deg at 50% 50%,
+        rgba(255, 255, 255, 0) 0deg,
+        rgba(255, 255, 255, 0) 3deg,
+        rgba(180, 220, 255, 0.55) 3.5deg,
+        rgba(255, 255, 255, 0) 4deg
+      );
+    -webkit-mask-image: radial-gradient(circle at center, transparent 8%, black 25%, black 70%, transparent 100%);
+            mask-image: radial-gradient(circle at center, transparent 8%, black 25%, black 70%, transparent 100%);
+  }
+
   /* System-completion medal: spring in with overshoot, hold, then fade. */
   @keyframes medal-pop {
     0%   { transform: scale(0.4) translateY(20px); opacity: 0; filter: blur(6px); }

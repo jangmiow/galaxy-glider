@@ -1198,6 +1198,52 @@ export class SpaceScene {
     this.virtualThrust = 0;
     if (this.flybyPreviewLine) this.flybyPreviewLine.visible = false;
   }
+
+  /**
+   * Autopilot collision avoidance. Returns a small lateral offset (in world
+   * units) that, when added to the autopilot's aim point, steers the ship
+   * around any non-target body close to the ship→aim segment. Returns null
+   * when the path is clear. The offset is perpendicular to the heading and
+   * scales with how close the threat sits to the projected line, so brushing
+   * past distant bodies costs almost nothing while a near-collision yields a
+   * firm but smooth re-route. `excludeId` is the autopilot target — we never
+   * dodge our own destination.
+   */
+  computeAvoidanceOffset(from: THREE.Vector3, aim: THREE.Vector3, excludeId: string | null): THREE.Vector3 | null {
+    const seg = aim.clone().sub(from);
+    const segLen = seg.length();
+    if (segLen < 0.001) return null;
+    const dir = seg.clone().multiplyScalar(1 / segLen);
+    let total: THREE.Vector3 | null = null;
+    for (const b of this.bodies) {
+      if (b.id === excludeId) continue;
+      // Safety radius: stars get a fat buffer; planets/moons a snug one.
+      const safety = b.size * (b.isStar ? 2.4 : 1.6) + 40;
+      const toBody = b.mesh.position.clone().sub(from);
+      // Project onto the heading; ignore bodies behind us or far past the aim.
+      const t = toBody.dot(dir);
+      if (t < -safety || t > segLen + safety) continue;
+      // Perpendicular distance from body center to the ray.
+      const closest = from.clone().add(dir.clone().multiplyScalar(Math.max(0, Math.min(segLen, t))));
+      const lateral = b.mesh.position.clone().sub(closest);
+      const lateralLen = lateral.length();
+      if (lateralLen > safety) continue;
+      // Avoidance vector points AWAY from the body, perpendicular to heading.
+      // Magnitude grows as the threat approaches the safety boundary.
+      const proximity = 1 - lateralLen / safety; // 0..1
+      let push = lateral.clone().multiplyScalar(-1 / Math.max(0.001, lateralLen));
+      // If the body sits exactly on the line, pick a stable perpendicular.
+      if (lateralLen < 0.001) {
+        push = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0));
+        if (push.lengthSq() < 0.01) push.set(1, 0, 0);
+        push.normalize();
+      }
+      const strength = safety * proximity * proximity * 1.4;
+      if (!total) total = new THREE.Vector3();
+      total.addScaledVector(push, strength);
+    }
+    return total;
+  }
   /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
@@ -1431,6 +1477,21 @@ export class SpaceScene {
         const env = Math.sin(Math.PI * u);
         pos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * env);
         pos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * env);
+        // Collision avoidance: push the curve away from any non-target body
+        // sitting near the next short segment. Sampled one step ahead so the
+        // ship reacts before the threat is on top of it.
+        const nextU = Math.min(1, u + 0.08);
+        const niu = 1 - nextU;
+        const nextPos = new THREE.Vector3()
+          .addScaledVector(this.flyby.p0, niu * niu * niu)
+          .addScaledVector(this.flyby.p1, 3 * niu * niu * nextU)
+          .addScaledVector(this.flyby.p2, 3 * niu * nextU * nextU)
+          .addScaledVector(this.flyby.p3, nextU * nextU * nextU);
+        const nenv = Math.sin(Math.PI * nextU);
+        nextPos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * nenv);
+        nextPos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * nenv);
+        const flybyAvoid = this.computeAvoidanceOffset(pos, nextPos, this.flyby.targetId);
+        if (flybyAvoid) pos.add(flybyAvoid.multiplyScalar(0.5));
         this.ship.position.copy(pos);
         // Update the dashed ghost preview line to show the REMAINING flyby
         // path, including current nudge offsets. Resampled every frame so the
@@ -1522,7 +1583,14 @@ export class SpaceScene {
         // Look ahead ~80u along the path for the steering target. Near the
         // end, lock onto the actual planet so the camera frames it for scanning.
         const lookAheadU = Math.min(1, bestU + 80 / Math.max(1, this.approach.pathLength));
-        const aimPoint = bestU > 0.92 ? target.mesh.position : spline.getPoint(lookAheadU);
+        let aimPoint = bestU > 0.92 ? target.mesh.position.clone() : spline.getPoint(lookAheadU);
+        // Collision avoidance: if any non-target body sits near the segment
+        // between ship and aim point, push the aim sideways by its safety
+        // radius. Strength falls off with distance so it only kicks in for
+        // genuine near-miss trajectories. Applied LAST so the framing target
+        // (when bestU > 0.92) is also re-routed if needed.
+        const avoid = this.computeAvoidanceOffset(this.ship.position, aimPoint, target.id);
+        if (avoid) aimPoint = aimPoint.clone().add(avoid);
         const m = new THREE.Matrix4();
         const flipped = this.ship.position.clone().multiplyScalar(2).sub(aimPoint);
         m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));

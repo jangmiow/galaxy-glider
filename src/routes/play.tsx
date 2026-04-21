@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef } from "react";
 import { CockpitHUD } from "@/components/CockpitHUD";
+import { KeyBindingsHUD } from "@/components/KeyBindingsHUD";
 import { Minimap } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
 import { MuteButton } from "@/components/MuteButton";
@@ -76,6 +77,8 @@ function Play() {
       <MuteButton muted={controller.muted} onToggle={() => controller.setMuted(!controller.muted)} />
 
       <CockpitHUD state={hud} onResume={controller.resume} />
+
+      {!isMobile && <KeyBindingsHUD />}
 
       {isMobile && (
         <MobileControls

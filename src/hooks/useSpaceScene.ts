@@ -78,7 +78,24 @@ export function useSpaceScene(
   hudRef.current = hud;
 
   // Stable ref to the active pilot id used by score/medal persistence.
-  const pilotIdRef = useRef<string | null>(initialPilot?.id ?? null);
+  // Populated post-mount in the effect below to keep SSR identical to client.
+  const pilotIdRef = useRef<string | null>(null);
+
+  // Hydrate pilot identity + persisted stats AFTER mount so the SSR HTML
+  // matches the first client render exactly. A microsecond flash from
+  // "PILOT/CADET/0" → real values is acceptable; a hydration mismatch is not.
+  useEffect(() => {
+    const pilot = getActivePilot();
+    if (!pilot) return;
+    pilotIdRef.current = pilot.id;
+    const stats = loadStats(pilot.id);
+    setHud((s) => ({
+      ...s,
+      callsign: pilot.callsign,
+      score: stats.score,
+      rank: stats.rank,
+    }));
+  }, []);
 
   /**
    * Persist score+rank to the active pilot's stats. Medals are written

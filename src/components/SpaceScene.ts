@@ -1413,18 +1413,17 @@ export class SpaceScene {
     // Approach autopilot — engaged via G key. Follows a Catmull-Rom spline
     // toward a hold point ~5 radii in front of the body, with look-ahead
     // steering and slew-rate-limited thrust so the lever never snaps.
-    // Manual input cancels so the pilot always wins.
+    // Mouse/look just nudges the framing — only explicit thrust/roll/strafe
+    // cancels so the pilot can glance around without losing the autopilot.
     if (this.approach.active) {
-      const hadInput =
-        Math.abs(this.mouseX) > 0.05 ||
-        Math.abs(this.mouseY) > 0.05 ||
+      const hardOverride =
         this.keys.has("KeyW") || this.keys.has("KeyS") ||
         this.keys.has("KeyA") || this.keys.has("KeyD") ||
         this.keys.has("KeyQ") || this.keys.has("KeyE") ||
         this.keys.has("ArrowUp") || this.keys.has("ArrowDown") ||
         this.keys.has("ArrowLeft") || this.keys.has("ArrowRight");
       const target = this.bodies.find((b) => b.id === this.approach.targetId);
-      if (hadInput || !target || target.scanned) {
+      if (hardOverride || !target || target.scanned) {
         this.disengageApproach();
       } else {
         // If the target body has drifted (orbital motion) or the spline got

@@ -621,6 +621,26 @@ export function useSpaceScene(
     }
   }, []);
 
+  const getFlybyConfig = useCallback(() => flybyConfig, [flybyConfig]);
+  const setFlybyConfig = useCallback(
+    (cfg: Partial<{ altitudeMul: number; offsetMul: number; durationMul: number }>) => {
+      const scene = sceneRef.current;
+      const L = SpaceScene.FLYBY_LIMITS;
+      const clamp = (v: number, lim: { min: number; max: number }) =>
+        Math.max(lim.min, Math.min(lim.max, Math.round(v * 100) / 100));
+      setFlybyConfigState((prev) => {
+        const next = {
+          altitudeMul: clamp(cfg.altitudeMul ?? prev.altitudeMul, L.altitudeMul),
+          offsetMul: clamp(cfg.offsetMul ?? prev.offsetMul, L.offsetMul),
+          durationMul: clamp(cfg.durationMul ?? prev.durationMul, L.durationMul),
+        };
+        if (scene) scene.flybyConfig = next;
+        return next;
+      });
+    },
+    [],
+  );
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -632,6 +652,8 @@ export function useSpaceScene(
     muted,
     toggleApproach,
     toggleFlyby,
+    getFlybyConfig,
+    setFlybyConfig,
   };
 
   return { hud, minimap, controller };

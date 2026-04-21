@@ -1282,17 +1282,31 @@ export class SpaceScene {
 
     // Cinematic flyby — engaged via H. Steps along a precomputed Bezier curve,
     // overrides ship position directly (so it ignores velocity/thrust), and
-    // slerps the camera to keep the target framed. Manual input cancels.
+    // slerps the camera to keep the target framed. Mouse input nudges the
+    // curve laterally/vertically without canceling; keyboard thrust/roll cancels.
     if (this.flyby.active) {
       const target = this.bodies.find((b) => b.id === this.flyby.targetId);
-      const manualOverride =
-        Math.abs(this.mouseX) > 0.05 || Math.abs(this.mouseY) > 0.05 ||
+      const hardOverride =
         this.keys.has("KeyW") || this.keys.has("KeyS") ||
         this.keys.has("KeyA") || this.keys.has("KeyD") ||
         this.keys.has("KeyQ") || this.keys.has("KeyE");
-      if (!target || manualOverride) {
+      if (!target || hardOverride) {
         this.disengageFlyby();
       } else {
+        // Blend cursor input into nudge offsets. Scale by target radius so
+        // bigger planets allow proportionally bigger sweeps. Clamp the total
+        // offset so the player can't slingshot the curve through the body.
+        const maxNudge = target.size * 1.8;
+        const nudgeRate = target.size * 2.2; // units/sec at full deflection
+        const decay = Math.exp(-dt * 0.6);   // gently relaxes back to baseline
+        this.flyby.nudgeLateral = THREE.MathUtils.clamp(
+          this.flyby.nudgeLateral * decay + this.mouseX * nudgeRate * dt,
+          -maxNudge, maxNudge,
+        );
+        this.flyby.nudgeVertical = THREE.MathUtils.clamp(
+          this.flyby.nudgeVertical * decay + (-this.mouseY) * nudgeRate * dt,
+          -maxNudge, maxNudge,
+        );
         this.flyby.elapsed += dt;
         const u = Math.min(1, this.flyby.elapsed / this.flyby.duration);
         // Cubic Bezier B(u) = (1-u)^3 p0 + 3(1-u)^2 u p1 + 3(1-u) u^2 p2 + u^3 p3
@@ -1302,6 +1316,11 @@ export class SpaceScene {
           .addScaledVector(this.flyby.p1, 3 * iu * iu * u)
           .addScaledVector(this.flyby.p2, 3 * iu * u * u)
           .addScaledVector(this.flyby.p3, u * u * u);
+        // Bell-shaped envelope (peak at periapsis u=0.5) so nudges fade in/out
+        // smoothly instead of yanking endpoints around.
+        const env = Math.sin(Math.PI * u);
+        pos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * env);
+        pos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * env);
         this.ship.position.copy(pos);
         // Frame the planet — slerp ship orientation toward look-at(target).
         const m = new THREE.Matrix4();

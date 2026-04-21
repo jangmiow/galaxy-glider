@@ -247,6 +247,10 @@ export class SpaceScene {
   proximity: { closeness: number; color: string } | null = null;
   /** Active F-key "frame target" rotation tween, if any. */
   frameTween: { from: THREE.Quaternion; to: THREE.Quaternion; elapsed: number; duration: number } | null = null;
+  /** Approach autopilot state: continuously steers + thrusts toward a chosen target. */
+  approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
+    active: false, targetId: null, targetName: null, distance: 0,
+  };
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -933,6 +937,30 @@ export class SpaceScene {
   }
 
   /**
+   * Toggle the approach autopilot. When engaged, `update()` continuously
+   * steers + thrusts toward the nearest unscanned body, easing to a hold at
+   * ~5 body-radii so it sits framed for scanning. Returns the chosen target
+   * (or null if nothing's reachable).
+   */
+  engageApproach(): { name: string; dist: number } | null {
+    const MAX = 3000;
+    let best: { dist: number; id: string; name: string } | null = null;
+    for (const b of this.bodies) {
+      if (b.scanned || b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (d > MAX) continue;
+      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name };
+    }
+    if (!best) return null;
+    this.approach = { active: true, targetId: best.id, targetName: best.name, distance: best.dist };
+    return { name: best.name, dist: best.dist };
+  }
+
+  disengageApproach() {
+    this.approach = { active: false, targetId: null, targetName: null, distance: 0 };
+    this.virtualThrust = 0;
+  }
+  /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
    */
@@ -1116,6 +1144,42 @@ export class SpaceScene {
     if (this.paused) {
       this.composer.render();
       return;
+    }
+
+    // Approach autopilot — engaged via G key. Steers + thrusts toward the
+    // chosen body until ~5 radii away, then station-keeps so it sits framed.
+    // Any manual input (mouse-look / movement keys) cancels approach so the
+    // pilot always wins. Runs BEFORE mouse-look so override detection is clean.
+    if (this.approach.active) {
+      // Manual override: nonzero mouse-look or any movement key.
+      const hadInput =
+        Math.abs(this.mouseX) > 0.05 ||
+        Math.abs(this.mouseY) > 0.05 ||
+        this.keys.has("KeyW") || this.keys.has("KeyS") ||
+        this.keys.has("KeyA") || this.keys.has("KeyD") ||
+        this.keys.has("KeyQ") || this.keys.has("KeyE") ||
+        this.keys.has("ArrowUp") || this.keys.has("ArrowDown") ||
+        this.keys.has("ArrowLeft") || this.keys.has("ArrowRight");
+      const target = this.bodies.find((b) => b.id === this.approach.targetId);
+      if (hadInput || !target || target.scanned) {
+        this.disengageApproach();
+      } else {
+        // Steer: slerp toward "look at target" at a comfortable rate.
+        const m = new THREE.Matrix4();
+        const flipped = this.ship.position.clone().multiplyScalar(2).sub(target.mesh.position);
+        m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
+        const desired = new THREE.Quaternion().setFromRotationMatrix(m);
+        this.ship.quaternion.slerp(desired, Math.min(1, dt * 1.8));
+        // Distance-based thrust: full far away, ramp down inside 8r, hold at 5r.
+        const dist = target.mesh.position.distanceTo(this.ship.position);
+        const r = target.size;
+        let t = 0;
+        if (dist > r * 8) t = 1;
+        else if (dist > r * 5) t = (dist - r * 5) / (r * 3);
+        else t = 0;
+        this.virtualThrust = t;
+        this.approach.distance = dist;
+      }
     }
 
     // Steering from mouse

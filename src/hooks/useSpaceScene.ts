@@ -34,6 +34,8 @@ export type CockpitController = {
   /** Mute/unmute audio. */
   setMuted: (m: boolean) => void;
   muted: boolean;
+  /** Toggle the approach autopilot from a UI button (mobile). */
+  toggleApproach: () => void;
 };
 
 /**
@@ -76,6 +78,7 @@ export function useSpaceScene(
     boostRemaining: 0,
     warpHoldProgress: 0,
     proximity: null,
+    approach: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -304,6 +307,22 @@ export function useSpaceScene(
               duration: 1500,
             });
           }
+        } else if (e.code === "KeyG") {
+          // Approach autopilot toggle — flies + frames toward nearest unscanned.
+          if (scene.approach.active) {
+            scene.disengageApproach();
+            toast("APPROACH DISENGAGED");
+          } else {
+            const target = scene.engageApproach();
+            if (target) {
+              toast("APPROACH ENGAGED", {
+                description: `${target.name} · ${target.dist.toFixed(0)}u`,
+                duration: 1800,
+              });
+            } else {
+              toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
+            }
+          }
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
@@ -368,6 +387,9 @@ export function useSpaceScene(
           ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
           : 0,
         proximity: scene.proximity,
+        approach: scene.approach.active && scene.approach.targetName
+          ? { target: scene.approach.targetName, distance: scene.approach.distance }
+          : null,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.
@@ -466,6 +488,25 @@ export function useSpaceScene(
     audioRef.current?.setMuted(m);
   }, []);
 
+  const toggleApproach = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (scene.approach.active) {
+      scene.disengageApproach();
+      toast("APPROACH DISENGAGED");
+    } else {
+      const target = scene.engageApproach();
+      if (target) {
+        toast("APPROACH ENGAGED", {
+          description: `${target.name} · ${target.dist.toFixed(0)}u`,
+          duration: 1800,
+        });
+      } else {
+        toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
+      }
+    }
+  }, []);
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -475,6 +516,7 @@ export function useSpaceScene(
     resume,
     setMuted,
     muted,
+    toggleApproach,
   };
 
   return { hud, minimap, controller };

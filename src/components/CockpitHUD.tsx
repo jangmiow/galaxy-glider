@@ -34,6 +34,8 @@ export type HUDState = {
   warpHoldProgress: number;
   /** Closeness (0..1) and atmosphere color of the nearest body, if any. */
   proximity: { closeness: number; color: string } | null;
+  /** Approach autopilot status — name + live distance to current target. */
+  approach: { target: string; distance: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -153,6 +155,16 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         <div className="text-hud-dim">OBJECTIVE</div>
         <div className="mt-1 text-amber">{state.objective}</div>
       </div>
+
+      {/* Approach autopilot status pill (just below the objective) */}
+      {state.approach && (
+        <div className="absolute left-1/2 top-24 -translate-x-1/2 hud-panel rounded-full border border-hud/60 bg-hud/10 px-3 py-1 text-center text-[10px] tracking-widest">
+          <span className="text-hud-dim">APPROACH ·</span>{" "}
+          <span className="text-hud">{state.approach.target}</span>{" "}
+          <span className="text-hud-dim">·</span>{" "}
+          <span className="text-amber">{state.approach.distance.toFixed(0)}u</span>
+        </div>
+      )}
 
       {/* Bottom-left: velocity + thrust */}
       <div className="absolute bottom-6 left-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>

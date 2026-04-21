@@ -1042,28 +1042,60 @@ export class SpaceScene {
   }
 
   /**
-   * Toggle the approach autopilot. When engaged, `update()` continuously
-   * steers + thrusts toward the nearest unscanned body, easing to a hold at
-   * ~5 body-radii so it sits framed for scanning. Returns the chosen target
-   * (or null if nothing's reachable).
+   * Toggle the approach autopilot. When engaged, `update()` follows a
+   * Catmull-Rom spline toward a hold point at ~5 body-radii in front of the
+   * target, steering with look-ahead and applying slew-rate-limited thrust so
+   * the lever never snaps. Returns the chosen target (or null if nothing's reachable).
    */
   engageApproach(): { name: string; dist: number } | null {
     const MAX = 3000;
-    let best: { dist: number; id: string; name: string } | null = null;
+    let best: { dist: number; id: string; name: string; pos: THREE.Vector3; size: number } | null = null;
     for (const b of this.bodies) {
       if (b.scanned || b.isStar) continue;
       const d = b.mesh.position.distanceTo(this.ship.position);
       if (d > MAX) continue;
-      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name };
+      if (!best || d < best.dist)
+        best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
     }
     if (!best) return null;
-    this.approach = { active: true, targetId: best.id, targetName: best.name, distance: best.dist };
+    const path = this.buildApproachPath(best.pos, best.size);
+    this.approach = {
+      active: true, targetId: best.id, targetName: best.name, distance: best.dist,
+      path, pathLength: path.getLength(), pathU: 0, smoothedThrust: 0,
+      engagedAt: performance.now(),
+    };
     return { name: best.name, dist: best.dist };
   }
 
   disengageApproach() {
-    this.approach = { active: false, targetId: null, targetName: null, distance: 0 };
+    this.approach = {
+      active: false, targetId: null, targetName: null, distance: 0,
+      path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
+    };
     this.virtualThrust = 0;
+  }
+
+  /**
+   * Build a 4-point Catmull-Rom spline from the ship to a hold point ~5 radii
+   * in front of the target. Two intermediate control points bend the path
+   * around the ship's current heading so it doesn't immediately yank sideways.
+   */
+  private buildApproachPath(targetPos: THREE.Vector3, targetSize: number): THREE.CatmullRomCurve3 {
+    const HOLD_R = 5; // hold distance in target radii
+    const ship = this.ship.position.clone();
+    const toTarget = targetPos.clone().sub(ship);
+    const dist = toTarget.length();
+    const dir = toTarget.clone().normalize();
+    const holdPoint = targetPos.clone().sub(dir.clone().multiplyScalar(targetSize * HOLD_R));
+    // Forward axis the ship is currently pointing.
+    const shipFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
+    // First control: project a short way along current heading so the path
+    // begins tangent to the ship's facing — no instant lateral jerk.
+    const tangentDist = Math.min(dist * 0.25, 400);
+    const c1 = ship.clone().add(shipFwd.clone().multiplyScalar(tangentDist));
+    // Second control: ease into the hold approach vector for a smooth arrival.
+    const c2 = holdPoint.clone().sub(dir.clone().multiplyScalar(targetSize * HOLD_R * 0.6));
+    return new THREE.CatmullRomCurve3([ship, c1, c2, holdPoint], false, "catmullrom", 0.5);
   }
 
   /**

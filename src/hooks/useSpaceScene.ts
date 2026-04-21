@@ -354,6 +354,41 @@ export function useSpaceScene(
               toast("FLYBY UNAVAILABLE", { description: "No body in range" });
             }
           }
+        } else if (
+          e.code === "BracketLeft" || e.code === "BracketRight" ||
+          e.code === "Semicolon" || e.code === "Quote" ||
+          e.code === "Comma" || e.code === "Period"
+        ) {
+          // Live-tune flyby parameters. Applied to the NEXT engagement only —
+          // active flybys keep their pre-built curve so the camera doesn't snap.
+          const L = SpaceScene.FLYBY_LIMITS;
+          const cur = scene.flybyConfig;
+          const clamp = (v: number, lim: { min: number; max: number }) =>
+            Math.max(lim.min, Math.min(lim.max, Math.round(v * 100) / 100));
+          let next = { ...cur };
+          let label = "";
+          if (e.code === "BracketLeft") {
+            next.altitudeMul = clamp(cur.altitudeMul - L.altitudeMul.step, L.altitudeMul);
+            label = `ALTITUDE ${next.altitudeMul.toFixed(2)}× R`;
+          } else if (e.code === "BracketRight") {
+            next.altitudeMul = clamp(cur.altitudeMul + L.altitudeMul.step, L.altitudeMul);
+            label = `ALTITUDE ${next.altitudeMul.toFixed(2)}× R`;
+          } else if (e.code === "Semicolon") {
+            next.offsetMul = clamp(cur.offsetMul - L.offsetMul.step, L.offsetMul);
+            label = `OFFSET ${next.offsetMul.toFixed(2)}× R`;
+          } else if (e.code === "Quote") {
+            next.offsetMul = clamp(cur.offsetMul + L.offsetMul.step, L.offsetMul);
+            label = `OFFSET ${next.offsetMul.toFixed(2)}× R`;
+          } else if (e.code === "Comma") {
+            next.durationMul = clamp(cur.durationMul - L.durationMul.step, L.durationMul);
+            label = `DURATION ${next.durationMul.toFixed(2)}×`;
+          } else if (e.code === "Period") {
+            next.durationMul = clamp(cur.durationMul + L.durationMul.step, L.durationMul);
+            label = `DURATION ${next.durationMul.toFixed(2)}×`;
+          }
+          scene.flybyConfig = next;
+          setFlybyConfigState(next);
+          toast(`FLYBY · ${label}`, { duration: 1200 });
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));

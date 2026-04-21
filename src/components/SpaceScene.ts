@@ -243,6 +243,10 @@ export class SpaceScene {
   callbacks: SceneCallbacks;
   systemSeed = 1;
 
+  /** Active proximity to the nearest non-star body (drives HUD vignette). */
+  proximity: { closeness: number; color: string } | null = null;
+  /** Active F-key "frame target" rotation tween, if any. */
+  frameTween: { from: THREE.Quaternion; to: THREE.Quaternion; elapsed: number; duration: number } | null = null;
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });

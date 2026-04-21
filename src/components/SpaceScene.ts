@@ -937,6 +937,30 @@ export class SpaceScene {
   }
 
   /**
+   * Toggle the approach autopilot. When engaged, `update()` continuously
+   * steers + thrusts toward the nearest unscanned body, easing to a hold at
+   * ~5 body-radii so it sits framed for scanning. Returns the chosen target
+   * (or null if nothing's reachable).
+   */
+  engageApproach(): { name: string; dist: number } | null {
+    const MAX = 3000;
+    let best: { dist: number; id: string; name: string } | null = null;
+    for (const b of this.bodies) {
+      if (b.scanned || b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (d > MAX) continue;
+      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name };
+    }
+    if (!best) return null;
+    this.approach = { active: true, targetId: best.id, targetName: best.name, distance: best.dist };
+    return { name: best.name, dist: best.dist };
+  }
+
+  disengageApproach() {
+    this.approach = { active: false, targetId: null, targetName: null, distance: 0 };
+    this.virtualThrust = 0;
+  }
+  /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
    */

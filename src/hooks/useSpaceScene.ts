@@ -231,9 +231,9 @@ export function useSpaceScene(
         if (e.code === "Space") {
           e.preventDefault();
           // Suppress key auto-repeat — only react to the first keydown.
-          if (spaceHeld) return;
-          spaceHeld = true;
-          spaceDownAt = performance.now();
+          if (spaceState.held) return;
+          spaceState.held = true;
+          spaceState.downAt = performance.now();
           clearWarpHold();
           warpHoldTimer = setTimeout(() => {
             warpHoldTimer = null;
@@ -259,8 +259,8 @@ export function useSpaceScene(
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
       } else {
         if (e.code === "Space") {
-          spaceHeld = false;
-          const heldMs = performance.now() - spaceDownAt;
+          spaceState.held = false;
+          const heldMs = performance.now() - spaceState.downAt;
           // If the warp timer hasn't fired yet, this was a tap → burst.
           if (warpHoldTimer && heldMs < HOLD_WARP_MS) {
             clearWarpHold();

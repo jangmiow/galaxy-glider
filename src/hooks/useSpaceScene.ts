@@ -34,6 +34,8 @@ export type CockpitController = {
   /** Mute/unmute audio. */
   setMuted: (m: boolean) => void;
   muted: boolean;
+  /** Toggle the approach autopilot from a UI button (mobile). */
+  toggleApproach: () => void;
 };
 
 /**

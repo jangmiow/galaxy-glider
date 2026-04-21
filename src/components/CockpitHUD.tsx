@@ -240,6 +240,8 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
           {state.sensorContact ? `· ${state.sensorContact.name}` : "no contact"}
         </div>
       </div>
+
+      {/* Bottom-right: warp drive + boost burst indicator */}
       <div className="absolute bottom-6 right-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
         <div className="flex items-start gap-3">
           <div className="flex-1">

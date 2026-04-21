@@ -195,6 +195,19 @@ export function useSpaceScene(
     });
     sceneRef.current = scene;
 
+    // Restore previously persisted system seed for the active pilot. We read
+    // it directly here (rather than relying on the pilot-hydration effect)
+    // because effect order means sceneRef is still null when that runs.
+    const pilotForSeed = getActivePilot();
+    if (pilotForSeed) {
+      const savedSeed = loadSystemSeed(pilotForSeed.id);
+      if (savedSeed > 0) {
+        scene.systemSeed = savedSeed;
+        scene.buildSystem(savedSeed);
+      }
+    }
+    let lastPersistedSeed = scene.systemSeed;
+
     const resize = () => {
       scene.resize(canvas.clientWidth, canvas.clientHeight);
     };

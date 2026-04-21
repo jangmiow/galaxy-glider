@@ -328,6 +328,7 @@ export function useSpaceScene(
 
     return () => {
       cancelAnimationFrame(raf);
+      clearWarpHold();
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("pointerdown", startAudio);
@@ -365,7 +366,14 @@ export function useSpaceScene(
     audioRef.current?.warpWhoosh();
     scene.triggerWarp();
     setHud((s) => ({ ...s, isWarping: true }));
-    setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
+    setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 10000);
+  }, []);
+
+  const boostBurst = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    audioRef.current?.start();
+    if (scene.triggerBoostBurst()) audioRef.current?.orbPing();
   }, []);
 
   const togglePause = useCallback(() => {
@@ -390,6 +398,7 @@ export function useSpaceScene(
     steer,
     thrust,
     warp,
+    boostBurst,
     togglePause,
     resume,
     setMuted,

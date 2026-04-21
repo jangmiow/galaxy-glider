@@ -370,6 +370,28 @@ export function useSpaceScene(
               duration: 1200,
             });
           }
+        } else if (e.code === "KeyY") {
+          // Dedicated FLYBY START — non-toggle. Safe to mash; no-ops if already
+          // active. Kept separate from H so arrow-key thrust users have a
+          // reliable "engage" key that never accidentally aborts.
+          if (!scene.flyby.active) {
+            const t = scene.engageFlyby();
+            if (t) {
+              toast("FLYBY ENGAGED", {
+                description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+                duration: 2000,
+              });
+            } else {
+              toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+            }
+          }
+        } else if (e.code === "KeyB") {
+          // Dedicated FLYBY ABORT — non-toggle. Only kills flyby; leaves
+          // approach autopilot and all manual controls untouched.
+          if (scene.flyby.active) {
+            scene.disengageFlyby();
+            toast("FLYBY ABORTED", { duration: 1200 });
+          }
         } else if (
           e.code === "BracketLeft" || e.code === "BracketRight" ||
           e.code === "Semicolon" || e.code === "Quote" ||

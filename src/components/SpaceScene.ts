@@ -247,9 +247,25 @@ export class SpaceScene {
   proximity: { closeness: number; color: string } | null = null;
   /** Active F-key "frame target" rotation tween, if any. */
   frameTween: { from: THREE.Quaternion; to: THREE.Quaternion; elapsed: number; duration: number; targetId: string; targetName: string } | null = null;
-  /** Approach autopilot state: continuously steers + thrusts toward a chosen target. */
-  approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
+  /** Approach autopilot state: follows a Catmull-Rom spline toward the chosen body. */
+  approach: {
+    active: boolean;
+    targetId: string | null;
+    targetName: string | null;
+    distance: number;
+    /** Smooth path from ship → hold point. Recomputed at engage; refreshed if the ship drifts off. */
+    path: THREE.CatmullRomCurve3 | null;
+    /** Cached arc length so we can move at a controlled speed regardless of curve shape. */
+    pathLength: number;
+    /** 0..1 progress along the spline (used to look ahead for steering, not to set position). */
+    pathU: number;
+    /** Slew-rate-limited thrust (-1..1) so the lever never snaps. */
+    smoothedThrust: number;
+    /** Engage timestamp so we can ease thrust in over the first ~1s. */
+    engagedAt: number;
+  } = {
     active: false, targetId: null, targetName: null, distance: 0,
+    path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
   };
   /** Cinematic flyby autopilot — fly a curved pass at ~3× target radius. */
   flyby: {
@@ -1026,28 +1042,60 @@ export class SpaceScene {
   }
 
   /**
-   * Toggle the approach autopilot. When engaged, `update()` continuously
-   * steers + thrusts toward the nearest unscanned body, easing to a hold at
-   * ~5 body-radii so it sits framed for scanning. Returns the chosen target
-   * (or null if nothing's reachable).
+   * Toggle the approach autopilot. When engaged, `update()` follows a
+   * Catmull-Rom spline toward a hold point at ~5 body-radii in front of the
+   * target, steering with look-ahead and applying slew-rate-limited thrust so
+   * the lever never snaps. Returns the chosen target (or null if nothing's reachable).
    */
   engageApproach(): { name: string; dist: number } | null {
     const MAX = 3000;
-    let best: { dist: number; id: string; name: string } | null = null;
+    let best: { dist: number; id: string; name: string; pos: THREE.Vector3; size: number } | null = null;
     for (const b of this.bodies) {
       if (b.scanned || b.isStar) continue;
       const d = b.mesh.position.distanceTo(this.ship.position);
       if (d > MAX) continue;
-      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name };
+      if (!best || d < best.dist)
+        best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
     }
     if (!best) return null;
-    this.approach = { active: true, targetId: best.id, targetName: best.name, distance: best.dist };
+    const path = this.buildApproachPath(best.pos, best.size);
+    this.approach = {
+      active: true, targetId: best.id, targetName: best.name, distance: best.dist,
+      path, pathLength: path.getLength(), pathU: 0, smoothedThrust: 0,
+      engagedAt: performance.now(),
+    };
     return { name: best.name, dist: best.dist };
   }
 
   disengageApproach() {
-    this.approach = { active: false, targetId: null, targetName: null, distance: 0 };
+    this.approach = {
+      active: false, targetId: null, targetName: null, distance: 0,
+      path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
+    };
     this.virtualThrust = 0;
+  }
+
+  /**
+   * Build a 4-point Catmull-Rom spline from the ship to a hold point ~5 radii
+   * in front of the target. Two intermediate control points bend the path
+   * around the ship's current heading so it doesn't immediately yank sideways.
+   */
+  private buildApproachPath(targetPos: THREE.Vector3, targetSize: number): THREE.CatmullRomCurve3 {
+    const HOLD_R = 5; // hold distance in target radii
+    const ship = this.ship.position.clone();
+    const toTarget = targetPos.clone().sub(ship);
+    const dist = toTarget.length();
+    const dir = toTarget.clone().normalize();
+    const holdPoint = targetPos.clone().sub(dir.clone().multiplyScalar(targetSize * HOLD_R));
+    // Forward axis the ship is currently pointing.
+    const shipFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
+    // First control: project a short way along current heading so the path
+    // begins tangent to the ship's facing — no instant lateral jerk.
+    const tangentDist = Math.min(dist * 0.25, 400);
+    const c1 = ship.clone().add(shipFwd.clone().multiplyScalar(tangentDist));
+    // Second control: ease into the hold approach vector for a smooth arrival.
+    const c2 = holdPoint.clone().sub(dir.clone().multiplyScalar(targetSize * HOLD_R * 0.6));
+    return new THREE.CatmullRomCurve3([ship, c1, c2, holdPoint], false, "catmullrom", 0.5);
   }
 
   /**
@@ -1362,12 +1410,11 @@ export class SpaceScene {
       }
     }
 
-    // Approach autopilot — engaged via G key. Steers + thrusts toward the
-    // chosen body until ~5 radii away, then station-keeps so it sits framed.
-    // Any manual input (mouse-look / movement keys) cancels approach so the
-    // pilot always wins. Runs BEFORE mouse-look so override detection is clean.
+    // Approach autopilot — engaged via G key. Follows a Catmull-Rom spline
+    // toward a hold point ~5 radii in front of the body, with look-ahead
+    // steering and slew-rate-limited thrust so the lever never snaps.
+    // Manual input cancels so the pilot always wins.
     if (this.approach.active) {
-      // Manual override: nonzero mouse-look or any movement key.
       const hadInput =
         Math.abs(this.mouseX) > 0.05 ||
         Math.abs(this.mouseY) > 0.05 ||
@@ -1380,20 +1427,69 @@ export class SpaceScene {
       if (hadInput || !target || target.scanned) {
         this.disengageApproach();
       } else {
-        // Steer: slerp toward "look at target" at a comfortable rate.
+        // If the target body has drifted (orbital motion) or the spline got
+        // stale, rebuild it. Cheap — just 4 control points.
+        const path = this.approach.path;
+        if (!path) {
+          this.approach.path = this.buildApproachPath(target.mesh.position, target.size);
+          this.approach.pathLength = this.approach.path.getLength();
+          this.approach.pathU = 0;
+        } else {
+          const endPoint = path.getPoint(1);
+          const dirNow = target.mesh.position.clone().sub(this.ship.position).normalize();
+          const expectedHold = target.mesh.position.clone().sub(dirNow.multiplyScalar(target.size * 5));
+          if (endPoint.distanceTo(expectedHold) > target.size * 1.2) {
+            this.approach.path = this.buildApproachPath(target.mesh.position, target.size);
+            this.approach.pathLength = this.approach.path.getLength();
+            this.approach.pathU = Math.min(this.approach.pathU, 0.85);
+          }
+        }
+        const spline = this.approach.path!;
+        // Find the closest u on the spline to the ship by stepping a short
+        // window forward from the cached pathU. Keeps sampling local + cheap.
+        let bestU = this.approach.pathU;
+        let bestSq = Infinity;
+        const SAMPLES = 12;
+        const window = 0.15;
+        for (let i = 0; i <= SAMPLES; i++) {
+          const u = Math.max(0, Math.min(1, this.approach.pathU - window + (i / SAMPLES) * window * 2));
+          const p = spline.getPoint(u);
+          const sq = p.distanceToSquared(this.ship.position);
+          if (sq < bestSq) { bestSq = sq; bestU = u; }
+        }
+        this.approach.pathU = bestU;
+        // Look ahead ~80u along the path for the steering target. Near the
+        // end, lock onto the actual planet so the camera frames it for scanning.
+        const lookAheadU = Math.min(1, bestU + 80 / Math.max(1, this.approach.pathLength));
+        const aimPoint = bestU > 0.92 ? target.mesh.position : spline.getPoint(lookAheadU);
         const m = new THREE.Matrix4();
-        const flipped = this.ship.position.clone().multiplyScalar(2).sub(target.mesh.position);
+        const flipped = this.ship.position.clone().multiplyScalar(2).sub(aimPoint);
         m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
         const desired = new THREE.Quaternion().setFromRotationMatrix(m);
         this.ship.quaternion.slerp(desired, Math.min(1, dt * 1.8));
-        // Distance-based thrust: full far away, ramp down inside 8r, hold at 5r.
+
+        // Distance-based thrust target, then slew-rate-limited so the lever
+        // never changes faster than ~0.6 units/second. Also fades in over 1s.
         const dist = target.mesh.position.distanceTo(this.ship.position);
         const r = target.size;
-        let t = 0;
-        if (dist > r * 8) t = 1;
-        else if (dist > r * 5) t = (dist - r * 5) / (r * 3);
-        else t = 0;
-        this.virtualThrust = t;
+        let targetThrust = 0;
+        if (dist > r * 8) targetThrust = 1;
+        else if (dist > r * 5) targetThrust = (dist - r * 5) / (r * 3);
+        else targetThrust = 0;
+        const sinceEngage = (performance.now() - this.approach.engagedAt) / 1000;
+        const fadeIn = Math.min(1, sinceEngage / 1.0);
+        targetThrust *= fadeIn;
+        // Heading-aware brake: ease off thrust if not yet aligned with the aim
+        // point, so the ship doesn't barrel sideways during the initial turn.
+        const shipFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
+        const aimDir = aimPoint.clone().sub(this.ship.position).normalize();
+        const align = Math.max(0, shipFwd.dot(aimDir));
+        targetThrust *= 0.3 + 0.7 * align;
+        const SLEW = 0.6;
+        const delta = targetThrust - this.approach.smoothedThrust;
+        const maxStep = SLEW * dt;
+        this.approach.smoothedThrust += Math.max(-maxStep, Math.min(maxStep, delta));
+        this.virtualThrust = this.approach.smoothedThrust;
         this.approach.distance = dist;
       }
     }

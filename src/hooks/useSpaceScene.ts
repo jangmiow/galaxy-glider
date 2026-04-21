@@ -309,6 +309,11 @@ export function useSpaceScene(
         warpCharge: scene.warpCharge,
         heading: { pitch: scene.ship.rotation.x, yaw: scene.ship.rotation.y },
         boost: scene.boost > 1,
+        boostBurst: scene.boostActive,
+        boostCooldown: scene.boostCooldown,
+        boostCooldownMax: scene.BOOST_COOLDOWN,
+        boostDuration: scene.BOOST_DURATION,
+        boostRemaining: scene.boostTimer,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

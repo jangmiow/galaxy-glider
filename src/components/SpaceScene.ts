@@ -243,6 +243,10 @@ export class SpaceScene {
   callbacks: SceneCallbacks;
   systemSeed = 1;
 
+  /** Active proximity to the nearest non-star body (drives HUD vignette). */
+  proximity: { closeness: number; color: string } | null = null;
+  /** Active F-key "frame target" rotation tween, if any. */
+  frameTween: { from: THREE.Quaternion; to: THREE.Quaternion; elapsed: number; duration: number } | null = null;
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -264,7 +268,7 @@ export class SpaceScene {
       new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
       0.9, // strength
       0.85, // radius
-      0.2, // threshold — only bright pixels (stars/orbs/coronas) bloom
+      0.15, // threshold — slightly lower so atmospheres + ring-lit edges bloom too
     );
     this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
@@ -508,7 +512,14 @@ export class SpaceScene {
           shaderMat = makeRockyMaterial({
             base: config.color, accent, atmo, seed,
             cloudiness: config.cloudiness,
+            atmoStrength: 1.35,
           });
+      }
+      // Beef up the limb glow on terrestrial bodies after construction so
+      // close-approach silhouettes feel atmospheric (PHM-style awe).
+      if (shaderMat && (config.kind === "ocean" || config.kind === "icy")) {
+        const u = (shaderMat as THREE.ShaderMaterial).uniforms?.uAtmoStrength;
+        if (u) u.value = 1.4;
       }
       mat = shaderMat;
     }
@@ -670,31 +681,31 @@ export class SpaceScene {
 
     const planets: Array<Parameters<SpaceScene["addPlanetBody"]>[0]> = [
       { id: "sol-mercury", name: "Mercury", type: "planet", kind: "barren",
-        size: 6, color: "#9a8b7a", accentColor: "#5c4f44",
+        size: 9, color: "#9a8b7a", accentColor: "#5c4f44",
         position: new THREE.Vector3(270, 0, 0), seed: 1.1 },
       { id: "sol-venus", name: "Venus", type: "planet", kind: "lava",
-        size: 10, color: "#d9a460", accentColor: "#7c5828", atmoColor: "#ffd089",
+        size: 16, color: "#d9a460", accentColor: "#7c5828", atmoColor: "#ffd089",
         position: new THREE.Vector3(0, 6, 360), seed: 2.2 },
       { id: "sol-earth", name: "Earth", type: "planet", kind: "ocean",
-        size: 11, color: "#1c5cb8", accentColor: "#3a8a3c", atmoColor: "#7ab8ff",
+        size: 18, color: "#1c5cb8", accentColor: "#3a8a3c", atmoColor: "#7ab8ff",
         cloudiness: 0.6,
         position: new THREE.Vector3(-465, -3, 120), seed: 3.3 },
       { id: "sol-mars", name: "Mars", type: "planet", kind: "rocky",
-        size: 8, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
+        size: 13, color: "#c1543a", accentColor: "#7a3322", atmoColor: "#ff9070",
         cloudiness: 0.25,
         position: new THREE.Vector3(180, 12, -510), seed: 4.4 },
       { id: "sol-jupiter", name: "Jupiter", type: "planet", kind: "gas",
-        size: 40, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",
+        size: 58, color: "#caa074", accentColor: "#7d4f30", atmoColor: "#ffd9a8",
         position: new THREE.Vector3(-720, 0, -570), seed: 5.5 },
       { id: "sol-saturn", name: "Saturn", type: "ringed-planet", kind: "ringed",
-        size: 34, color: "#e0c084", accentColor: "#9a7438", atmoColor: "#ffe6b0",
+        size: 50, color: "#e0c084", accentColor: "#9a7438", atmoColor: "#ffe6b0",
         position: new THREE.Vector3(930, -15, 330),
-        rings: { inner: 54, outer: 100, tilt: 0.45, color: "#d8c89c" }, seed: 6.6 },
+        rings: { inner: 80, outer: 150, tilt: 0.45, color: "#d8c89c" }, seed: 6.6 },
       { id: "sol-uranus", name: "Uranus", type: "planet", kind: "icy",
-        size: 20, color: "#a8e0e0", accentColor: "#5cb0c0", atmoColor: "#cdf0ff",
+        size: 30, color: "#a8e0e0", accentColor: "#5cb0c0", atmoColor: "#cdf0ff",
         position: new THREE.Vector3(-1080, 45, 810), seed: 7.7 },
       { id: "sol-neptune", name: "Neptune", type: "planet", kind: "icy",
-        size: 19, color: "#3859d8", accentColor: "#1d2c80", atmoColor: "#7090ff",
+        size: 28, color: "#3859d8", accentColor: "#1d2c80", atmoColor: "#7090ff",
         position: new THREE.Vector3(1230, -60, -1020), seed: 8.8 },
     ];
     for (const p of planets) this.addPlanetBody(p);
@@ -704,38 +715,38 @@ export class SpaceScene {
     const earth = findBody("sol-earth");
     if (earth) {
       this.addMoon({ id: "sol-luna", name: "Luna", parent: earth,
-        size: 2.2, color: "#cfc8b8", accentColor: "#807a6c", kind: "barren",
-        radius: 18, speed: 0.35, seed: 11 });
+        size: 3.2, color: "#cfc8b8", accentColor: "#807a6c", kind: "barren",
+        radius: 24, speed: 0.35, seed: 11 });
     }
     const mars = findBody("sol-mars");
     if (mars) {
       this.addMoon({ id: "sol-phobos", name: "Phobos", parent: mars,
-        size: 1.1, color: "#8a7a68", kind: "barren",
-        radius: 12, speed: 0.7, phase: 0.2, seed: 12 });
+        size: 1.6, color: "#8a7a68", kind: "barren",
+        radius: 16, speed: 0.7, phase: 0.2, seed: 12 });
       this.addMoon({ id: "sol-deimos", name: "Deimos", parent: mars,
-        size: 0.9, color: "#9a8a78", kind: "barren",
-        radius: 17, speed: 0.45, phase: 2.4, seed: 13 });
+        size: 1.3, color: "#9a8a78", kind: "barren",
+        radius: 22, speed: 0.45, phase: 2.4, seed: 13 });
     }
     const jupiter = findBody("sol-jupiter");
     if (jupiter) {
       this.addMoon({ id: "sol-io", name: "Io", parent: jupiter,
-        size: 2.4, color: "#e6cc60", accentColor: "#a07028", kind: "rocky",
-        radius: 44, speed: 0.5, phase: 0.1, seed: 21 });
+        size: 3.4, color: "#e6cc60", accentColor: "#a07028", kind: "rocky",
+        radius: 58, speed: 0.5, phase: 0.1, seed: 21 });
       this.addMoon({ id: "sol-europa", name: "Europa", parent: jupiter,
-        size: 2.2, color: "#d8d0b8", accentColor: "#a89870", kind: "icy",
-        radius: 56, speed: 0.4, phase: 1.7, seed: 22 });
+        size: 3.2, color: "#d8d0b8", accentColor: "#a89870", kind: "icy",
+        radius: 74, speed: 0.4, phase: 1.7, seed: 22 });
       this.addMoon({ id: "sol-ganymede", name: "Ganymede", parent: jupiter,
-        size: 3.0, color: "#9c8a78", accentColor: "#5a4a38", kind: "rocky",
-        radius: 70, speed: 0.3, phase: 3.0, seed: 23 });
+        size: 4.4, color: "#9c8a78", accentColor: "#5a4a38", kind: "rocky",
+        radius: 92, speed: 0.3, phase: 3.0, seed: 23 });
       this.addMoon({ id: "sol-callisto", name: "Callisto", parent: jupiter,
-        size: 2.8, color: "#6c604c", accentColor: "#3a3020", kind: "barren",
-        radius: 86, speed: 0.22, phase: 4.5, seed: 24 });
+        size: 4.0, color: "#6c604c", accentColor: "#3a3020", kind: "barren",
+        radius: 112, speed: 0.22, phase: 4.5, seed: 24 });
     }
     const saturn = findBody("sol-saturn");
     if (saturn) {
       this.addMoon({ id: "sol-titan", name: "Titan", parent: saturn,
-        size: 2.6, color: "#d8a868", accentColor: "#7a5028", kind: "icy",
-        radius: 90, speed: 0.25, phase: 1.0, tilt: 0.1, seed: 31 });
+        size: 3.8, color: "#d8a868", accentColor: "#7a5028", kind: "icy",
+        radius: 118, speed: 0.25, phase: 1.0, tilt: 0.1, seed: 31 });
     }
 
     for (let i = 0; i < 8; i++) {
@@ -785,10 +796,10 @@ export class SpaceScene {
 
     for (let i = 1; i < count; i++) {
       const kind = KINDS[Math.floor(rng() * KINDS.length)];
-      const dist = 330 + i * 240 + rng() * 200;
+      const dist = 420 + i * 310 + rng() * 220;
       const angle = rng() * Math.PI * 2;
       const elev = (rng() - 0.5) * 120;
-      const size = kind === "gas" || kind === "ringed" ? 26 + rng() * 24 : 9 + rng() * 11;
+      const size = kind === "gas" || kind === "ringed" ? 38 + rng() * 32 : 15 + rng() * 14;
       const cols = PALETTE[kind];
       this.addPlanetBody({
         id: `s${seed}-b${i}`, name: generateName(seed * 1000 + i),
@@ -818,7 +829,7 @@ export class SpaceScene {
           size: Math.max(0.8, size * (0.12 + rng() * 0.18)),
           color: mcolor,
           kind: mkind,
-          radius: size * (2.4 + m * 1.1) + rng() * 4,
+          radius: size * (2.8 + m * 1.2) + rng() * 4,
           speed: 0.15 + rng() * 0.5,
           phase: rng() * Math.PI * 2,
           tilt: (rng() - 0.5) * 0.4,
@@ -880,6 +891,39 @@ export class SpaceScene {
     const flipped = this.ship.position.clone().multiplyScalar(2).sub(best.pos);
     m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
     this.ship.quaternion.setFromRotationMatrix(m);
+    this.mouseX = 0;
+    this.mouseY = 0;
+    return { name: best.name, dist: best.dist };
+  }
+
+  /**
+   * Cinematic counterpart to `aimAtNearestBody`: tweens the ship's quaternion
+   * toward the nearest unscanned body over ~1.2s instead of snapping. Returns
+   * the chosen target or null when nothing's in range.
+   */
+  frameNearestBody() {
+    const MAX = 2500;
+    const MIN = 50;
+    let best: { dist: number; pos: THREE.Vector3; name: string } | null = null;
+    for (const b of this.bodies) {
+      if (b.scanned || b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (d > MAX || d < MIN + b.size) continue;
+      if (!best || d < best.dist) {
+        best = { dist: d, pos: b.mesh.position.clone(), name: b.name };
+      }
+    }
+    if (!best) return null;
+    const m = new THREE.Matrix4();
+    const flipped = this.ship.position.clone().multiplyScalar(2).sub(best.pos);
+    m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
+    const to = new THREE.Quaternion().setFromRotationMatrix(m);
+    this.frameTween = {
+      from: this.ship.quaternion.clone(),
+      to,
+      elapsed: 0,
+      duration: 1.2,
+    };
     this.mouseX = 0;
     this.mouseY = 0;
     return { name: best.name, dist: best.dist };
@@ -1077,11 +1121,24 @@ export class SpaceScene {
     this.ship.rotateY(yawRate * dt);
     this.ship.rotateX(pitchRate * dt);
 
-    // Roll from A/D / arrows
+    // Roll from A/D / arrows (yaw-helpers) AND Q/E (cinematic banking).
     let rollInput = 0;
     if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) rollInput += 1;
     if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) rollInput -= 1;
+    if (this.keys.has("KeyQ")) rollInput += 1;
+    if (this.keys.has("KeyE")) rollInput -= 1;
     this.ship.rotateZ(rollInput * 1.2 * dt);
+
+    // Smooth "frame target" tween — F key rotates the camera toward a chosen
+    // body over ~1.2s so the pilot can compose the shot without snap-cuts.
+    if (this.frameTween) {
+      const t = this.frameTween;
+      t.elapsed = Math.min(t.duration, t.elapsed + dt);
+      const u = t.elapsed / t.duration;
+      const e = u * u * (3 - 2 * u); // smoothstep
+      this.ship.quaternion.copy(t.from).slerp(t.to, e);
+      if (t.elapsed >= t.duration) this.frameTween = null;
+    }
 
     // Thrust — combine keyboard with continuous virtual input (mobile slider).
     let thrustInput = 0;
@@ -1104,7 +1161,26 @@ export class SpaceScene {
     this.boost = Math.max(shiftBoost, burstBoost);
     this.thrust = thrustInput;
 
-    const targetVel = thrustInput * 60 * this.boost;
+    // Approach mode — taper max velocity near a body and surface a proximity
+    // hint so the HUD can fade an atmospheric vignette in close-flyby.
+    let nearestProx: { dist: number; size: number; color: string } | null = null;
+    for (const b of this.bodies) {
+      if (b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      const reach = b.size * 6;
+      if (d < reach && (!nearestProx || d / b.size < nearestProx.dist / nearestProx.size)) {
+        nearestProx = { dist: d, size: b.size, color: b.color };
+      }
+    }
+    this.proximity = nearestProx
+      ? { closeness: 1 - Math.min(1, nearestProx.dist / (nearestProx.size * 6)), color: nearestProx.color }
+      : null;
+    const approachTaper =
+      nearestProx && nearestProx.dist < nearestProx.size * 4
+        ? 0.7 + 0.3 * (nearestProx.dist / (nearestProx.size * 4))
+        : 1;
+
+    const targetVel = thrustInput * 60 * this.boost * approachTaper;
     this.velocity += (targetVel - this.velocity) * Math.min(1, dt * 1.2);
     if (Math.abs(this.velocity) < 0.05) this.velocity = 0;
 

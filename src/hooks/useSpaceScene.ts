@@ -75,6 +75,7 @@ export function useSpaceScene(
     boostDuration: 2,
     boostRemaining: 0,
     warpHoldProgress: 0,
+    proximity: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -293,6 +294,16 @@ export function useSpaceScene(
             description: target ? `Locking ${target.name} · ${target.dist.toFixed(0)}u` : "No target in range",
             duration: 1500,
           });
+        } else if (e.code === "KeyF") {
+          // Cinematic frame-target: smoothly tween to face the nearest
+          // unscanned body over ~1.2s. Pairs with T (snap) for two flavors.
+          const target = scene.frameNearestBody();
+          if (target) {
+            toast("FRAMING TARGET", {
+              description: `${target.name} · ${target.dist.toFixed(0)}u`,
+              duration: 1500,
+            });
+          }
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
@@ -356,6 +367,7 @@ export function useSpaceScene(
         warpHoldProgress: spaceState.held
           ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
           : 0,
+        proximity: scene.proximity,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

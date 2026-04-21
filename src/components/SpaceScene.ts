@@ -1522,7 +1522,14 @@ export class SpaceScene {
         // Look ahead ~80u along the path for the steering target. Near the
         // end, lock onto the actual planet so the camera frames it for scanning.
         const lookAheadU = Math.min(1, bestU + 80 / Math.max(1, this.approach.pathLength));
-        const aimPoint = bestU > 0.92 ? target.mesh.position : spline.getPoint(lookAheadU);
+        let aimPoint = bestU > 0.92 ? target.mesh.position.clone() : spline.getPoint(lookAheadU);
+        // Collision avoidance: if any non-target body sits near the segment
+        // between ship and aim point, push the aim sideways by its safety
+        // radius. Strength falls off with distance so it only kicks in for
+        // genuine near-miss trajectories. Applied LAST so the framing target
+        // (when bestU > 0.92) is also re-routed if needed.
+        const avoid = this.computeAvoidanceOffset(this.ship.position, aimPoint, target.id);
+        if (avoid) aimPoint = aimPoint.clone().add(avoid);
         const m = new THREE.Matrix4();
         const flipped = this.ship.position.clone().multiplyScalar(2).sub(aimPoint);
         m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));

@@ -150,6 +150,18 @@ export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, on
           APPR
         </button>
         <button
+          onClick={onFlyby}
+          className={`rounded-md border px-4 py-2 font-display text-[11px] tracking-widest backdrop-blur-sm active:scale-95 ${
+            flybyActive
+              ? "border-amber bg-amber/30 text-amber"
+              : "border-amber/50 bg-amber/10 text-amber hover:bg-amber/20"
+          }`}
+          aria-label="Toggle cinematic flyby"
+          aria-pressed={flybyActive}
+        >
+          FLY
+        </button>
+        <button
           onClick={onBoost}
           className="rounded-md border border-hud/60 bg-hud/10 px-4 py-2 font-display text-[11px] tracking-widest text-hud backdrop-blur-sm hover:bg-hud/20 active:scale-95"
           aria-label="Boost burst (2 seconds)"

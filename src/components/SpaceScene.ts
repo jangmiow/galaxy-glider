@@ -1274,6 +1274,46 @@ export class SpaceScene {
     this.proximity = nearestProx
       ? { closeness: 1 - Math.min(1, nearestProx.dist / (nearestProx.size * 6)), color: nearestProx.color }
       : null;
+
+    // Scan-range ring: counter-rotate against ship pitch/yaw so it stays a
+    // world-aligned disc on the XZ plane, then animate sweep + recolor based
+    // on how close any body is to the ring boundary. Bodies entering the ring
+    // make it pulse cyan; close proximity tints it amber.
+    if (this.scanRingGroup) {
+      this.scanRingTime += dt;
+      // Counter the ship's local rotation so the ring stays world-flat.
+      const inv = this.ship.quaternion.clone().invert();
+      this.scanRingGroup.quaternion.copy(inv);
+      // Find the body closest to the ring's edge (positive = inside, negative = outside).
+      let edgeProximity = 0; // 0..1 — how close a body is to entering / how deep inside
+      let nearestRingBody: { dist: number; color: string } | null = null;
+      for (const b of this.bodies) {
+        const d = b.mesh.position.distanceTo(this.ship.position);
+        if (d > this.SCAN_RING_RADIUS * 1.2) continue;
+        // Stronger signal as bodies approach the ring boundary or are inside.
+        const signal = 1 - Math.min(1, Math.abs(d - this.SCAN_RING_RADIUS * 0.7) / (this.SCAN_RING_RADIUS * 0.7));
+        if (signal > edgeProximity) {
+          edgeProximity = signal;
+          nearestRingBody = { dist: d, color: b.color };
+        }
+      }
+      const pulse = 0.5 + 0.5 * Math.sin(this.scanRingTime * 2.4);
+      const baseOpacity = 0.12 + edgeProximity * 0.35 + pulse * 0.06 * edgeProximity;
+      const ringColor = new THREE.Color(0x66ddff);
+      if (nearestRingBody && edgeProximity > 0.2) {
+        ringColor.lerp(new THREE.Color(nearestRingBody.color), Math.min(0.85, edgeProximity));
+      }
+      const outerMat = this.scanRingOuter.material as THREE.MeshBasicMaterial;
+      const innerMat = this.scanRingInner.material as THREE.MeshBasicMaterial;
+      outerMat.color.copy(ringColor);
+      innerMat.color.copy(ringColor);
+      outerMat.opacity = baseOpacity;
+      innerMat.opacity = baseOpacity * 0.55;
+      // Slow rotational sweep for ambient motion.
+      this.scanRingOuter.rotation.z = this.scanRingTime * 0.15;
+      this.scanRingInner.rotation.z = -this.scanRingTime * 0.22;
+    }
+
     const approachTaper =
       nearestProx && nearestProx.dist < nearestProx.size * 4
         ? 0.7 + 0.3 * (nearestProx.dist / (nearestProx.size * 4))

@@ -276,8 +276,14 @@ export function useSpaceScene(
         scene.keys.delete(e.code);
       }
     };
-    const kd = (e: KeyboardEvent) => onKey(e, true);
-    const ku = (e: KeyboardEvent) => onKey(e, false);
+    const kd = (e: KeyboardEvent) => {
+      if (e.code === "Space") console.log("[key] keydown Space");
+      onKey(e, true);
+    };
+    const ku = (e: KeyboardEvent) => {
+      if (e.code === "Space") console.log("[key] keyup Space");
+      onKey(e, false);
+    };
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("pointerdown", startAudio);
     window.addEventListener("keydown", kd);

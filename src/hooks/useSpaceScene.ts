@@ -9,7 +9,9 @@ import {
   addMedal,
   getActivePilot,
   loadStats,
+  loadSystemSeed,
   saveStats,
+  saveSystemSeed,
   type PilotStats,
 } from "@/lib/pilots";
 
@@ -95,6 +97,10 @@ export function useSpaceScene(
       score: stats.score,
       rank: stats.rank,
     }));
+    // Restore the last system seed the pilot was exploring. Sol (seed 0) is
+    // the default, so we only rebuild when a generated system was saved.
+    // Note: this runs BEFORE the scene-init effect, so sceneRef may be null;
+    // the scene effect re-reads the seed and applies it on construction.
   }, []);
 
   /**
@@ -188,6 +194,19 @@ export function useSpaceScene(
       },
     });
     sceneRef.current = scene;
+
+    // Restore previously persisted system seed for the active pilot. We read
+    // it directly here (rather than relying on the pilot-hydration effect)
+    // because effect order means sceneRef is still null when that runs.
+    const pilotForSeed = getActivePilot();
+    if (pilotForSeed) {
+      const savedSeed = loadSystemSeed(pilotForSeed.id);
+      if (savedSeed > 0) {
+        scene.systemSeed = savedSeed;
+        scene.buildSystem(savedSeed);
+      }
+    }
+    let lastPersistedSeed = scene.systemSeed;
 
     const resize = () => {
       scene.resize(canvas.clientWidth, canvas.clientHeight);
@@ -347,6 +366,14 @@ export function useSpaceScene(
           if (expiry <= nowMs) fresh.delete(name);
         }
         setMinimap({ ...snap, freshlyScanned: new Set(fresh.keys()) });
+
+        // Persist the active system seed when warp lands the pilot in a new
+        // generated system. Throttled to the minimap tick (~10fps) so we
+        // never write per-frame, and only when the value actually changes.
+        if (scene.systemSeed !== lastPersistedSeed && pilotIdRef.current) {
+          lastPersistedSeed = scene.systemSeed;
+          saveSystemSeed(pilotIdRef.current, scene.systemSeed);
+        }
       }
 
       raf = requestAnimationFrame(loop);

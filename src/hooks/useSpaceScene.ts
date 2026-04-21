@@ -366,6 +366,14 @@ export function useSpaceScene(
           if (expiry <= nowMs) fresh.delete(name);
         }
         setMinimap({ ...snap, freshlyScanned: new Set(fresh.keys()) });
+
+        // Persist the active system seed when warp lands the pilot in a new
+        // generated system. Throttled to the minimap tick (~10fps) so we
+        // never write per-frame, and only when the value actually changes.
+        if (scene.systemSeed !== lastPersistedSeed && pilotIdRef.current) {
+          lastPersistedSeed = scene.systemSeed;
+          saveSystemSeed(pilotIdRef.current, scene.systemSeed);
+        }
       }
 
       raf = requestAnimationFrame(loop);

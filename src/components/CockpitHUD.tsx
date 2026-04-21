@@ -36,6 +36,8 @@ export type HUDState = {
   proximity: { closeness: number; color: string } | null;
   /** Approach autopilot status — name + live distance to current target. */
   approach: { target: string; distance: number } | null;
+  /** Active F-key framing tween — drives the center-screen reticle that names the chosen body. */
+  framing: { target: string; distance: number; progress: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -123,6 +125,35 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
           Scanning: corner brackets light up amber, a circular progress ring
           fills clockwise around the center, and the target name appears below. */}
       <LockOnReticle scanning={state.scanning} warpHoldProgress={state.warpHoldProgress} />
+
+      {/* F-key framing reticle — appears while the cinematic tween is rotating
+          the camera onto a chosen body. Shows the target name + live distance
+          and a slim progress arc so the pilot knows when the swing completes. */}
+      {state.framing && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-fade-in pointer-events-none">
+          <div className="relative flex h-32 w-32 items-center justify-center">
+            <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="oklch(var(--hud) / 0.25)" strokeWidth="0.6" strokeDasharray="2 3" />
+              <circle
+                cx="50" cy="50" r="46" fill="none"
+                stroke="oklch(var(--hud))" strokeWidth="1.4"
+                strokeDasharray={`${state.framing.progress * 289} 289`}
+                transform="rotate(-90 50 50)"
+                strokeLinecap="round"
+              />
+              {/* Corner ticks */}
+              {[0, 90, 180, 270].map((a) => (
+                <line key={a} x1="50" y1="2" x2="50" y2="8" stroke="oklch(var(--hud))" strokeWidth="1.2" transform={`rotate(${a} 50 50)`} />
+              ))}
+            </svg>
+          </div>
+          <div className="mt-2 text-center text-[10px] tracking-widest">
+            <div className="text-hud-dim">FRAMING</div>
+            <div className="text-hud">{state.framing.target}</div>
+            <div className="text-amber">{state.framing.distance.toFixed(0)}u</div>
+          </div>
+        </div>
+      )}
 
       {/* Top-left: status */}
       <div className="absolute left-6 top-6 hud-panel rounded-md px-4 py-3 text-xs">

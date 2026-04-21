@@ -321,6 +321,8 @@ export class SpaceScene {
   scanRingInner!: THREE.Mesh;
   /** Drives the rotating sweep + pulse on the scan ring. */
   private scanRingTime = 0;
+  /** Dashed ghost line that previews the flyby curve while autopilot is active. */
+  flybyPreviewLine!: THREE.Line;
   /** Cinematic banking model — angular velocity (rad/s) on the ship's roll axis. */
   rollVel = 0;
   /** Max sustained roll rate (rad/s). Tweak for snappier or floatier banks. */
@@ -1194,6 +1196,7 @@ export class SpaceScene {
     this.flyby.targetId = null;
     this.flyby.targetName = null;
     this.virtualThrust = 0;
+    if (this.flybyPreviewLine) this.flybyPreviewLine.visible = false;
   }
   /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.

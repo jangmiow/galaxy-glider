@@ -97,6 +97,7 @@ export function isUnlocked(): boolean {
 }
 
 export function setUnlocked(v: boolean): void {
+  if (typeof window === "undefined") return;
   if (v) localStorage.setItem(UNLOCK_KEY, "1");
   else localStorage.removeItem(UNLOCK_KEY);
 }

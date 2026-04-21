@@ -133,6 +133,61 @@
     to   { transform: scaleX(1); }
   }
 
+  /* Boost burst: subtle high-frequency camera shake (~12Hz) for the 2s window.
+     Applied to the canvas wrapper so HUD chrome stays steady. */
+  @keyframes boost-shake {
+    0%   { transform: translate3d(0, 0, 0); }
+    10%  { transform: translate3d(-1.2px,  0.8px, 0); }
+    20%  { transform: translate3d( 1.4px, -0.6px, 0); }
+    30%  { transform: translate3d(-1.0px, -1.1px, 0); }
+    40%  { transform: translate3d( 1.1px,  1.0px, 0); }
+    50%  { transform: translate3d(-0.8px,  0.5px, 0); }
+    60%  { transform: translate3d( 1.3px, -0.9px, 0); }
+    70%  { transform: translate3d(-1.4px,  0.7px, 0); }
+    80%  { transform: translate3d( 0.9px,  1.2px, 0); }
+    90%  { transform: translate3d(-1.1px, -0.4px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+  .boost-shake { animation: boost-shake 160ms steps(4) infinite; will-change: transform; }
+
+  /* Chromatic aberration: stack two thin red/cyan canvas-sized "ghost" planes
+     offset horizontally and blended additively. Cheap and effective at low alpha. */
+  @keyframes ca-fade {
+    0%   { opacity: 0; }
+    8%   { opacity: 0.55; }
+    85%  { opacity: 0.45; }
+    100% { opacity: 0; }
+  }
+  .ca-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    animation: ca-fade 2s ease-in-out forwards;
+    will-change: opacity, transform;
+  }
+  .ca-red   { box-shadow: inset  18px 0 32px -12px rgba(255, 60, 60, 0.55); transform: translateX(-2px); }
+  .ca-cyan  { box-shadow: inset -18px 0 32px -12px rgba( 60, 220, 255, 0.55); transform: translateX( 2px); }
+
+  /* Vignette pulse during boost — adds a tunneling sense of speed. */
+  @keyframes boost-vignette {
+    0%   { opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .boost-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center,
+      transparent 35%,
+      rgba(0, 8, 20, 0.45) 75%,
+      rgba(0, 0, 0, 0.85) 100%);
+    animation: boost-vignette 2s ease-in-out forwards;
+    will-change: opacity;
+  }
+
   /* System-completion medal: spring in with overshoot, hold, then fade. */
   @keyframes medal-pop {
     0%   { transform: scale(0.4) translateY(20px); opacity: 0; filter: blur(6px); }

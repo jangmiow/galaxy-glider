@@ -279,6 +279,25 @@ export class SpaceScene {
     perp: new THREE.Vector3(),
     up: new THREE.Vector3(),
   };
+  /**
+   * Configurable flyby parameters. Applied at engage time only — changes
+   * mid-flyby do not reshape the active curve. Defaults match the original
+   * cinematic feel (3× radius, no offset, ~8s + size scaling).
+   */
+  flybyConfig = {
+    /** Periapsis altitude as a multiple of target radius (1.5–8). */
+    altitudeMul: 3,
+    /** Lateral offset of the closest-approach point along ship-up, in target radii (-3..3). */
+    offsetMul: 0,
+    /** Duration multiplier applied to the size-scaled base duration (0.5–2.5). */
+    durationMul: 1,
+  };
+  /** Min/max for UI sliders + hotkey clamps. Single source of truth. */
+  static readonly FLYBY_LIMITS = {
+    altitudeMul: { min: 1.5, max: 8, step: 0.25 },
+    offsetMul: { min: -3, max: 3, step: 0.25 },
+    durationMul: { min: 0.5, max: 2.5, step: 0.1 },
+  };
   /** Scan-range ring visualization (lives on the XZ plane around the ship). */
   readonly SCAN_RING_RADIUS = 2000;
   scanRingGroup!: THREE.Group;

@@ -75,6 +75,7 @@ export function useSpaceScene(
     boostCooldownMax: 1,
     boostDuration: 2,
     boostRemaining: 0,
+    warpHoldProgress: 0,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -197,8 +198,7 @@ export function useSpaceScene(
     // keydown; if it fires while still held, warp engages. Releasing before
     // the timer fires triggers a 2-second speed burst instead.
     const HOLD_WARP_MS = 1000;
-    let spaceDownAt = 0;
-    let spaceHeld = false;
+    const spaceState = { downAt: 0, held: false };
     let warpHoldTimer: ReturnType<typeof setTimeout> | null = null;
     const clearWarpHold = () => {
       if (warpHoldTimer) {
@@ -231,9 +231,9 @@ export function useSpaceScene(
         if (e.code === "Space") {
           e.preventDefault();
           // Suppress key auto-repeat — only react to the first keydown.
-          if (spaceHeld) return;
-          spaceHeld = true;
-          spaceDownAt = performance.now();
+          if (spaceState.held) return;
+          spaceState.held = true;
+          spaceState.downAt = performance.now();
           clearWarpHold();
           warpHoldTimer = setTimeout(() => {
             warpHoldTimer = null;
@@ -259,8 +259,8 @@ export function useSpaceScene(
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
       } else {
         if (e.code === "Space") {
-          spaceHeld = false;
-          const heldMs = performance.now() - spaceDownAt;
+          spaceState.held = false;
+          const heldMs = performance.now() - spaceState.downAt;
           // If the warp timer hasn't fired yet, this was a tap → burst.
           if (warpHoldTimer && heldMs < HOLD_WARP_MS) {
             clearWarpHold();
@@ -314,6 +314,9 @@ export function useSpaceScene(
         boostCooldownMax: scene.BOOST_COOLDOWN,
         boostDuration: scene.BOOST_DURATION,
         boostRemaining: scene.boostTimer,
+        warpHoldProgress: spaceState.held
+          ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
+          : 0,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

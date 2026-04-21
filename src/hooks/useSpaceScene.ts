@@ -435,6 +435,9 @@ export function useSpaceScene(
             ? { name: best.name, distance: best.dist, signal: 1 - best.dist / SENSOR_RANGE }
             : null;
         })(),
+        flyby: scene.flyby.active && scene.flyby.targetName
+          ? { target: scene.flyby.targetName, progress: scene.flyby.elapsed / scene.flyby.duration }
+          : null,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

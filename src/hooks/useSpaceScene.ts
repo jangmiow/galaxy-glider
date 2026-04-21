@@ -314,6 +314,9 @@ export function useSpaceScene(
         boostCooldownMax: scene.BOOST_COOLDOWN,
         boostDuration: scene.BOOST_DURATION,
         boostRemaining: scene.boostTimer,
+        warpHoldProgress: spaceState.held
+          ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
+          : 0,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

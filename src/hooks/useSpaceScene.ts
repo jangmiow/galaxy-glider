@@ -488,6 +488,25 @@ export function useSpaceScene(
     audioRef.current?.setMuted(m);
   }, []);
 
+  const toggleApproach = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (scene.approach.active) {
+      scene.disengageApproach();
+      toast("APPROACH DISENGAGED");
+    } else {
+      const target = scene.engageApproach();
+      if (target) {
+        toast("APPROACH ENGAGED", {
+          description: `${target.name} · ${target.dist.toFixed(0)}u`,
+          duration: 1800,
+        });
+      } else {
+        toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
+      }
+    }
+  }, []);
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -497,6 +516,7 @@ export function useSpaceScene(
     resume,
     setMuted,
     muted,
+    toggleApproach,
   };
 
   return { hud, minimap, controller };

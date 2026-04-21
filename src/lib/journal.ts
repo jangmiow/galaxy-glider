@@ -35,11 +35,13 @@ export function saveDiscovery(d: Discovery): Discovery[] {
   const list = loadJournal();
   if (list.some((x) => x.id === d.id)) return list;
   const next = [d, ...list].slice(0, 200);
+  if (typeof window === "undefined") return next;
   localStorage.setItem(journalKey(), JSON.stringify(next));
   return next;
 }
 
 export function clearJournal() {
+  if (typeof window === "undefined") return;
   localStorage.removeItem(journalKey());
 }
 

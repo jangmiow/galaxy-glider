@@ -41,6 +41,7 @@ export function loadPilots(): Pilot[] {
 }
 
 export function savePilots(pilots: Pilot[]): void {
+  if (typeof window === "undefined") return;
   localStorage.setItem(PILOTS_KEY, JSON.stringify(pilots));
 }
 
@@ -58,6 +59,7 @@ export function createPilot(callsign: string): Pilot {
 }
 
 export function deletePilot(pilotId: string): void {
+  if (typeof window === "undefined") return;
   savePilots(loadPilots().filter((p) => p.id !== pilotId));
   // Sweep all per-pilot storage keys for this pilot.
   const prefix = `cosmic-drift:p:${pilotId}:`;
@@ -76,6 +78,7 @@ export function getActivePilotId(): string | null {
 }
 
 export function setActivePilotId(id: string | null): void {
+  if (typeof window === "undefined") return;
   if (id == null) localStorage.removeItem(ACTIVE_KEY);
   else localStorage.setItem(ACTIVE_KEY, id);
 }
@@ -94,6 +97,7 @@ export function isUnlocked(): boolean {
 }
 
 export function setUnlocked(v: boolean): void {
+  if (typeof window === "undefined") return;
   if (v) localStorage.setItem(UNLOCK_KEY, "1");
   else localStorage.removeItem(UNLOCK_KEY);
 }
@@ -126,6 +130,7 @@ export function loadStats(pilotId: string): PilotStats {
 }
 
 export function saveStats(pilotId: string, stats: PilotStats): void {
+  if (typeof window === "undefined") return;
   localStorage.setItem(pilotKey(pilotId, "stats"), JSON.stringify(stats));
 }
 

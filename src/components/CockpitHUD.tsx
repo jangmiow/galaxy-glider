@@ -42,6 +42,16 @@ export type HUDState = {
   sensorContact: { name: string; distance: number; signal: number } | null;
   /** Active flyby autopilot — target name + 0..1 progress along the curve. */
   flyby: { target: string; progress: number } | null;
+  /** Tunable flyby parameters surfaced in the pause menu + tweaked via hotkeys. */
+  flybyConfig: { altitudeMul: number; offsetMul: number; durationMul: number };
+  /** Hard limits + step sizes for the flyby sliders. */
+  flybyLimits: {
+    altitudeMul: { min: number; max: number; step: number };
+    offsetMul: { min: number; max: number; step: number };
+    durationMul: { min: number; max: number; step: number };
+  };
+  /** Apply a flyby parameter change (called from the pause-menu sliders). */
+  onFlybyConfigChange?: (cfg: Partial<{ altitudeMul: number; offsetMul: number; durationMul: number }>) => void;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

@@ -36,6 +36,8 @@ export type HUDState = {
   proximity: { closeness: number; color: string } | null;
   /** Approach autopilot status — name + live distance to current target. */
   approach: { target: string; distance: number } | null;
+  /** Active F-key framing tween — drives the center-screen reticle that names the chosen body. */
+  framing: { target: string; distance: number; progress: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

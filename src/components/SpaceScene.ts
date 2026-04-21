@@ -1492,6 +1492,10 @@ export class SpaceScene {
       const target = this.bodies.find((b) => b.id === this.flyby.targetId);
       if (!target) {
         this.disengageFlyby();
+      } else if (this.evaluateOverride("flyby", dt)) {
+        // Configurable manual override crossed threshold (held long enough or
+        // accumulated enough tap-input) — abort the flyby.
+        this.disengageFlyby();
       } else {
         // Blend cursor + key input into nudge offsets. Scale by target radius
         // so bigger planets allow proportionally bigger sweeps. Clamp the

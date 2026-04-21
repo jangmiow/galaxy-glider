@@ -247,6 +247,10 @@ export class SpaceScene {
   proximity: { closeness: number; color: string } | null = null;
   /** Active F-key "frame target" rotation tween, if any. */
   frameTween: { from: THREE.Quaternion; to: THREE.Quaternion; elapsed: number; duration: number } | null = null;
+  /** Approach autopilot state: continuously steers + thrusts toward a chosen target. */
+  approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
+    active: false, targetId: null, targetName: null, distance: 0,
+  };
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });

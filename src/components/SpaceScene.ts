@@ -1262,6 +1262,42 @@ export class SpaceScene {
       return;
     }
 
+    // Cinematic flyby — engaged via H. Steps along a precomputed Bezier curve,
+    // overrides ship position directly (so it ignores velocity/thrust), and
+    // slerps the camera to keep the target framed. Manual input cancels.
+    if (this.flyby.active) {
+      const target = this.bodies.find((b) => b.id === this.flyby.targetId);
+      const manualOverride =
+        Math.abs(this.mouseX) > 0.05 || Math.abs(this.mouseY) > 0.05 ||
+        this.keys.has("KeyW") || this.keys.has("KeyS") ||
+        this.keys.has("KeyA") || this.keys.has("KeyD") ||
+        this.keys.has("KeyQ") || this.keys.has("KeyE");
+      if (!target || manualOverride) {
+        this.disengageFlyby();
+      } else {
+        this.flyby.elapsed += dt;
+        const u = Math.min(1, this.flyby.elapsed / this.flyby.duration);
+        // Cubic Bezier B(u) = (1-u)^3 p0 + 3(1-u)^2 u p1 + 3(1-u) u^2 p2 + u^3 p3
+        const iu = 1 - u;
+        const pos = new THREE.Vector3()
+          .addScaledVector(this.flyby.p0, iu * iu * iu)
+          .addScaledVector(this.flyby.p1, 3 * iu * iu * u)
+          .addScaledVector(this.flyby.p2, 3 * iu * u * u)
+          .addScaledVector(this.flyby.p3, u * u * u);
+        this.ship.position.copy(pos);
+        // Frame the planet — slerp ship orientation toward look-at(target).
+        const m = new THREE.Matrix4();
+        const flipped = pos.clone().multiplyScalar(2).sub(target.mesh.position);
+        m.lookAt(pos, flipped, new THREE.Vector3(0, 1, 0));
+        const desired = new THREE.Quaternion().setFromRotationMatrix(m);
+        this.ship.quaternion.slerp(desired, Math.min(1, dt * 2.5));
+        // Suppress velocity/thrust during flyby so the existing physics doesn't fight us.
+        this.velocity = 0;
+        this.virtualThrust = 0;
+        if (u >= 1) this.disengageFlyby();
+      }
+    }
+
     // Approach autopilot — engaged via G key. Steers + thrusts toward the
     // chosen body until ~5 radii away, then station-keeps so it sits framed.
     // Any manual input (mouse-look / movement keys) cancels approach so the

@@ -1084,11 +1084,24 @@ export class SpaceScene {
     this.ship.rotateY(yawRate * dt);
     this.ship.rotateX(pitchRate * dt);
 
-    // Roll from A/D / arrows
+    // Roll from A/D / arrows (yaw-helpers) AND Q/E (cinematic banking).
     let rollInput = 0;
     if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) rollInput += 1;
     if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) rollInput -= 1;
+    if (this.keys.has("KeyQ")) rollInput += 1;
+    if (this.keys.has("KeyE")) rollInput -= 1;
     this.ship.rotateZ(rollInput * 1.2 * dt);
+
+    // Smooth "frame target" tween — F key rotates the camera toward a chosen
+    // body over ~1.2s so the pilot can compose the shot without snap-cuts.
+    if (this.frameTween) {
+      const t = this.frameTween;
+      t.elapsed = Math.min(t.duration, t.elapsed + dt);
+      const u = t.elapsed / t.duration;
+      const e = u * u * (3 - 2 * u); // smoothstep
+      this.ship.quaternion.copy(t.from).slerp(t.to, e);
+      if (t.elapsed >= t.duration) this.frameTween = null;
+    }
 
     // Thrust — combine keyboard with continuous virtual input (mobile slider).
     let thrustInput = 0;
@@ -1111,7 +1124,26 @@ export class SpaceScene {
     this.boost = Math.max(shiftBoost, burstBoost);
     this.thrust = thrustInput;
 
-    const targetVel = thrustInput * 60 * this.boost;
+    // Approach mode — taper max velocity near a body and surface a proximity
+    // hint so the HUD can fade an atmospheric vignette in close-flyby.
+    let nearestProx: { dist: number; size: number; color: string } | null = null;
+    for (const b of this.bodies) {
+      if (b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      const reach = b.size * 6;
+      if (d < reach && (!nearestProx || d / b.size < nearestProx.dist / nearestProx.size)) {
+        nearestProx = { dist: d, size: b.size, color: b.color };
+      }
+    }
+    this.proximity = nearestProx
+      ? { closeness: 1 - Math.min(1, nearestProx.dist / (nearestProx.size * 6)), color: nearestProx.color }
+      : null;
+    const approachTaper =
+      nearestProx && nearestProx.dist < nearestProx.size * 4
+        ? 0.7 + 0.3 * (nearestProx.dist / (nearestProx.size * 4))
+        : 1;
+
+    const targetVel = thrustInput * 60 * this.boost * approachTaper;
     this.velocity += (targetVel - this.velocity) * Math.min(1, dt * 1.2);
     if (Math.abs(this.velocity) < 0.05) this.velocity = 0;
 

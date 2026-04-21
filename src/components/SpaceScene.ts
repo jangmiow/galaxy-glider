@@ -251,6 +251,13 @@ export class SpaceScene {
   approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
     active: false, targetId: null, targetName: null, distance: 0,
   };
+  /** Scan-range ring visualization (lives on the XZ plane around the ship). */
+  readonly SCAN_RING_RADIUS = 2000;
+  scanRingGroup!: THREE.Group;
+  scanRingOuter!: THREE.Mesh;
+  scanRingInner!: THREE.Mesh;
+  /** Drives the rotating sweep + pulse on the scan ring. */
+  private scanRingTime = 0;
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });

@@ -69,10 +69,11 @@ export function KeyBindingsHUD() {
             <Key label="E" active={isDown("KeyE")} />
             <Key label="F" active={isDown("KeyF")} />
             <Key label="G" active={isDown("KeyG")} />
+            <Key label="H" active={isDown("KeyH")} />
           </div>
           <div className="text-hud/60 leading-tight">
-            <div>Q/E · ROLL</div>
-            <div>F · FRAME · G · APPROACH</div>
+            <div>Q/E · ROLL · F · FRAME</div>
+            <div>G · APPROACH · H · FLYBY</div>
           </div>
         </div>
 

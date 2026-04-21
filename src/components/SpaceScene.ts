@@ -1040,6 +1040,24 @@ export class SpaceScene {
    * Fires a 2-second speed burst with a 1-second cooldown. Returns true if
    * the burst actually engaged so the UI can play feedback.
    */
+  /**
+   * Bail out of an active lightspeed jump early. The warp loop in `update`
+   * normally runs for ~10s after `triggerWarp`; this lets the pilot tap Space
+   * to drop out at the current location instead of riding it out. No-op when
+   * not warping, so it's safe to call from a generic Space-tap handler.
+   */
+  exitWarp() {
+    if (!this.isWarping) return;
+    this.warpTimer = 0;
+    // Force an immediate teardown so the next-system rebuild fires this frame
+    // rather than waiting for the warp tick to roll the timer past zero.
+    this.isWarping = false;
+    (this.warpStars.material as THREE.PointsMaterial).opacity = 0;
+    this.warpStars.visible = false;
+    // Intentionally do NOT increment systemSeed — early-exit keeps the pilot
+    // in the system they're flying through.
+  }
+
   triggerBoostBurst(): boolean {
     if (this.boostActive || this.boostCooldown > 0 || this.isWarping) return false;
     this.boostActive = true;

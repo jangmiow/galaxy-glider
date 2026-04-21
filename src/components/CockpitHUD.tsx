@@ -364,7 +364,7 @@ export function CockpitHUD({
       {/* Pause overlay — also doubles as a quick controls reference. */}
       {state.paused && (
         <div className="pointer-events-auto absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="hud-panel max-w-md rounded-lg p-8 text-center">
+          <div className="hud-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg p-8 text-center">
             <div className="font-display text-3xl text-hud hud-glow">PAUSED</div>
 
             <div className="mt-6 text-left">
@@ -375,6 +375,8 @@ export function CockpitHUD({
                 <li><span className="text-hud">SHIFT</span> · sustained afterburner</li>
                 <li><span className="text-hud">SPACE (tap)</span> · 2-second boost burst <span className="text-hud-dim">(1s cooldown)</span></li>
                 <li><span className="text-hud">SPACE (hold 1s)</span> · engage lightspeed (10s, jumps systems)</li>
+                <li><span className="text-hud">F / G / H</span> · frame · approach · flyby</li>
+                <li><span className="text-hud">[ ]</span> alt · <span className="text-hud">; '</span> offset · <span className="text-hud">, .</span> duration</li>
                 <li><span className="text-hud">+ / −</span> · minimap zoom</li>
                 <li><span className="text-hud">ESC</span> · pause / resume</li>
               </ul>
@@ -382,6 +384,12 @@ export function CockpitHUD({
                 Lock the reticle on a body for ~4s to catalogue it. Survey every body in a system for a medal.
               </div>
             </div>
+
+            <FlybyPanel
+              config={state.flybyConfig}
+              onChange={onFlybyConfigChange}
+              activePass={state.flyby}
+            />
 
             <button
               onClick={onResume}

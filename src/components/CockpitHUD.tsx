@@ -237,11 +237,28 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         </div>
       )}
 
-      {/* Pause overlay */}
+      {/* Pause overlay — also doubles as a quick controls reference. */}
       {state.paused && (
         <div className="pointer-events-auto absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="hud-panel rounded-lg p-8 text-center">
+          <div className="hud-panel max-w-md rounded-lg p-8 text-center">
             <div className="font-display text-3xl text-hud hud-glow">PAUSED</div>
+
+            <div className="mt-6 text-left">
+              <div className="mb-2 font-display text-[11px] tracking-widest text-amber">FLIGHT CONTROLS</div>
+              <ul className="space-y-1.5 font-display text-[11px] tracking-wider text-hud-dim">
+                <li><span className="text-hud">MOUSE</span> · steer (pitch / yaw)</li>
+                <li><span className="text-hud">W / S</span> · thrust forward / reverse</li>
+                <li><span className="text-hud">SHIFT</span> · sustained afterburner</li>
+                <li><span className="text-hud">SPACE (tap)</span> · 2-second boost burst <span className="text-hud-dim">(1s cooldown)</span></li>
+                <li><span className="text-hud">SPACE (hold 1s)</span> · engage lightspeed (10s, jumps systems)</li>
+                <li><span className="text-hud">+ / −</span> · minimap zoom</li>
+                <li><span className="text-hud">ESC</span> · pause / resume</li>
+              </ul>
+              <div className="mt-3 font-display text-[10px] tracking-wider text-hud-dim">
+                Lock the reticle on a body for ~4s to catalogue it. Survey every body in a system for a medal.
+              </div>
+            </div>
+
             <button
               onClick={onResume}
               className="mt-6 rounded-md border border-hud bg-hud/10 px-6 py-2 font-display text-sm tracking-widest text-hud hover:bg-hud hover:text-background"

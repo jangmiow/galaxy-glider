@@ -130,6 +130,7 @@ export function loadStats(pilotId: string): PilotStats {
 }
 
 export function saveStats(pilotId: string, stats: PilotStats): void {
+  if (typeof window === "undefined") return;
   localStorage.setItem(pilotKey(pilotId, "stats"), JSON.stringify(stats));
 }
 

@@ -78,6 +78,18 @@ export function KeyBindingsHUD() {
           </div>
         </div>
 
+        {/* Dedicated flyby start/abort — non-toggle, safe with arrow-key thrust */}
+        <div className="mb-2 flex items-center gap-3">
+          <div className="flex gap-1">
+            <Key label="Y" active={isDown("KeyY")} />
+            <Key label="B" active={isDown("KeyB")} />
+          </div>
+          <div className="text-hud/60 leading-tight">
+            <div>Y · FLYBY START</div>
+            <div>B · FLYBY ABORT</div>
+          </div>
+        </div>
+
         {/* Flyby tuning hotkeys */}
         <div className="mb-2 flex items-center gap-3">
           <div className="flex gap-1">

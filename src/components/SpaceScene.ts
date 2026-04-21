@@ -384,6 +384,32 @@ export class SpaceScene {
     this.scanRingGroup.add(this.scanRingInner);
     this.ship.add(this.scanRingGroup);
 
+    // Ghost preview line for the upcoming flyby curve. Hidden until a flyby
+    // is active; when active, we resample the Bezier (with current nudges
+    // applied) every frame so the dashed trail visibly shifts as the pilot
+    // sweeps the cursor or taps WASD/arrows. 64 segments is enough for a
+    // smooth arc at typical fly-by ranges; geometry is updated in place.
+    {
+      const segs = 64;
+      const positions = new Float32Array((segs + 1) * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.LineDashedMaterial({
+        color: 0x66ddff,
+        transparent: true,
+        opacity: 0.7,
+        dashSize: 12,
+        gapSize: 8,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+      });
+      this.flybyPreviewLine = new THREE.Line(geo, mat);
+      this.flybyPreviewLine.frustumCulled = false;
+      this.flybyPreviewLine.visible = false;
+      this.scene.add(this.flybyPreviewLine);
+    }
+
     this.buildStarfield();
     this.buildWarpField();
     this.buildDustField();

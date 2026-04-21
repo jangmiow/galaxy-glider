@@ -258,6 +258,14 @@ export class SpaceScene {
   scanRingInner!: THREE.Mesh;
   /** Drives the rotating sweep + pulse on the scan ring. */
   private scanRingTime = 0;
+  /** Cinematic banking model — angular velocity (rad/s) on the ship's roll axis. */
+  rollVel = 0;
+  /** Max sustained roll rate (rad/s). Tweak for snappier or floatier banks. */
+  ROLL_MAX_RATE = 1.6;
+  /** How fast roll velocity accelerates toward the input target (1/s). Higher = snappier. */
+  ROLL_ACCEL = 3.0;
+  /** How fast roll velocity decays back to zero with no input (1/s). Lower = floatier. */
+  ROLL_DAMPING = 1.4;
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -1220,13 +1228,22 @@ export class SpaceScene {
     this.ship.rotateY(yawRate * dt);
     this.ship.rotateX(pitchRate * dt);
 
-    // Roll from A/D / arrows (yaw-helpers) AND Q/E (cinematic banking).
+    // Roll: A/D / arrows + Q/E feed an angular-velocity model so banking
+    // ramps up smoothly and decays after release instead of snapping. Tunables
+    // below let us trade snap (high accel/damping) for cinematic float
+    // (low damping). Max rate caps top angular speed regardless of input.
     let rollInput = 0;
     if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) rollInput += 1;
     if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) rollInput -= 1;
     if (this.keys.has("KeyQ")) rollInput += 1;
     if (this.keys.has("KeyE")) rollInput -= 1;
-    this.ship.rotateZ(rollInput * 1.2 * dt);
+    // Accelerate toward (input * MAX_ROLL_RATE); when input is 0, damping
+    // pulls velocity back to zero so the ship slowly levels out on its own.
+    const targetRollVel = rollInput * this.ROLL_MAX_RATE;
+    const k = rollInput !== 0 ? this.ROLL_ACCEL : this.ROLL_DAMPING;
+    this.rollVel += (targetRollVel - this.rollVel) * Math.min(1, dt * k);
+    if (Math.abs(this.rollVel) < 0.001) this.rollVel = 0;
+    this.ship.rotateZ(this.rollVel * dt);
 
     // Smooth "frame target" tween — F key rotates the camera toward a chosen
     // body over ~1.2s so the pilot can compose the shot without snap-cuts.

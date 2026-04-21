@@ -198,8 +198,7 @@ export function useSpaceScene(
     // keydown; if it fires while still held, warp engages. Releasing before
     // the timer fires triggers a 2-second speed burst instead.
     const HOLD_WARP_MS = 1000;
-    let spaceDownAt = 0;
-    let spaceHeld = false;
+    const spaceState = { downAt: 0, held: false };
     let warpHoldTimer: ReturnType<typeof setTimeout> | null = null;
     const clearWarpHold = () => {
       if (warpHoldTimer) {

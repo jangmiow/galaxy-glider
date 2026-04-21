@@ -314,6 +314,29 @@ export class SpaceScene {
     offsetMul: { min: -3, max: 3, step: 0.25 },
     durationMul: { min: 0.5, max: 2.5, step: 0.1 },
   };
+  /**
+   * Configurable autopilot override thresholds. The pilot must either hold a
+   * thrust/strafe/roll key continuously for `holdMs`, OR accumulate enough
+   * tap-input within a sliding 1.5s window (each frame the key is down adds
+   * `dt` seconds to the accumulator; it decays at `1/decaySec` per second
+   * when released) to exceed `accumSec`. Whichever crosses first triggers
+   * abort. Higher numbers = harder to accidentally cancel.
+   */
+  overrideConfig = {
+    /** Continuous-hold duration before override fires, in milliseconds. */
+    holdMs: 250,
+    /** Accumulated active-input seconds before override fires (sliding window). */
+    accumSec: 0.6,
+  };
+  static readonly OVERRIDE_LIMITS = {
+    holdMs: { min: 0, max: 2000, step: 50 },
+    accumSec: { min: 0.1, max: 3, step: 0.1 },
+  };
+  /** Per-autopilot input trackers used to evaluate overrideConfig each frame. */
+  private overrideState = {
+    flyby: { heldMs: 0, accum: 0 },
+    approach: { heldMs: 0, accum: 0 },
+  };
   /** Scan-range ring visualization (lives on the XZ plane around the ship). */
   readonly SCAN_RING_RADIUS = 2000;
   scanRingGroup!: THREE.Group;

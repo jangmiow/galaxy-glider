@@ -188,6 +188,33 @@ export function useSpaceScene(
       if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
     };
 
+    // Space-key state for tap (boost) vs hold (warp). We start a 1s timer on
+    // keydown; if it fires while still held, warp engages. Releasing before
+    // the timer fires triggers a 2-second speed burst instead.
+    const HOLD_WARP_MS = 1000;
+    let spaceDownAt = 0;
+    let spaceHeld = false;
+    let warpHoldTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearWarpHold = () => {
+      if (warpHoldTimer) {
+        clearTimeout(warpHoldTimer);
+        warpHoldTimer = null;
+      }
+    };
+    const engageWarp = () => {
+      if (scene.warpCharge >= 1 && !scene.isWarping) audio.warpWhoosh();
+      scene.triggerWarp();
+      setHud((s) => ({ ...s, isWarping: true }));
+      // Lightspeed cinematic now lasts 10 seconds — match the scene timer.
+      setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 10000);
+    };
+    const fireBoostBurst = () => {
+      if (scene.triggerBoostBurst()) {
+        // Re-use the orb ping as a snappy "engage" cue; cheap and on-brand.
+        audio.orbPing();
+      }
+    };
+
     const onKey = (e: KeyboardEvent, down: boolean) => {
       if (down) {
         startAudio();
@@ -198,10 +225,17 @@ export function useSpaceScene(
         }
         if (e.code === "Space") {
           e.preventDefault();
-          if (scene.warpCharge >= 1 && !scene.isWarping) audio.warpWhoosh();
-          scene.triggerWarp();
-          setHud((s) => ({ ...s, isWarping: true }));
-          setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 2500);
+          // Suppress key auto-repeat — only react to the first keydown.
+          if (spaceHeld) return;
+          spaceHeld = true;
+          spaceDownAt = performance.now();
+          clearWarpHold();
+          warpHoldTimer = setTimeout(() => {
+            warpHoldTimer = null;
+            engageWarp();
+          }, HOLD_WARP_MS);
+          // Don't add Space to scene.keys — it's a discrete action key.
+          return;
         }
         if (e.code === "Equal" || e.code === "NumpadAdd") {
           adjustRangeRef.current(-1);
@@ -219,6 +253,18 @@ export function useSpaceScene(
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
       } else {
+        if (e.code === "Space") {
+          spaceHeld = false;
+          const heldMs = performance.now() - spaceDownAt;
+          // If the warp timer hasn't fired yet, this was a tap → burst.
+          if (warpHoldTimer && heldMs < HOLD_WARP_MS) {
+            clearWarpHold();
+            fireBoostBurst();
+          } else {
+            clearWarpHold();
+          }
+          return;
+        }
         scene.keys.delete(e.code);
       }
     };

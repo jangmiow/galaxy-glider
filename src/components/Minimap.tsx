@@ -220,6 +220,7 @@ export function Minimap({
             <g transform={`translate(${px} ${py}) rotate(${angleDeg})`} opacity={0.9}>
               <polygon points="0,-5 -3.5,3 3.5,3" fill="none" stroke="#88ffcc" strokeWidth="1.2">
                 <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
+                <title>Nearest uncatalogued · {formatDist(n.distance)}{n.inRange ? "" : " · out of range"}</title>
               </polygon>
             </g>
           );
@@ -260,6 +261,17 @@ export function Minimap({
           {target ? formatDist(target.distance) : data?.offRangeTarget ? formatDist(data.offRangeTarget.distance) : "—"}
         </span>
       </div>
+      {data?.nextUnscanned && (
+        <div className="px-1 text-[10px] text-hud-dim">
+          NEXT:{" "}
+          <span style={{ color: "#88ffcc" }}>
+            {formatDist(data.nextUnscanned.distance)}
+          </span>
+          {!data.nextUnscanned.inRange && (
+            <span className="ml-1 text-hud-dim/70">· OFF RADAR</span>
+          )}
+        </div>
+      )}
       <div className="mt-0.5 flex items-center gap-2 px-1 text-[9px] uppercase tracking-wider text-hud-dim">
         <span className="flex items-center gap-1">
           <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden>

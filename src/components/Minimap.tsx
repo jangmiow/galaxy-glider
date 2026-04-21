@@ -231,6 +231,14 @@ export function Minimap({
           </svg>
           catalogued
         </span>
+        <span aria-hidden>·</span>
+        <span className="flex items-center gap-1">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+            <circle cx="5" cy="5" r="4" fill="none" stroke="#ffb347" strokeWidth="1" />
+            <circle cx="5" cy="5" r="1.5" fill="#ffb347" />
+          </svg>
+          <span style={{ color: "#ffb347" }}>objective</span>
+        </span>
       </div>
     </div>
   );

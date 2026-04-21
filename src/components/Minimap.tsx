@@ -15,6 +15,8 @@ export type MinimapData = {
   dots: MinimapDot[];
   range: number;
   offRangeTarget: { x: number; z: number; distance: number } | null;
+  /** Always-on pointer to the nearest uncatalogued body (any kind, any range). */
+  nextUnscanned?: { x: number; z: number; distance: number; inRange: boolean } | null;
   /** Names of bodies scanned in the last few seconds — pulse their dots. */
   freshlyScanned?: Set<string>;
 };

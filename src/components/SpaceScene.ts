@@ -1065,6 +1065,9 @@ export class SpaceScene {
     // Pull controls toward periapsis so the curve bows around the planet.
     const p1 = p0.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
     const p2 = p3.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
+    // Compute a stable "up" axis (perpendicular to both toShip and perp) for vertical nudges.
+    const up = new THREE.Vector3().crossVectors(perp, toShip).normalize();
+    if (up.lengthSq() < 0.01) up.set(0, 1, 0);
     this.flyby = {
       active: true,
       targetId: best.id,
@@ -1074,6 +1077,10 @@ export class SpaceScene {
       elapsed: 0,
       // Duration scales loosely with body size so big planets get a longer pass.
       duration: 8 + Math.min(6, best.size * 0.15),
+      nudgeLateral: 0,
+      nudgeVertical: 0,
+      perp: perp.clone(),
+      up,
     };
     // Cancel competing autopilots.
     this.approach.active = false;

@@ -99,11 +99,8 @@ export function useSpaceScene(
     }));
     // Restore the last system seed the pilot was exploring. Sol (seed 0) is
     // the default, so we only rebuild when a generated system was saved.
-    const seed = loadSystemSeed(pilot.id);
-    if (seed > 0 && sceneRef.current) {
-      sceneRef.current.systemSeed = seed;
-      sceneRef.current.buildSystem(seed);
-    }
+    // Note: this runs BEFORE the scene-init effect, so sceneRef may be null;
+    // the scene effect re-reads the seed and applies it on construction.
   }, []);
 
   /**

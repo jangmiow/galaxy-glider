@@ -129,6 +129,12 @@ export function useSpaceScene(
 
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
   const [muted, setMutedState] = useState(false);
+  // Mirror of scene.flybyConfig so the settings panel re-renders on tweaks.
+  const [flybyConfig, setFlybyConfigState] = useState({
+    altitudeMul: 3,
+    offsetMul: 0,
+    durationMul: 1,
+  });
 
   // Tracks recently scanned body names → expiry timestamp (ms). The minimap
   // pulses any dot whose name is still in this map, drawing the eye to the

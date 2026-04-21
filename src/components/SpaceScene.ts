@@ -279,6 +279,25 @@ export class SpaceScene {
     perp: new THREE.Vector3(),
     up: new THREE.Vector3(),
   };
+  /**
+   * Configurable flyby parameters. Applied at engage time only — changes
+   * mid-flyby do not reshape the active curve. Defaults match the original
+   * cinematic feel (3× radius, no offset, ~8s + size scaling).
+   */
+  flybyConfig = {
+    /** Periapsis altitude as a multiple of target radius (1.5–8). */
+    altitudeMul: 3,
+    /** Lateral offset of the closest-approach point along ship-up, in target radii (-3..3). */
+    offsetMul: 0,
+    /** Duration multiplier applied to the size-scaled base duration (0.5–2.5). */
+    durationMul: 1,
+  };
+  /** Min/max for UI sliders + hotkey clamps. Single source of truth. */
+  static readonly FLYBY_LIMITS = {
+    altitudeMul: { min: 1.5, max: 8, step: 0.25 },
+    offsetMul: { min: -3, max: 3, step: 0.25 },
+    durationMul: { min: 0.5, max: 2.5, step: 0.1 },
+  };
   /** Scan-range ring visualization (lives on the XZ plane around the ship). */
   readonly SCAN_RING_RADIUS = 2000;
   scanRingGroup!: THREE.Group;
@@ -1048,7 +1067,8 @@ export class SpaceScene {
       if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
     }
     if (!best) return null;
-    const altitude = best.size * 3;
+    const cfg = this.flybyConfig;
+    const altitude = best.size * cfg.altitudeMul;
     // Build curve: ingress from current ship position, periapsis on a perpendicular
     // offset at `altitude`, egress mirrored on the far side. Control points pulled
     // outward so the path bends instead of cutting through the body.
@@ -1058,7 +1078,14 @@ export class SpaceScene {
     let perp = right.clone().sub(toShip.clone().multiplyScalar(right.dot(toShip)));
     if (perp.lengthSq() < 0.01) perp.set(0, 1, 0);
     perp.normalize();
-    const periapsis = best.pos.clone().add(perp.clone().multiplyScalar(altitude));
+    // Closest-approach offset shifts the periapsis along the orthogonal "up"
+    // axis by `offsetMul × radius`. 0 keeps the original equatorial pass.
+    const offsetAxis = new THREE.Vector3().crossVectors(perp, toShip).normalize();
+    if (offsetAxis.lengthSq() < 0.01) offsetAxis.set(0, 1, 0);
+    const offset = best.size * cfg.offsetMul;
+    const periapsis = best.pos.clone()
+      .add(perp.clone().multiplyScalar(altitude))
+      .add(offsetAxis.clone().multiplyScalar(offset));
     const exit = best.pos.clone().add(toShip.clone().multiplyScalar(-best.dist)); // mirrored across body
     const p0 = this.ship.position.clone();
     const p3 = exit;
@@ -1076,7 +1103,7 @@ export class SpaceScene {
       center: best.pos.clone(),
       elapsed: 0,
       // Duration scales loosely with body size so big planets get a longer pass.
-      duration: 8 + Math.min(6, best.size * 0.15),
+      duration: (8 + Math.min(6, best.size * 0.15)) * cfg.durationMul,
       nudgeLateral: 0,
       nudgeVertical: 0,
       perp: perp.clone(),

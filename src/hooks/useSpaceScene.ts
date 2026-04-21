@@ -38,6 +38,10 @@ export type CockpitController = {
   toggleApproach: () => void;
   /** Toggle the cinematic flyby autopilot. */
   toggleFlyby: () => void;
+  /** Read current flyby tuning (for the settings panel). */
+  getFlybyConfig: () => { altitudeMul: number; offsetMul: number; durationMul: number };
+  /** Update flyby tuning (applied to the next engagement). */
+  setFlybyConfig: (cfg: Partial<{ altitudeMul: number; offsetMul: number; durationMul: number }>) => void;
 };
 
 /**
@@ -84,6 +88,7 @@ export function useSpaceScene(
     framing: null,
     sensorContact: null,
     flyby: null,
+    flybyConfig: { altitudeMul: 3, offsetMul: 0, durationMul: 1 },
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -125,6 +130,12 @@ export function useSpaceScene(
 
   const [minimap, setMinimap] = useState<MinimapData | null>(null);
   const [muted, setMutedState] = useState(false);
+  // Mirror of scene.flybyConfig so the settings panel re-renders on tweaks.
+  const [flybyConfig, setFlybyConfigState] = useState({
+    altitudeMul: 3,
+    offsetMul: 0,
+    durationMul: 1,
+  });
 
   // Tracks recently scanned body names → expiry timestamp (ms). The minimap
   // pulses any dot whose name is still in this map, drawing the eye to the
@@ -344,6 +355,41 @@ export function useSpaceScene(
               toast("FLYBY UNAVAILABLE", { description: "No body in range" });
             }
           }
+        } else if (
+          e.code === "BracketLeft" || e.code === "BracketRight" ||
+          e.code === "Semicolon" || e.code === "Quote" ||
+          e.code === "Comma" || e.code === "Period"
+        ) {
+          // Live-tune flyby parameters. Applied to the NEXT engagement only —
+          // active flybys keep their pre-built curve so the camera doesn't snap.
+          const L = SpaceScene.FLYBY_LIMITS;
+          const cur = scene.flybyConfig;
+          const clamp = (v: number, lim: { min: number; max: number }) =>
+            Math.max(lim.min, Math.min(lim.max, Math.round(v * 100) / 100));
+          let next = { ...cur };
+          let label = "";
+          if (e.code === "BracketLeft") {
+            next.altitudeMul = clamp(cur.altitudeMul - L.altitudeMul.step, L.altitudeMul);
+            label = `ALTITUDE ${next.altitudeMul.toFixed(2)}× R`;
+          } else if (e.code === "BracketRight") {
+            next.altitudeMul = clamp(cur.altitudeMul + L.altitudeMul.step, L.altitudeMul);
+            label = `ALTITUDE ${next.altitudeMul.toFixed(2)}× R`;
+          } else if (e.code === "Semicolon") {
+            next.offsetMul = clamp(cur.offsetMul - L.offsetMul.step, L.offsetMul);
+            label = `OFFSET ${next.offsetMul.toFixed(2)}× R`;
+          } else if (e.code === "Quote") {
+            next.offsetMul = clamp(cur.offsetMul + L.offsetMul.step, L.offsetMul);
+            label = `OFFSET ${next.offsetMul.toFixed(2)}× R`;
+          } else if (e.code === "Comma") {
+            next.durationMul = clamp(cur.durationMul - L.durationMul.step, L.durationMul);
+            label = `DURATION ${next.durationMul.toFixed(2)}×`;
+          } else if (e.code === "Period") {
+            next.durationMul = clamp(cur.durationMul + L.durationMul.step, L.durationMul);
+            label = `DURATION ${next.durationMul.toFixed(2)}×`;
+          }
+          scene.flybyConfig = next;
+          setFlybyConfigState(next);
+          toast(`FLYBY · ${label}`, { duration: 1200 });
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
@@ -440,6 +486,7 @@ export function useSpaceScene(
         flyby: scene.flyby.active && scene.flyby.targetName
           ? { target: scene.flyby.targetName, progress: scene.flyby.elapsed / scene.flyby.duration }
           : null,
+        flybyConfig: { ...scene.flybyConfig },
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.
@@ -576,6 +623,26 @@ export function useSpaceScene(
     }
   }, []);
 
+  const getFlybyConfig = useCallback(() => flybyConfig, [flybyConfig]);
+  const setFlybyConfig = useCallback(
+    (cfg: Partial<{ altitudeMul: number; offsetMul: number; durationMul: number }>) => {
+      const scene = sceneRef.current;
+      const L = SpaceScene.FLYBY_LIMITS;
+      const clamp = (v: number, lim: { min: number; max: number }) =>
+        Math.max(lim.min, Math.min(lim.max, Math.round(v * 100) / 100));
+      setFlybyConfigState((prev) => {
+        const next = {
+          altitudeMul: clamp(cfg.altitudeMul ?? prev.altitudeMul, L.altitudeMul),
+          offsetMul: clamp(cfg.offsetMul ?? prev.offsetMul, L.offsetMul),
+          durationMul: clamp(cfg.durationMul ?? prev.durationMul, L.durationMul),
+        };
+        if (scene) scene.flybyConfig = next;
+        return next;
+      });
+    },
+    [],
+  );
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -587,6 +654,8 @@ export function useSpaceScene(
     muted,
     toggleApproach,
     toggleFlyby,
+    getFlybyConfig,
+    setFlybyConfig,
   };
 
   return { hud, minimap, controller };

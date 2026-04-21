@@ -42,9 +42,19 @@ export type HUDState = {
   sensorContact: { name: string; distance: number; signal: number } | null;
   /** Active flyby autopilot — target name + 0..1 progress along the curve. */
   flyby: { target: string; progress: number } | null;
+  /** Tunable flyby parameters surfaced in the pause menu + tweaked via hotkeys. */
+  flybyConfig: { altitudeMul: number; offsetMul: number; durationMul: number };
 };
 
-export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
+export function CockpitHUD({
+  state,
+  onResume,
+  onFlybyConfigChange,
+}: {
+  state: HUDState;
+  onResume: () => void;
+  onFlybyConfigChange?: (cfg: Partial<{ altitudeMul: number; offsetMul: number; durationMul: number }>) => void;
+}) {
   const [debug, setDebug] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -354,7 +364,7 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
       {/* Pause overlay — also doubles as a quick controls reference. */}
       {state.paused && (
         <div className="pointer-events-auto absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="hud-panel max-w-md rounded-lg p-8 text-center">
+          <div className="hud-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg p-8 text-center">
             <div className="font-display text-3xl text-hud hud-glow">PAUSED</div>
 
             <div className="mt-6 text-left">
@@ -365,6 +375,8 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
                 <li><span className="text-hud">SHIFT</span> · sustained afterburner</li>
                 <li><span className="text-hud">SPACE (tap)</span> · 2-second boost burst <span className="text-hud-dim">(1s cooldown)</span></li>
                 <li><span className="text-hud">SPACE (hold 1s)</span> · engage lightspeed (10s, jumps systems)</li>
+                <li><span className="text-hud">F / G / H</span> · frame · approach · flyby</li>
+                <li><span className="text-hud">[ ]</span> alt · <span className="text-hud">; '</span> offset · <span className="text-hud">, .</span> duration</li>
                 <li><span className="text-hud">+ / −</span> · minimap zoom</li>
                 <li><span className="text-hud">ESC</span> · pause / resume</li>
               </ul>
@@ -372,6 +384,12 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
                 Lock the reticle on a body for ~4s to catalogue it. Survey every body in a system for a medal.
               </div>
             </div>
+
+            <FlybyPanel
+              config={state.flybyConfig}
+              onChange={onFlybyConfigChange}
+              activePass={state.flyby}
+            />
 
             <button
               onClick={onResume}
@@ -884,6 +902,78 @@ function ToggleSwitchPanel() {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Flyby tuning panel — three sliders for altitude, closest-approach offset,
+ * and pass duration. Changes apply to the NEXT engagement, so we surface a
+ * dim hint while a flyby is currently flying.
+ */
+const FLYBY_LIMITS = {
+  altitudeMul: { min: 1.5, max: 8, step: 0.25 },
+  offsetMul: { min: -3, max: 3, step: 0.25 },
+  durationMul: { min: 0.5, max: 2.5, step: 0.1 },
+};
+
+function FlybyPanel({
+  config,
+  onChange,
+  activePass,
+}: {
+  config: HUDState["flybyConfig"];
+  onChange?: (cfg: Partial<HUDState["flybyConfig"]>) => void;
+  activePass: HUDState["flyby"];
+}) {
+  if (!onChange) return null;
+  const rows: Array<{
+    key: keyof HUDState["flybyConfig"];
+    label: string;
+    suffix: string;
+    hint: string;
+  }> = [
+    { key: "altitudeMul", label: "ALTITUDE", suffix: "× R", hint: "[ ]" },
+    { key: "offsetMul", label: "OFFSET", suffix: "× R", hint: "; '" },
+    { key: "durationMul", label: "DURATION", suffix: "×", hint: ", ." },
+  ];
+  return (
+    <div className="mt-6 text-left">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-display text-[11px] tracking-widest text-amber">FLYBY TUNING</span>
+        {activePass && (
+          <span className="text-[9px] tracking-widest text-hud-dim">applies next engage</span>
+        )}
+      </div>
+      <div className="space-y-3">
+        {rows.map((row) => {
+          const lim = FLYBY_LIMITS[row.key];
+          const val = config[row.key];
+          return (
+            <div key={row.key}>
+              <div className="mb-1 flex items-baseline justify-between font-display text-[10px] tracking-widest">
+                <span className="text-hud-dim">
+                  {row.label} <span className="text-hud/40">{row.hint}</span>
+                </span>
+                <span className="text-hud">
+                  {val.toFixed(2)}
+                  <span className="ml-0.5 text-hud-dim">{row.suffix}</span>
+                </span>
+              </div>
+              <input
+                type="range"
+                min={lim.min}
+                max={lim.max}
+                step={lim.step}
+                value={val}
+                onChange={(e) => onChange({ [row.key]: parseFloat(e.target.value) })}
+                className="h-1 w-full cursor-pointer accent-hud"
+                aria-label={row.label}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

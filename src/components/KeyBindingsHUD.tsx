@@ -77,6 +77,22 @@ export function KeyBindingsHUD() {
           </div>
         </div>
 
+        {/* Flyby tuning hotkeys */}
+        <div className="mb-2 flex items-center gap-3">
+          <div className="flex gap-1">
+            <Key label="[" active={isDown("BracketLeft")} />
+            <Key label="]" active={isDown("BracketRight")} />
+            <Key label=";" active={isDown("Semicolon")} />
+            <Key label="'" active={isDown("Quote")} />
+            <Key label="," active={isDown("Comma")} />
+            <Key label="." active={isDown("Period")} />
+          </div>
+          <div className="text-hud/60 leading-tight">
+            <div>[ ] · ALT · ; ' · OFFSET</div>
+            <div>, . · DURATION (next flyby)</div>
+          </div>
+        </div>
+
         {/* Boost / Warp on the spacebar */}
         <div className="flex items-center gap-3">
           <Key label="SPACE" wide active={isDown("Space")} />

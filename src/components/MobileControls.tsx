@@ -8,12 +8,13 @@ type Props = {
   onPause: () => void;
   onApproach: () => void;
   onFlyby: () => void;
+  onAbort: () => void;
   warpReady: boolean;
   approachActive: boolean;
   flybyActive: boolean;
 };
 
-export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, onFlyby, warpReady, approachActive, flybyActive }: Props) {
+export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, onFlyby, onAbort, warpReady, approachActive, flybyActive }: Props) {
   const padRef = useRef<HTMLDivElement | null>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const activeId = useRef<number | null>(null);

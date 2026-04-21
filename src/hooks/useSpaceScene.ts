@@ -686,6 +686,7 @@ export function useSpaceScene(
     muted,
     toggleApproach,
     toggleFlyby,
+    abortAutopilot,
     getFlybyConfig,
     setFlybyConfig,
   };

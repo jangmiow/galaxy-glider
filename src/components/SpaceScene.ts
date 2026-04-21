@@ -512,14 +512,17 @@ export class SpaceScene {
           shaderMat = makeRockyMaterial({
             base: config.color, accent, atmo, seed,
             cloudiness: config.cloudiness,
-            atmoStrength: 1.35,
+            atmoStrength: 1.85,
           });
       }
       // Beef up the limb glow on terrestrial bodies after construction so
       // close-approach silhouettes feel atmospheric (PHM-style awe).
-      if (shaderMat && (config.kind === "ocean" || config.kind === "icy")) {
+      if (shaderMat) {
         const u = (shaderMat as THREE.ShaderMaterial).uniforms?.uAtmoStrength;
-        if (u) u.value = 1.4;
+        if (u) {
+          if (config.kind === "ocean") u.value = 2.1;
+          else if (config.kind === "icy") u.value = 1.6;
+        }
       }
       mat = shaderMat;
     }

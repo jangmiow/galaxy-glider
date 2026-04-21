@@ -4,11 +4,12 @@ type Props = {
   onSteer: (x: number, y: number) => void;
   onThrust: (t: number) => void; // -1..1
   onWarp: () => void;
+  onBoost: () => void;
   onPause: () => void;
   warpReady: boolean;
 };
 
-export function MobileControls({ onSteer, onThrust, onWarp, onPause, warpReady }: Props) {
+export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, warpReady }: Props) {
   const padRef = useRef<HTMLDivElement | null>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const activeId = useRef<number | null>(null);
@@ -133,17 +134,64 @@ export function MobileControls({ onSteer, onThrust, onWarp, onPause, warpReady }
           PAUSE
         </button>
         <button
-          onClick={onWarp}
-          disabled={!warpReady}
-          className={`rounded-md border px-5 py-2 font-display text-[11px] tracking-widest backdrop-blur-sm ${
-            warpReady
-              ? "border-amber bg-amber/20 text-amber scan-pulse"
-              : "border-hud/30 bg-background/60 text-hud-dim opacity-60"
-          }`}
+          onClick={onBoost}
+          className="rounded-md border border-hud/60 bg-hud/10 px-4 py-2 font-display text-[11px] tracking-widest text-hud backdrop-blur-sm hover:bg-hud/20 active:scale-95"
+          aria-label="Boost burst (2 seconds)"
         >
-          WARP
+          BOOST
         </button>
+        <HoldWarpButton onWarp={onWarp} ready={warpReady} />
       </div>
     </>
+  );
+}
+
+/**
+ * Mobile WARP button: must be held for 1 second to engage hyperspace, mirroring
+ * the desktop "hold Space" behaviour. Shows a small fill ring while charging.
+ */
+function HoldWarpButton({ onWarp, ready }: { onWarp: () => void; ready: boolean }) {
+  const HOLD_MS = 1000;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [holding, setHolding] = useState(false);
+
+  const cancel = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setHolding(false);
+  };
+
+  const start = () => {
+    if (!ready || timerRef.current) return;
+    setHolding(true);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      setHolding(false);
+      onWarp();
+    }, HOLD_MS);
+  };
+
+  return (
+    <button
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      disabled={!ready}
+      className={`relative overflow-hidden rounded-md border px-5 py-2 font-display text-[11px] tracking-widest backdrop-blur-sm ${
+        ready
+          ? "border-amber bg-amber/20 text-amber scan-pulse"
+          : "border-hud/30 bg-background/60 text-hud-dim opacity-60"
+      }`}
+    >
+      <span className="relative z-10">{holding ? "HOLD…" : "WARP"}</span>
+      {holding && (
+        <span
+          className="absolute inset-0 z-0 origin-left animate-[warpFill_1s_linear_forwards] bg-amber/40"
+        />
+      )}
+    </button>
   );
 }

@@ -998,7 +998,21 @@ export class SpaceScene {
       }
     }
 
-    return { dots, range, offRangeTarget };
+    // Always-on "next discovery" pointer (any uncatalogued body, any distance).
+    // Normalized to a unit vector so the minimap can place the arrow on the rim.
+    let nextUnscanned: { x: number; z: number; distance: number; inRange: boolean } | null = null;
+    if (nearestUnscanned !== null) {
+      const nu = nearestUnscanned as { distance: number; dx: number; dz: number };
+      const len = Math.hypot(nu.dx, nu.dz) || 1;
+      nextUnscanned = {
+        x: nu.dx / len,
+        z: nu.dz / len,
+        distance: nu.distance,
+        inRange: nu.distance <= range,
+      };
+    }
+
+    return { dots, range, offRangeTarget, nextUnscanned };
   }
 
   resize(w: number, h: number) {

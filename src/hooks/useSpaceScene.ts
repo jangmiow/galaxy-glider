@@ -658,6 +658,23 @@ export function useSpaceScene(
     [],
   );
 
+  const abortAutopilot = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const wasFlyby = scene.flyby.active;
+    const wasApproach = scene.approach.active;
+    if (wasFlyby) scene.disengageFlyby();
+    if (wasApproach) scene.disengageApproach();
+    if (wasFlyby || wasApproach) {
+      toast("AUTOPILOT ABORTED", {
+        description: wasFlyby && wasApproach
+          ? "all systems disengaged"
+          : wasFlyby ? "flyby disengaged" : "approach disengaged",
+        duration: 1200,
+      });
+    }
+  }, []);
+
   const controller: CockpitController = {
     steer,
     thrust,

@@ -6,10 +6,12 @@ type Props = {
   onWarp: () => void;
   onBoost: () => void;
   onPause: () => void;
+  onApproach: () => void;
   warpReady: boolean;
+  approachActive: boolean;
 };
 
-export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, warpReady }: Props) {
+export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, warpReady, approachActive }: Props) {
   const padRef = useRef<HTMLDivElement | null>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const activeId = useRef<number | null>(null);
@@ -132,6 +134,18 @@ export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, wa
           className="rounded-md border border-hud/40 bg-background/60 px-4 py-2 font-display text-[11px] tracking-widest text-hud-dim backdrop-blur-sm hover:text-hud"
         >
           PAUSE
+        </button>
+        <button
+          onClick={onApproach}
+          className={`rounded-md border px-4 py-2 font-display text-[11px] tracking-widest backdrop-blur-sm active:scale-95 ${
+            approachActive
+              ? "border-amber bg-amber/20 text-amber"
+              : "border-hud/60 bg-hud/10 text-hud hover:bg-hud/20"
+          }`}
+          aria-label="Toggle approach autopilot"
+          aria-pressed={approachActive}
+        >
+          APPR
         </button>
         <button
           onClick={onBoost}

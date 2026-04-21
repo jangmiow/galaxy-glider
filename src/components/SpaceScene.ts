@@ -281,6 +281,31 @@ export class SpaceScene {
     this.ship.add(this.camera);
     this.scene.add(this.ship);
 
+    // Scan-range ring: a translucent disc-edge centered on the ship that
+    // visualizes the 2000u lock-on range. Color/opacity react to the nearest
+    // body's proximity each frame so the pilot can see when something enters
+    // catalogue range. Two concentric rings give a faint "sweep" feel.
+    this.scanRingGroup = new THREE.Group();
+    const makeRing = (radius: number, thickness: number, opacity: number) => {
+      const g = new THREE.RingGeometry(radius - thickness, radius, 96, 1);
+      const m = new THREE.MeshBasicMaterial({
+        color: 0x66ddff,
+        transparent: true,
+        opacity,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const mesh = new THREE.Mesh(g, m);
+      mesh.rotation.x = -Math.PI / 2; // lay flat on XZ plane
+      return mesh;
+    };
+    this.scanRingOuter = makeRing(this.SCAN_RING_RADIUS, 8, 0.18);
+    this.scanRingInner = makeRing(this.SCAN_RING_RADIUS * 0.6, 4, 0.10);
+    this.scanRingGroup.add(this.scanRingOuter);
+    this.scanRingGroup.add(this.scanRingInner);
+    this.ship.add(this.scanRingGroup);
+
     this.buildStarfield();
     this.buildWarpField();
     this.buildDustField();

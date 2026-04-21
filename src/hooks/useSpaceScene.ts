@@ -80,6 +80,7 @@ export function useSpaceScene(
     proximity: null,
     approach: null,
     framing: null,
+    sensorContact: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -401,6 +402,22 @@ export function useSpaceScene(
               progress: scene.frameTween.elapsed / scene.frameTween.duration,
             }
           : null,
+        sensorContact: (() => {
+          // Passive sensor: nearest uncatalogued, non-star body within 2000u.
+          // Signal grows from 0 at the sensor edge to 1 right at the ship,
+          // giving the pilot a "warmer / colder" cue without needing to aim.
+          const SENSOR_RANGE = 2000;
+          let best: { name: string; dist: number } | null = null;
+          for (const b of scene.bodies) {
+            if (b.scanned || b.isStar) continue;
+            const d = b.mesh.position.distanceTo(scene.ship.position);
+            if (d > SENSOR_RANGE) continue;
+            if (!best || d < best.dist) best = { name: b.name, dist: d };
+          }
+          return best
+            ? { name: best.name, distance: best.dist, signal: 1 - best.dist / SENSOR_RANGE }
+            : null;
+        })(),
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

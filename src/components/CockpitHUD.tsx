@@ -38,6 +38,8 @@ export type HUDState = {
   approach: { target: string; distance: number } | null;
   /** Active F-key framing tween — drives the center-screen reticle that names the chosen body. */
   framing: { target: string; distance: number; progress: number } | null;
+  /** Passive proximity meter to nearest uncatalogued body (signal 0..1, 1 = at ship). */
+  sensorContact: { name: string; distance: number; signal: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -214,6 +216,28 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
               width: `${Math.abs(state.thrust) * 50}%`,
             }}
           />
+        </div>
+        {/* Passive sensor contact — fills as the nearest unscanned body
+            approaches the 2000u sensor edge. Empty when nothing's in range. */}
+        <div className="mt-3 flex items-baseline justify-between">
+          <span className="text-hud-dim">SENSOR</span>
+          <span className="text-[10px] text-hud-dim">
+            {state.sensorContact ? `${state.sensorContact.distance.toFixed(0)}u` : "—"}
+          </span>
+        </div>
+        <div className="relative mt-1 h-2 w-full overflow-hidden rounded bg-hud/10">
+          <div
+            className="h-full bg-hud transition-[width] duration-150 ease-out"
+            style={{
+              width: `${(state.sensorContact?.signal ?? 0) * 100}%`,
+              boxShadow: state.sensorContact && state.sensorContact.signal > 0.6
+                ? "0 0 8px oklch(var(--hud) / 0.6)"
+                : undefined,
+            }}
+          />
+        </div>
+        <div className="mt-1 truncate text-[10px] text-amber">
+          {state.sensorContact ? `· ${state.sensorContact.name}` : "no contact"}
         </div>
       </div>
 

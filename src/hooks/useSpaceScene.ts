@@ -391,6 +391,16 @@ export function useSpaceScene(
         approach: scene.approach.active && scene.approach.targetName
           ? { target: scene.approach.targetName, distance: scene.approach.distance }
           : null,
+        framing: scene.frameTween
+          ? {
+              target: scene.frameTween.targetName,
+              distance: (() => {
+                const b = scene.bodies.find((x) => x.id === scene.frameTween!.targetId);
+                return b ? b.mesh.position.distanceTo(scene.ship.position) : 0;
+              })(),
+              progress: scene.frameTween.elapsed / scene.frameTween.duration,
+            }
+          : null,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

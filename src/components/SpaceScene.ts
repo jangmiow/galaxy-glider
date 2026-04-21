@@ -251,6 +251,23 @@ export class SpaceScene {
   approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
     active: false, targetId: null, targetName: null, distance: 0,
   };
+  /** Cinematic flyby autopilot — fly a curved pass at ~3× target radius. */
+  flyby: {
+    active: boolean;
+    targetId: string | null;
+    targetName: string | null;
+    /** Bezier control points in world space, recomputed at engage. */
+    p0: THREE.Vector3; p1: THREE.Vector3; p2: THREE.Vector3; p3: THREE.Vector3;
+    /** Center of pass + ship-up for stable framing. */
+    center: THREE.Vector3;
+    elapsed: number;
+    duration: number;
+  } = {
+    active: false, targetId: null, targetName: null,
+    p0: new THREE.Vector3(), p1: new THREE.Vector3(), p2: new THREE.Vector3(), p3: new THREE.Vector3(),
+    center: new THREE.Vector3(),
+    elapsed: 0, duration: 0,
+  };
   /** Scan-range ring visualization (lives on the XZ plane around the ship). */
   readonly SCAN_RING_RADIUS = 2000;
   scanRingGroup!: THREE.Group;

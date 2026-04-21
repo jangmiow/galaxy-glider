@@ -47,22 +47,19 @@ export function useSpaceScene(
   const sceneRef = useRef<SpaceScene | null>(null);
   const audioRef = useRef<CockpitAudio | null>(null);
 
-  // Read the active pilot synchronously so the first render shows the right
-  // callsign/score (no flash from CADET → real values).
-  const initialPilot = typeof window !== "undefined" ? getActivePilot() : null;
-  const initialStats: PilotStats = initialPilot
-    ? loadStats(initialPilot.id)
-    : { score: 0, rank: "CADET", medals: [] };
-
+  // SSR renders before localStorage is available, so we always start with the
+  // safe placeholder values and hydrate the real pilot in a post-mount effect
+  // below. This avoids "server text didn't match client" hydration errors that
+  // would otherwise tear down and re-mount the entire HUD subtree.
   const [hud, setHud] = useState<HUDState>({
     velocity: 0,
     thrust: 0,
     warpCharge: 0,
     isWarping: false,
     heading: { pitch: 0, yaw: 0 },
-    score: initialStats.score,
-    rank: initialStats.rank,
-    callsign: initialPilot?.callsign ?? "PILOT",
+    score: 0,
+    rank: "CADET",
+    callsign: "PILOT",
     objective: OBJECTIVES[0],
     paused: false,
     scanning: null,
@@ -81,7 +78,24 @@ export function useSpaceScene(
   hudRef.current = hud;
 
   // Stable ref to the active pilot id used by score/medal persistence.
-  const pilotIdRef = useRef<string | null>(initialPilot?.id ?? null);
+  // Populated post-mount in the effect below to keep SSR identical to client.
+  const pilotIdRef = useRef<string | null>(null);
+
+  // Hydrate pilot identity + persisted stats AFTER mount so the SSR HTML
+  // matches the first client render exactly. A microsecond flash from
+  // "PILOT/CADET/0" → real values is acceptable; a hydration mismatch is not.
+  useEffect(() => {
+    const pilot = getActivePilot();
+    if (!pilot) return;
+    pilotIdRef.current = pilot.id;
+    const stats = loadStats(pilot.id);
+    setHud((s) => ({
+      ...s,
+      callsign: pilot.callsign,
+      score: stats.score,
+      rank: stats.rank,
+    }));
+  }, []);
 
   /**
    * Persist score+rank to the active pilot's stats. Medals are written

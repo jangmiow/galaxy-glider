@@ -135,3 +135,29 @@ export function addMedal(pilotId: string, systemId: string): PilotStats {
   saveStats(pilotId, stats);
   return stats;
 }
+
+// ── Per-pilot world state (current galaxy/system seed) ──────────────────────
+
+/**
+ * The seed of the procedurally generated system the pilot was last in. 0 is
+ * the hand-authored Sol system shown on a fresh game; any positive integer
+ * maps deterministically to a generated star system via SpaceScene.buildSystem.
+ * Persisting this lets reloading /play resume the same environment instead of
+ * re-spawning the pilot in Sol every time.
+ */
+export function loadSystemSeed(pilotId: string): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = localStorage.getItem(pilotKey(pilotId, "system-seed"));
+    if (!raw) return 0;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveSystemSeed(pilotId: string, seed: number): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(pilotKey(pilotId, "system-seed"), String(seed));
+}

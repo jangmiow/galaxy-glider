@@ -247,9 +247,25 @@ export class SpaceScene {
   proximity: { closeness: number; color: string } | null = null;
   /** Active F-key "frame target" rotation tween, if any. */
   frameTween: { from: THREE.Quaternion; to: THREE.Quaternion; elapsed: number; duration: number; targetId: string; targetName: string } | null = null;
-  /** Approach autopilot state: continuously steers + thrusts toward a chosen target. */
-  approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
+  /** Approach autopilot state: follows a Catmull-Rom spline toward the chosen body. */
+  approach: {
+    active: boolean;
+    targetId: string | null;
+    targetName: string | null;
+    distance: number;
+    /** Smooth path from ship → hold point. Recomputed at engage; refreshed if the ship drifts off. */
+    path: THREE.CatmullRomCurve3 | null;
+    /** Cached arc length so we can move at a controlled speed regardless of curve shape. */
+    pathLength: number;
+    /** 0..1 progress along the spline (used to look ahead for steering, not to set position). */
+    pathU: number;
+    /** Slew-rate-limited thrust (-1..1) so the lever never snaps. */
+    smoothedThrust: number;
+    /** Engage timestamp so we can ease thrust in over the first ~1s. */
+    engagedAt: number;
+  } = {
     active: false, targetId: null, targetName: null, distance: 0,
+    path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
   };
   /** Cinematic flyby autopilot — fly a curved pass at ~3× target radius. */
   flyby: {

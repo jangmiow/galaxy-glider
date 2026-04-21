@@ -40,6 +40,8 @@ export type HUDState = {
   framing: { target: string; distance: number; progress: number } | null;
   /** Passive proximity meter to nearest uncatalogued body (signal 0..1, 1 = at ship). */
   sensorContact: { name: string; distance: number; signal: number } | null;
+  /** Active flyby autopilot — target name + 0..1 progress along the curve. */
+  flyby: { target: string; progress: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

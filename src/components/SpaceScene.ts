@@ -930,6 +930,8 @@ export class SpaceScene {
       const isTargetCandidate =
         targetType !== null && targetType !== "orb" && b.type === targetType && !b.scanned;
       if (isTargetCandidate) considerNearestTarget(distance, tmp.x, tmp.z);
+      // Always-on "next discovery" arrow: any uncatalogued, non-star body.
+      if (!b.scanned && !b.isStar) considerNearestUnscanned(distance, tmp.x, tmp.z);
       if (distance > range) continue;
       const idx = dots.length;
       dots.push({

@@ -90,6 +90,20 @@ export function KeyBindingsHUD() {
           </div>
         </div>
 
+        {/* Manual-override threshold tuning */}
+        <div className="mb-2 flex items-center gap-3">
+          <div className="flex gap-1">
+            <Key label="1" active={isDown("Digit1")} />
+            <Key label="2" active={isDown("Digit2")} />
+            <Key label="3" active={isDown("Digit3")} />
+            <Key label="4" active={isDown("Digit4")} />
+          </div>
+          <div className="text-hud/60 leading-tight">
+            <div>1/2 · OVERRIDE HOLD ms</div>
+            <div>3/4 · OVERRIDE ACCUM s</div>
+          </div>
+        </div>
+
         {/* Flyby tuning hotkeys */}
         <div className="mb-2 flex items-center gap-3">
           <div className="flex gap-1">

@@ -427,6 +427,31 @@ export function useSpaceScene(
           scene.flybyConfig = next;
           setFlybyConfigState(next);
           toast(`FLYBY · ${label}`, { duration: 1200 });
+        } else if (
+          e.code === "Digit1" || e.code === "Digit2" ||
+          e.code === "Digit3" || e.code === "Digit4"
+        ) {
+          // Live-tune autopilot manual-override thresholds. Applies to BOTH
+          // approach + flyby. 1/2 = hold-duration −/+, 3/4 = accumulated −/+.
+          const L = SpaceScene.OVERRIDE_LIMITS;
+          const cur = scene.overrideConfig;
+          const clamp = (v: number, lim: { min: number; max: number; step: number }) =>
+            Math.max(lim.min, Math.min(lim.max, Math.round(v / lim.step) * lim.step));
+          let label = "";
+          if (e.code === "Digit1") {
+            cur.holdMs = clamp(cur.holdMs - L.holdMs.step, L.holdMs);
+            label = `HOLD ${cur.holdMs}ms`;
+          } else if (e.code === "Digit2") {
+            cur.holdMs = clamp(cur.holdMs + L.holdMs.step, L.holdMs);
+            label = `HOLD ${cur.holdMs}ms`;
+          } else if (e.code === "Digit3") {
+            cur.accumSec = clamp(cur.accumSec - L.accumSec.step, L.accumSec);
+            label = `ACCUM ${cur.accumSec.toFixed(1)}s`;
+          } else if (e.code === "Digit4") {
+            cur.accumSec = clamp(cur.accumSec + L.accumSec.step, L.accumSec);
+            label = `ACCUM ${cur.accumSec.toFixed(1)}s`;
+          }
+          toast(`OVERRIDE · ${label}`, { duration: 1200 });
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));

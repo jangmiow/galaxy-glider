@@ -908,10 +908,18 @@ export class SpaceScene {
     let target: { dist: number; idx: number } | null = null;
     // Track nearest objective target across ALL distances (for off-radar arrow)
     let nearestTarget: { distance: number; dx: number; dz: number } | null = null;
+    // Track nearest UNCATALOGUED body of any kind across ALL distances — drives
+    // the always-on "next discovery" pointer on the star map.
+    let nearestUnscanned: { distance: number; dx: number; dz: number } | null = null;
 
     const considerNearestTarget = (distance: number, dx: number, dz: number) => {
       if (!nearestTarget || distance < nearestTarget.distance) {
         nearestTarget = { distance, dx, dz };
+      }
+    };
+    const considerNearestUnscanned = (distance: number, dx: number, dz: number) => {
+      if (!nearestUnscanned || distance < nearestUnscanned.distance) {
+        nearestUnscanned = { distance, dx, dz };
       }
     };
 
@@ -922,6 +930,8 @@ export class SpaceScene {
       const isTargetCandidate =
         targetType !== null && targetType !== "orb" && b.type === targetType && !b.scanned;
       if (isTargetCandidate) considerNearestTarget(distance, tmp.x, tmp.z);
+      // Always-on "next discovery" arrow: any uncatalogued, non-star body.
+      if (!b.scanned && !b.isStar) considerNearestUnscanned(distance, tmp.x, tmp.z);
       if (distance > range) continue;
       const idx = dots.length;
       dots.push({
@@ -988,7 +998,21 @@ export class SpaceScene {
       }
     }
 
-    return { dots, range, offRangeTarget };
+    // Always-on "next discovery" pointer (any uncatalogued body, any distance).
+    // Normalized to a unit vector so the minimap can place the arrow on the rim.
+    let nextUnscanned: { x: number; z: number; distance: number; inRange: boolean } | null = null;
+    if (nearestUnscanned !== null) {
+      const nu = nearestUnscanned as { distance: number; dx: number; dz: number };
+      const len = Math.hypot(nu.dx, nu.dz) || 1;
+      nextUnscanned = {
+        x: nu.dx / len,
+        z: nu.dz / len,
+        distance: nu.distance,
+        inRange: nu.distance <= range,
+      };
+    }
+
+    return { dots, range, offRangeTarget, nextUnscanned };
   }
 
   resize(w: number, h: number) {
@@ -1016,6 +1040,24 @@ export class SpaceScene {
    * Fires a 2-second speed burst with a 1-second cooldown. Returns true if
    * the burst actually engaged so the UI can play feedback.
    */
+  /**
+   * Bail out of an active lightspeed jump early. The warp loop in `update`
+   * normally runs for ~10s after `triggerWarp`; this lets the pilot tap Space
+   * to drop out at the current location instead of riding it out. No-op when
+   * not warping, so it's safe to call from a generic Space-tap handler.
+   */
+  exitWarp() {
+    if (!this.isWarping) return;
+    this.warpTimer = 0;
+    // Force an immediate teardown so the next-system rebuild fires this frame
+    // rather than waiting for the warp tick to roll the timer past zero.
+    this.isWarping = false;
+    (this.warpStars.material as THREE.PointsMaterial).opacity = 0;
+    this.warpStars.visible = false;
+    // Intentionally do NOT increment systemSeed — early-exit keeps the pilot
+    // in the system they're flying through.
+  }
+
   triggerBoostBurst(): boolean {
     if (this.boostActive || this.boostCooldown > 0 || this.isWarping) return false;
     this.boostActive = true;

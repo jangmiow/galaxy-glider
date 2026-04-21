@@ -263,8 +263,15 @@ export function useSpaceScene(
         }
         if (e.code === "Space") {
           e.preventDefault();
-          // Suppress key auto-repeat — only react to the first keydown.
           if (spaceState.held) return;
+          // In lightspeed: Space cancels the jump rather than queueing warp/burst.
+          if (scene.isWarping) {
+            spaceState.held = true;
+            spaceState.downAt = performance.now();
+            scene.exitWarp();
+            setHud((s) => ({ ...s, isWarping: false }));
+            return;
+          }
           spaceState.held = true;
           spaceState.downAt = performance.now();
           clearWarpHold();
@@ -272,7 +279,6 @@ export function useSpaceScene(
             warpHoldTimer = null;
             engageWarp();
           }, HOLD_WARP_MS);
-          // Don't add Space to scene.keys — it's a discrete action key.
           return;
         }
         if (e.code === "Equal" || e.code === "NumpadAdd") {

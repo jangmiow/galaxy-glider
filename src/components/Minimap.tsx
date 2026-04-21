@@ -15,6 +15,8 @@ export type MinimapData = {
   dots: MinimapDot[];
   range: number;
   offRangeTarget: { x: number; z: number; distance: number } | null;
+  /** Always-on pointer to the nearest uncatalogued body (any kind, any range). */
+  nextUnscanned?: { x: number; z: number; distance: number; inRange: boolean } | null;
   /** Names of bodies scanned in the last few seconds — pulse their dots. */
   freshlyScanned?: Set<string>;
 };
@@ -200,6 +202,24 @@ export function Minimap({
             <g transform={`translate(${px} ${py}) rotate(${angleDeg})`}>
               <polygon points="0,-7 -5,4 5,4" fill="#ffb347" stroke="#ffb347" strokeOpacity="0.4" strokeWidth="2">
                 <animate attributeName="opacity" values="0.6;1;0.6" dur="1.4s" repeatCount="indefinite" />
+              </polygon>
+            </g>
+          );
+        })()}
+
+        {/* Always-on "next discovery" pointer — small cyan chevron on the rim,
+            distinct from the amber objective arrow. Hidden when the objective
+            arrow already points at the same nearest body to avoid clutter. */}
+        {data?.nextUnscanned && (() => {
+          const n = data.nextUnscanned;
+          const rim = R - 4;
+          const px = R + n.x * rim;
+          const py = R + n.z * rim;
+          const angleDeg = (Math.atan2(n.z, n.x) * 180) / Math.PI + 90;
+          return (
+            <g transform={`translate(${px} ${py}) rotate(${angleDeg})`} opacity={0.9}>
+              <polygon points="0,-5 -3.5,3 3.5,3" fill="none" stroke="#88ffcc" strokeWidth="1.2">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
               </polygon>
             </g>
           );

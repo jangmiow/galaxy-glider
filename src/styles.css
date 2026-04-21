@@ -127,6 +127,12 @@
   }
   .scan-pulse { animation: scan-pulse 2s ease-in-out infinite; }
 
+  /* Hold-to-warp button fill — left-to-right wipe over the hold duration. */
+  @keyframes warpFill {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+
   /* System-completion medal: spring in with overshoot, hold, then fade. */
   @keyframes medal-pop {
     0%   { transform: scale(0.4) translateY(20px); opacity: 0; filter: blur(6px); }

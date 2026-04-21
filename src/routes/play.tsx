@@ -68,6 +68,7 @@ function Play() {
           onSteer={controller.steer}
           onThrust={controller.thrust}
           onWarp={controller.warp}
+          onBoost={controller.boostBurst}
           onPause={controller.togglePause}
         />
       )}

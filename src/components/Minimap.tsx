@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type MinimapDot = {
   x: number; // -1..1 (right)
@@ -45,6 +45,23 @@ export function Minimap({
 }) {
   // Track the dot under the cursor for the hover tooltip.
   const [hover, setHover] = useState<{ dot: MinimapDot; x: number; y: number } | null>(null);
+  // On touch, a tap "pins" the tooltip until the user taps elsewhere.
+  const [pinned, setPinned] = useState<{ dot: MinimapDot; x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Dismiss pinned tooltip when tapping/clicking anywhere outside the minimap panel.
+  useEffect(() => {
+    if (!pinned) return;
+    const onDown = (e: PointerEvent) => {
+      const el = containerRef.current;
+      if (el && e.target instanceof Node && el.contains(e.target)) return;
+      setPinned(null);
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [pinned]);
+
+  const active = pinned ?? hover;
 
   // Find nearest target dot for live distance readout
   const target = data?.dots.reduce<MinimapDot | null>((best, d) => {
@@ -54,7 +71,7 @@ export function Minimap({
   }, null) ?? null;
 
   return (
-    <div className="hud-panel rounded-md p-2">
+    <div ref={containerRef} className="hud-panel rounded-md p-2">
       <div className="mb-1 flex items-center justify-between gap-2 px-1 text-[10px] uppercase tracking-widest text-hud-dim">
         <span>STAR MAP</span>
         <div className="flex items-center gap-1">
@@ -147,15 +164,21 @@ export function Minimap({
               {isStar && (
                 <circle cx={px} cy={py} r={baseR + 2} fill={color} opacity={0.25} />
               )}
-              {/* Transparent hit-target for hover tooltip (always large enough to grab). */}
+              {/* Transparent hit-target for hover/tap tooltip (always large enough to grab). */}
               <circle
                 cx={px}
                 cy={py}
-                r={Math.max(7, baseR + 4)}
+                r={Math.max(9, baseR + 5)}
                 fill="transparent"
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", touchAction: "manipulation" }}
                 onMouseEnter={() => setHover({ dot: d, x: px, y: py })}
                 onMouseLeave={() => setHover((h) => (h?.dot === d ? null : h))}
+                onPointerDown={(e) => {
+                  if (e.pointerType === "touch" || e.pointerType === "pen") {
+                    e.stopPropagation();
+                    setPinned((p) => (p?.dot === d ? null : { dot: d, x: px, y: py }));
+                  }
+                }}
               />
             </g>
           );
@@ -188,22 +211,22 @@ export function Minimap({
           <circle r="1.5" fill="oklch(1 0 0)" />
         </g>
       </svg>
-      {hover && (
+      {active && (
         <div
           className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-hud/50 bg-background/95 px-1.5 py-1 text-[10px] leading-tight text-hud shadow"
           style={{
             // Position above-and-right of the dot; flip to left if near right edge.
-            left: hover.x > SIZE - 80 ? hover.x - 8 : hover.x + 8,
-            top: hover.y > SIZE - 40 ? hover.y - 8 : hover.y + 8,
-            transform: `translate(${hover.x > SIZE - 80 ? "-100%" : "0"}, ${hover.y > SIZE - 40 ? "-100%" : "0"})`,
+            left: active.x > SIZE - 80 ? active.x - 8 : active.x + 8,
+            top: active.y > SIZE - 40 ? active.y - 8 : active.y + 8,
+            transform: `translate(${active.x > SIZE - 80 ? "-100%" : "0"}, ${active.y > SIZE - 40 ? "-100%" : "0"})`,
           }}
         >
-          <div className="font-display text-amber">{hover.dot.name ?? formatKind(hover.dot.kind)}</div>
+          <div className="font-display text-amber">{active.dot.name ?? formatKind(active.dot.kind)}</div>
           <div className="text-hud-dim">
-            {formatKind(hover.dot.kind)} · {formatDist(hover.dot.distance)}
-            {hover.dot.kind !== "orb" && (hover.dot.kind === "star" || hover.dot.kind === "blue-giant" || hover.dot.kind === "red-dwarf"
+            {formatKind(active.dot.kind)} · {formatDist(active.dot.distance)}
+            {active.dot.kind !== "orb" && (active.dot.kind === "star" || active.dot.kind === "blue-giant" || active.dot.kind === "red-dwarf"
               ? ""
-              : hover.dot.scanned ? " · CATALOGUED" : " · UNSCANNED")}
+              : active.dot.scanned ? " · CATALOGUED" : " · UNSCANNED")}
           </div>
         </div>
       )}

@@ -1361,25 +1361,31 @@ export class SpaceScene {
     // curve laterally/vertically without canceling; keyboard thrust/roll cancels.
     if (this.flyby.active) {
       const target = this.bodies.find((b) => b.id === this.flyby.targetId);
-      const hardOverride =
-        this.keys.has("KeyW") || this.keys.has("KeyS") ||
-        this.keys.has("KeyA") || this.keys.has("KeyD") ||
-        this.keys.has("KeyQ") || this.keys.has("KeyE");
-      if (!target || hardOverride) {
+      if (!target) {
         this.disengageFlyby();
       } else {
-        // Blend cursor input into nudge offsets. Scale by target radius so
-        // bigger planets allow proportionally bigger sweeps. Clamp the total
-        // offset so the player can't slingshot the curve through the body.
+        // Blend cursor + key input into nudge offsets. Scale by target radius
+        // so bigger planets allow proportionally bigger sweeps. Clamp the
+        // total offset so the player can't slingshot the curve through the body.
+        // Keys (A/D + ←/→ for lateral, W/S + ↑/↓ for vertical) feed the same
+        // nudge channels as the mouse, so they steer the curve without ever
+        // canceling autopilot. Q/E and explicit abort hotkeys (H toggle, X,
+        // B) are still the only way to end a flyby.
         const maxNudge = target.size * 1.8;
         const nudgeRate = target.size * 2.2; // units/sec at full deflection
         const decay = Math.exp(-dt * 0.6);   // gently relaxes back to baseline
+        const keyLat =
+          (this.keys.has("KeyD") || this.keys.has("ArrowRight") ? 1 : 0) +
+          (this.keys.has("KeyA") || this.keys.has("ArrowLeft") ? -1 : 0);
+        const keyVert =
+          (this.keys.has("KeyW") || this.keys.has("ArrowUp") ? 1 : 0) +
+          (this.keys.has("KeyS") || this.keys.has("ArrowDown") ? -1 : 0);
         this.flyby.nudgeLateral = THREE.MathUtils.clamp(
-          this.flyby.nudgeLateral * decay + this.mouseX * nudgeRate * dt,
+          this.flyby.nudgeLateral * decay + (this.mouseX + keyLat) * nudgeRate * dt,
           -maxNudge, maxNudge,
         );
         this.flyby.nudgeVertical = THREE.MathUtils.clamp(
-          this.flyby.nudgeVertical * decay + (-this.mouseY) * nudgeRate * dt,
+          this.flyby.nudgeVertical * decay + (-this.mouseY + keyVert) * nudgeRate * dt,
           -maxNudge, maxNudge,
         );
         this.flyby.elapsed += dt;

@@ -1124,6 +1124,35 @@ export class SpaceScene {
       path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
     };
     this.virtualThrust = 0;
+    this.overrideState.approach.heldMs = 0;
+    this.overrideState.approach.accum = 0;
+  }
+
+  /**
+   * Per-frame override evaluator. Updates the held-duration + accumulated-input
+   * trackers for one autopilot and returns true once either crosses the
+   * configured threshold. The accumulator decays at ~1/1.5s per second so
+   * brief glances/taps fade rather than building up forever.
+   */
+  private evaluateOverride(which: "flyby" | "approach", dt: number): boolean {
+    const active =
+      this.keys.has("KeyW") || this.keys.has("KeyS") ||
+      this.keys.has("KeyA") || this.keys.has("KeyD") ||
+      this.keys.has("KeyQ") || this.keys.has("KeyE") ||
+      this.keys.has("ArrowUp") || this.keys.has("ArrowDown") ||
+      this.keys.has("ArrowLeft") || this.keys.has("ArrowRight");
+    const s = this.overrideState[which];
+    if (active) {
+      s.heldMs += dt * 1000;
+      s.accum += dt;
+    } else {
+      s.heldMs = 0;
+      s.accum = Math.max(0, s.accum - dt / 1.5);
+    }
+    const cfg = this.overrideConfig;
+    return s.heldMs >= cfg.holdMs && cfg.holdMs > 0
+      ? true
+      : s.accum >= cfg.accumSec;
   }
 
   /**

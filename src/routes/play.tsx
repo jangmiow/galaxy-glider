@@ -84,12 +84,14 @@ function Play() {
         <MobileControls
           warpReady={hud.warpCharge >= 1}
           approachActive={!!hud.approach}
+          flybyActive={!!hud.flyby}
           onSteer={controller.steer}
           onThrust={controller.thrust}
           onWarp={controller.warp}
           onBoost={controller.boostBurst}
           onPause={controller.togglePause}
           onApproach={controller.toggleApproach}
+          onFlyby={controller.toggleFlyby}
         />
       )}
     </div>

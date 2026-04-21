@@ -7,11 +7,13 @@ type Props = {
   onBoost: () => void;
   onPause: () => void;
   onApproach: () => void;
+  onFlyby: () => void;
   warpReady: boolean;
   approachActive: boolean;
+  flybyActive: boolean;
 };
 
-export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, warpReady, approachActive }: Props) {
+export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, onApproach, onFlyby, warpReady, approachActive, flybyActive }: Props) {
   const padRef = useRef<HTMLDivElement | null>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const activeId = useRef<number | null>(null);
@@ -146,6 +148,18 @@ export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, on
           aria-pressed={approachActive}
         >
           APPR
+        </button>
+        <button
+          onClick={onFlyby}
+          className={`rounded-md border px-4 py-2 font-display text-[11px] tracking-widest backdrop-blur-sm active:scale-95 ${
+            flybyActive
+              ? "border-amber bg-amber/30 text-amber"
+              : "border-amber/50 bg-amber/10 text-amber hover:bg-amber/20"
+          }`}
+          aria-label="Toggle cinematic flyby"
+          aria-pressed={flybyActive}
+        >
+          FLY
         </button>
         <button
           onClick={onBoost}

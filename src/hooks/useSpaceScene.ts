@@ -36,6 +36,8 @@ export type CockpitController = {
   muted: boolean;
   /** Toggle the approach autopilot from a UI button (mobile). */
   toggleApproach: () => void;
+  /** Toggle the cinematic flyby autopilot. */
+  toggleFlyby: () => void;
 };
 
 /**
@@ -81,6 +83,7 @@ export function useSpaceScene(
     approach: null,
     framing: null,
     sensorContact: null,
+    flyby: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -325,6 +328,22 @@ export function useSpaceScene(
               toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
             }
           }
+        } else if (e.code === "KeyH") {
+          // Cinematic flyby — curved pass at ~3× target radius.
+          if (scene.flyby.active) {
+            scene.disengageFlyby();
+            toast("FLYBY DISENGAGED");
+          } else {
+            const t = scene.engageFlyby();
+            if (t) {
+              toast("FLYBY ENGAGED", {
+                description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+                duration: 2000,
+              });
+            } else {
+              toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+            }
+          }
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
@@ -418,6 +437,9 @@ export function useSpaceScene(
             ? { name: best.name, distance: best.dist, signal: 1 - best.dist / SENSOR_RANGE }
             : null;
         })(),
+        flyby: scene.flyby.active && scene.flyby.targetName
+          ? { target: scene.flyby.targetName, progress: scene.flyby.elapsed / scene.flyby.duration }
+          : null,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.
@@ -535,6 +557,25 @@ export function useSpaceScene(
     }
   }, []);
 
+  const toggleFlyby = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (scene.flyby.active) {
+      scene.disengageFlyby();
+      toast("FLYBY DISENGAGED");
+    } else {
+      const t = scene.engageFlyby();
+      if (t) {
+        toast("FLYBY ENGAGED", {
+          description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+          duration: 2000,
+        });
+      } else {
+        toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+      }
+    }
+  }, []);
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -545,6 +586,7 @@ export function useSpaceScene(
     setMuted,
     muted,
     toggleApproach,
+    toggleFlyby,
   };
 
   return { hud, minimap, controller };

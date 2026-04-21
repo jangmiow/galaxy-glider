@@ -251,6 +251,23 @@ export class SpaceScene {
   approach: { active: boolean; targetId: string | null; targetName: string | null; distance: number } = {
     active: false, targetId: null, targetName: null, distance: 0,
   };
+  /** Cinematic flyby autopilot — fly a curved pass at ~3× target radius. */
+  flyby: {
+    active: boolean;
+    targetId: string | null;
+    targetName: string | null;
+    /** Bezier control points in world space, recomputed at engage. */
+    p0: THREE.Vector3; p1: THREE.Vector3; p2: THREE.Vector3; p3: THREE.Vector3;
+    /** Center of pass + ship-up for stable framing. */
+    center: THREE.Vector3;
+    elapsed: number;
+    duration: number;
+  } = {
+    active: false, targetId: null, targetName: null,
+    p0: new THREE.Vector3(), p1: new THREE.Vector3(), p2: new THREE.Vector3(), p3: new THREE.Vector3(),
+    center: new THREE.Vector3(),
+    elapsed: 0, duration: 0,
+  };
   /** Scan-range ring visualization (lives on the XZ plane around the ship). */
   readonly SCAN_RING_RADIUS = 2000;
   scanRingGroup!: THREE.Group;
@@ -1002,6 +1019,63 @@ export class SpaceScene {
     this.approach = { active: false, targetId: null, targetName: null, distance: 0 };
     this.virtualThrust = 0;
   }
+
+  /**
+   * Engage cinematic flyby autopilot — picks the nearest non-star body and
+   * builds a 3-point Bezier curve that arcs the ship from its current
+   * position, sweeps past the planet at ~3× radius (periapsis), and exits on
+   * the far side. The update loop steps along the curve and slerps the
+   * camera to keep the planet framed throughout. Returns target info or null.
+   */
+  engageFlyby(): { name: string; dist: number; altitude: number } | null {
+    const MAX = 3500;
+    let best: { dist: number; id: string; name: string; pos: THREE.Vector3; size: number } | null = null;
+    for (const b of this.bodies) {
+      if (b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (d > MAX) continue;
+      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
+    }
+    if (!best) return null;
+    const altitude = best.size * 3;
+    // Build curve: ingress from current ship position, periapsis on a perpendicular
+    // offset at `altitude`, egress mirrored on the far side. Control points pulled
+    // outward so the path bends instead of cutting through the body.
+    const toShip = this.ship.position.clone().sub(best.pos).normalize();
+    // Pick a perpendicular axis for the periapsis offset (use ship-right if not parallel).
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.ship.quaternion);
+    let perp = right.clone().sub(toShip.clone().multiplyScalar(right.dot(toShip)));
+    if (perp.lengthSq() < 0.01) perp.set(0, 1, 0);
+    perp.normalize();
+    const periapsis = best.pos.clone().add(perp.clone().multiplyScalar(altitude));
+    const exit = best.pos.clone().add(toShip.clone().multiplyScalar(-best.dist)); // mirrored across body
+    const p0 = this.ship.position.clone();
+    const p3 = exit;
+    // Pull controls toward periapsis so the curve bows around the planet.
+    const p1 = p0.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
+    const p2 = p3.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
+    this.flyby = {
+      active: true,
+      targetId: best.id,
+      targetName: best.name,
+      p0, p1, p2, p3,
+      center: best.pos.clone(),
+      elapsed: 0,
+      // Duration scales loosely with body size so big planets get a longer pass.
+      duration: 8 + Math.min(6, best.size * 0.15),
+    };
+    // Cancel competing autopilots.
+    this.approach.active = false;
+    this.frameTween = null;
+    return { name: best.name, dist: best.dist, altitude };
+  }
+
+  disengageFlyby() {
+    this.flyby.active = false;
+    this.flyby.targetId = null;
+    this.flyby.targetName = null;
+    this.virtualThrust = 0;
+  }
   /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
@@ -1186,6 +1260,42 @@ export class SpaceScene {
     if (this.paused) {
       this.composer.render();
       return;
+    }
+
+    // Cinematic flyby — engaged via H. Steps along a precomputed Bezier curve,
+    // overrides ship position directly (so it ignores velocity/thrust), and
+    // slerps the camera to keep the target framed. Manual input cancels.
+    if (this.flyby.active) {
+      const target = this.bodies.find((b) => b.id === this.flyby.targetId);
+      const manualOverride =
+        Math.abs(this.mouseX) > 0.05 || Math.abs(this.mouseY) > 0.05 ||
+        this.keys.has("KeyW") || this.keys.has("KeyS") ||
+        this.keys.has("KeyA") || this.keys.has("KeyD") ||
+        this.keys.has("KeyQ") || this.keys.has("KeyE");
+      if (!target || manualOverride) {
+        this.disengageFlyby();
+      } else {
+        this.flyby.elapsed += dt;
+        const u = Math.min(1, this.flyby.elapsed / this.flyby.duration);
+        // Cubic Bezier B(u) = (1-u)^3 p0 + 3(1-u)^2 u p1 + 3(1-u) u^2 p2 + u^3 p3
+        const iu = 1 - u;
+        const pos = new THREE.Vector3()
+          .addScaledVector(this.flyby.p0, iu * iu * iu)
+          .addScaledVector(this.flyby.p1, 3 * iu * iu * u)
+          .addScaledVector(this.flyby.p2, 3 * iu * u * u)
+          .addScaledVector(this.flyby.p3, u * u * u);
+        this.ship.position.copy(pos);
+        // Frame the planet — slerp ship orientation toward look-at(target).
+        const m = new THREE.Matrix4();
+        const flipped = pos.clone().multiplyScalar(2).sub(target.mesh.position);
+        m.lookAt(pos, flipped, new THREE.Vector3(0, 1, 0));
+        const desired = new THREE.Quaternion().setFromRotationMatrix(m);
+        this.ship.quaternion.slerp(desired, Math.min(1, dt * 2.5));
+        // Suppress velocity/thrust during flyby so the existing physics doesn't fight us.
+        this.velocity = 0;
+        this.virtualThrust = 0;
+        if (u >= 1) this.disengageFlyby();
+      }
     }
 
     // Approach autopilot — engaged via G key. Steers + thrusts toward the

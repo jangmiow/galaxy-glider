@@ -258,6 +258,14 @@ export class SpaceScene {
   scanRingInner!: THREE.Mesh;
   /** Drives the rotating sweep + pulse on the scan ring. */
   private scanRingTime = 0;
+  /** Cinematic banking model — angular velocity (rad/s) on the ship's roll axis. */
+  rollVel = 0;
+  /** Max sustained roll rate (rad/s). Tweak for snappier or floatier banks. */
+  ROLL_MAX_RATE = 1.6;
+  /** How fast roll velocity accelerates toward the input target (1/s). Higher = snappier. */
+  ROLL_ACCEL = 3.0;
+  /** How fast roll velocity decays back to zero with no input (1/s). Lower = floatier. */
+  ROLL_DAMPING = 1.4;
   constructor(canvas: HTMLCanvasElement, callbacks: SceneCallbacks) {
     this.callbacks = callbacks;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });

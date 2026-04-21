@@ -76,6 +76,7 @@ export function useSpaceScene(
     boostRemaining: 0,
     warpHoldProgress: 0,
     proximity: null,
+    approach: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;
@@ -303,6 +304,22 @@ export function useSpaceScene(
               description: `${target.name} · ${target.dist.toFixed(0)}u`,
               duration: 1500,
             });
+          }
+        } else if (e.code === "KeyG") {
+          // Approach autopilot toggle — flies + frames toward nearest unscanned.
+          if (scene.approach.active) {
+            scene.disengageApproach();
+            toast("APPROACH DISENGAGED");
+          } else {
+            const target = scene.engageApproach();
+            if (target) {
+              toast("APPROACH ENGAGED", {
+                description: `${target.name} · ${target.dist.toFixed(0)}u`,
+                duration: 1800,
+              });
+            } else {
+              toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
+            }
           }
         }
         scene.keys.add(e.code);

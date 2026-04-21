@@ -34,6 +34,8 @@ export type HUDState = {
   warpHoldProgress: number;
   /** Closeness (0..1) and atmosphere color of the nearest body, if any. */
   proximity: { closeness: number; color: string } | null;
+  /** Approach autopilot status — name + live distance to current target. */
+  approach: { target: string; distance: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

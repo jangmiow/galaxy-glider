@@ -20,6 +20,16 @@ export type HUDState = {
   medal: { systemName: string; bodyCount: number } | null;
   /** True while SHIFT is held — drives the cockpit BOOST indicator. */
   boost: boolean;
+  /** True while the 2s Space-tap burst is currently firing. */
+  boostBurst: boolean;
+  /** Remaining boost-burst cooldown in seconds (0 when ready to fire again). */
+  boostCooldown: number;
+  /** Total cooldown duration in seconds — used to render the ring fill. */
+  boostCooldownMax: number;
+  /** Total boost-burst duration in seconds — used to render the active ring drain. */
+  boostDuration: number;
+  /** Remaining time on the active boost burst (s). */
+  boostRemaining: number;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -160,21 +170,32 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         </div>
       </div>
 
-      {/* Bottom-right: warp drive */}
+      {/* Bottom-right: warp drive + boost burst indicator */}
       <div className="absolute bottom-6 right-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
-        <div className="flex items-baseline justify-between">
-          <span className="text-hud-dim">WARP DRIVE</span>
-          <span className={state.warpCharge >= 1 ? "text-amber scan-pulse" : "text-hud"}>
-            {state.warpCharge >= 1 ? "READY" : `${Math.floor(state.warpCharge * 100)}%`}
-          </span>
-        </div>
-        <div className="mt-2 h-2 w-full rounded bg-hud/10">
-          <div
-            className={state.warpCharge >= 1 ? "h-full rounded bg-amber" : "h-full rounded bg-hud"}
-            style={{ width: `${state.warpCharge * 100}%` }}
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-hud-dim">WARP DRIVE</span>
+              <span className={state.warpCharge >= 1 ? "text-amber scan-pulse" : "text-hud"}>
+                {state.warpCharge >= 1 ? "READY" : `${Math.floor(state.warpCharge * 100)}%`}
+              </span>
+            </div>
+            <div className="mt-2 h-2 w-full rounded bg-hud/10">
+              <div
+                className={state.warpCharge >= 1 ? "h-full rounded bg-amber" : "h-full rounded bg-hud"}
+                style={{ width: `${state.warpCharge * 100}%` }}
+              />
+            </div>
+            <div className="mt-2 text-[10px] text-hud-dim">[HOLD SPACE] engage · [TAP] boost</div>
+          </div>
+          <BoostIndicator
+            active={state.boostBurst}
+            cooldown={state.boostCooldown}
+            cooldownMax={state.boostCooldownMax}
+            duration={state.boostDuration}
+            remaining={state.boostRemaining}
           />
         </div>
-        <div className="mt-2 text-[10px] text-hud-dim">[SPACE] to engage</div>
       </div>
 
       {/* Bottom-center: artificial horizon */}

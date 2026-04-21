@@ -207,6 +207,24 @@ export function Minimap({
           );
         })()}
 
+        {/* Always-on "next discovery" pointer — small cyan chevron on the rim,
+            distinct from the amber objective arrow. Hidden when the objective
+            arrow already points at the same nearest body to avoid clutter. */}
+        {data?.nextUnscanned && (() => {
+          const n = data.nextUnscanned;
+          const rim = R - 4;
+          const px = R + n.x * rim;
+          const py = R + n.z * rim;
+          const angleDeg = (Math.atan2(n.z, n.x) * 180) / Math.PI + 90;
+          return (
+            <g transform={`translate(${px} ${py}) rotate(${angleDeg})`} opacity={0.9}>
+              <polygon points="0,-5 -3.5,3 3.5,3" fill="none" stroke="#88ffcc" strokeWidth="1.2">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
+              </polygon>
+            </g>
+          );
+        })()}
+
         {/* Ship heading triangle (always at center, pointing up) */}
         <g transform={`translate(${R} ${R})`}>
           <polygon points="0,-7 -5,5 5,5" fill="oklch(0.85 0.18 200)" stroke="oklch(1 0 0)" strokeWidth="0.5" />

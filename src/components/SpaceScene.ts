@@ -1019,6 +1019,63 @@ export class SpaceScene {
     this.approach = { active: false, targetId: null, targetName: null, distance: 0 };
     this.virtualThrust = 0;
   }
+
+  /**
+   * Engage cinematic flyby autopilot — picks the nearest non-star body and
+   * builds a 3-point Bezier curve that arcs the ship from its current
+   * position, sweeps past the planet at ~3× radius (periapsis), and exits on
+   * the far side. The update loop steps along the curve and slerps the
+   * camera to keep the planet framed throughout. Returns target info or null.
+   */
+  engageFlyby(): { name: string; dist: number; altitude: number } | null {
+    const MAX = 3500;
+    let best: { dist: number; id: string; name: string; pos: THREE.Vector3; size: number } | null = null;
+    for (const b of this.bodies) {
+      if (b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (d > MAX) continue;
+      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
+    }
+    if (!best) return null;
+    const altitude = best.size * 3;
+    // Build curve: ingress from current ship position, periapsis on a perpendicular
+    // offset at `altitude`, egress mirrored on the far side. Control points pulled
+    // outward so the path bends instead of cutting through the body.
+    const toShip = this.ship.position.clone().sub(best.pos).normalize();
+    // Pick a perpendicular axis for the periapsis offset (use ship-right if not parallel).
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.ship.quaternion);
+    let perp = right.clone().sub(toShip.clone().multiplyScalar(right.dot(toShip)));
+    if (perp.lengthSq() < 0.01) perp.set(0, 1, 0);
+    perp.normalize();
+    const periapsis = best.pos.clone().add(perp.clone().multiplyScalar(altitude));
+    const exit = best.pos.clone().add(toShip.clone().multiplyScalar(-best.dist)); // mirrored across body
+    const p0 = this.ship.position.clone();
+    const p3 = exit;
+    // Pull controls toward periapsis so the curve bows around the planet.
+    const p1 = p0.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
+    const p2 = p3.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
+    this.flyby = {
+      active: true,
+      targetId: best.id,
+      targetName: best.name,
+      p0, p1, p2, p3,
+      center: best.pos.clone(),
+      elapsed: 0,
+      // Duration scales loosely with body size so big planets get a longer pass.
+      duration: 8 + Math.min(6, best.size * 0.15),
+    };
+    // Cancel competing autopilots.
+    this.approach.active = false;
+    this.frameTween = null;
+    return { name: best.name, dist: best.dist, altitude };
+  }
+
+  disengageFlyby() {
+    this.flyby.active = false;
+    this.flyby.targetId = null;
+    this.flyby.targetName = null;
+    this.virtualThrust = 0;
+  }
   /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).

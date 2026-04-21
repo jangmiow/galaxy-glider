@@ -325,6 +325,22 @@ export function useSpaceScene(
               toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
             }
           }
+        } else if (e.code === "KeyH") {
+          // Cinematic flyby — curved pass at ~3× target radius.
+          if (scene.flyby.active) {
+            scene.disengageFlyby();
+            toast("FLYBY DISENGAGED");
+          } else {
+            const t = scene.engageFlyby();
+            if (t) {
+              toast("FLYBY ENGAGED", {
+                description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+                duration: 2000,
+              });
+            } else {
+              toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+            }
+          }
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));

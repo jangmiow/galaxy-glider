@@ -907,6 +907,78 @@ function ToggleSwitchPanel() {
 }
 
 /**
+ * Flyby tuning panel — three sliders for altitude, closest-approach offset,
+ * and pass duration. Changes apply to the NEXT engagement, so we surface a
+ * dim hint while a flyby is currently flying.
+ */
+const FLYBY_LIMITS = {
+  altitudeMul: { min: 1.5, max: 8, step: 0.25 },
+  offsetMul: { min: -3, max: 3, step: 0.25 },
+  durationMul: { min: 0.5, max: 2.5, step: 0.1 },
+};
+
+function FlybyPanel({
+  config,
+  onChange,
+  activePass,
+}: {
+  config: HUDState["flybyConfig"];
+  onChange?: (cfg: Partial<HUDState["flybyConfig"]>) => void;
+  activePass: HUDState["flyby"];
+}) {
+  if (!onChange) return null;
+  const rows: Array<{
+    key: keyof HUDState["flybyConfig"];
+    label: string;
+    suffix: string;
+    hint: string;
+  }> = [
+    { key: "altitudeMul", label: "ALTITUDE", suffix: "× R", hint: "[ ]" },
+    { key: "offsetMul", label: "OFFSET", suffix: "× R", hint: "; '" },
+    { key: "durationMul", label: "DURATION", suffix: "×", hint: ", ." },
+  ];
+  return (
+    <div className="mt-6 text-left">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-display text-[11px] tracking-widest text-amber">FLYBY TUNING</span>
+        {activePass && (
+          <span className="text-[9px] tracking-widest text-hud-dim">applies next engage</span>
+        )}
+      </div>
+      <div className="space-y-3">
+        {rows.map((row) => {
+          const lim = FLYBY_LIMITS[row.key];
+          const val = config[row.key];
+          return (
+            <div key={row.key}>
+              <div className="mb-1 flex items-baseline justify-between font-display text-[10px] tracking-widest">
+                <span className="text-hud-dim">
+                  {row.label} <span className="text-hud/40">{row.hint}</span>
+                </span>
+                <span className="text-hud">
+                  {val.toFixed(2)}
+                  <span className="ml-0.5 text-hud-dim">{row.suffix}</span>
+                </span>
+              </div>
+              <input
+                type="range"
+                min={lim.min}
+                max={lim.max}
+                step={lim.step}
+                value={val}
+                onChange={(e) => onChange({ [row.key]: parseFloat(e.target.value) })}
+                className="h-1 w-full cursor-pointer accent-hud"
+                aria-label={row.label}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Celebratory medal that pops onto the HUD when the pilot completes scanning
  * every body in a star system. Pure SVG so it inherits the HUD palette and
  * stays crisp at any size.

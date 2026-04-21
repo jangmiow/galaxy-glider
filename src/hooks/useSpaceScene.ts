@@ -97,6 +97,13 @@ export function useSpaceScene(
       score: stats.score,
       rank: stats.rank,
     }));
+    // Restore the last system seed the pilot was exploring. Sol (seed 0) is
+    // the default, so we only rebuild when a generated system was saved.
+    const seed = loadSystemSeed(pilot.id);
+    if (seed > 0 && sceneRef.current) {
+      sceneRef.current.systemSeed = seed;
+      sceneRef.current.buildSystem(seed);
+    }
   }, []);
 
   /**

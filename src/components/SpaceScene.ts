@@ -221,6 +221,14 @@ export class SpaceScene {
   isWarping = false;
   warpTimer = 0;
   boost = 1;
+  /** Active timed-burst (Space-tap) state — multiplies thrust for ~2s. */
+  boostActive = false;
+  boostTimer = 0;
+  /** Cooldown timer (s); cannot re-burst until this reaches 0. */
+  boostCooldown = 0;
+  readonly BOOST_DURATION = 2;
+  readonly BOOST_COOLDOWN = 1;
+  readonly BOOST_MULT = 3;
   paused = false;
   // Bloom: base strength captured at init; spiked during warp jumps for a cinematic flash.
   bloomBase = 0.9;
@@ -992,12 +1000,25 @@ export class SpaceScene {
   triggerWarp() {
     if (this.warpCharge < 1 || this.isWarping) return;
     this.isWarping = true;
-    this.warpTimer = 2.5;
+    // Lightspeed lasts longer now — gives the pilot ~10s in hyperspace
+    // before the next system materialises.
+    this.warpTimer = 10;
     this.warpCharge = 0;
     (this.warpStars.material as THREE.PointsMaterial).opacity = 1;
     this.warpStars.visible = true;
     // Cinematic bloom flash — spike then ease back via update loop.
     this.bloomBoost = 2.4;
+  }
+
+  /**
+   * Fires a 2-second speed burst with a 1-second cooldown. Returns true if
+   * the burst actually engaged so the UI can play feedback.
+   */
+  triggerBoostBurst(): boolean {
+    if (this.boostActive || this.boostCooldown > 0 || this.isWarping) return false;
+    this.boostActive = true;
+    this.boostTimer = this.BOOST_DURATION;
+    return true;
   }
 
   update(dt: number) {
@@ -1024,7 +1045,19 @@ export class SpaceScene {
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) thrustInput -= 0.6;
     thrustInput += this.virtualThrust;
     thrustInput = Math.max(-1, Math.min(1, thrustInput));
-    this.boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 2.5 : 1;
+    // Tick boost-burst + cooldown timers (Space-tap burst, separate from Shift).
+    if (this.boostActive) {
+      this.boostTimer -= dt;
+      if (this.boostTimer <= 0) {
+        this.boostActive = false;
+        this.boostCooldown = this.BOOST_COOLDOWN;
+      }
+    } else if (this.boostCooldown > 0) {
+      this.boostCooldown = Math.max(0, this.boostCooldown - dt);
+    }
+    const shiftBoost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 2.5 : 1;
+    const burstBoost = this.boostActive ? this.BOOST_MULT : 1;
+    this.boost = Math.max(shiftBoost, burstBoost);
     this.thrust = thrustInput;
 
     const targetVel = thrustInput * 60 * this.boost;

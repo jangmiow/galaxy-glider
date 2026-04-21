@@ -1067,7 +1067,8 @@ export class SpaceScene {
       if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
     }
     if (!best) return null;
-    const altitude = best.size * 3;
+    const cfg = this.flybyConfig;
+    const altitude = best.size * cfg.altitudeMul;
     // Build curve: ingress from current ship position, periapsis on a perpendicular
     // offset at `altitude`, egress mirrored on the far side. Control points pulled
     // outward so the path bends instead of cutting through the body.
@@ -1077,7 +1078,14 @@ export class SpaceScene {
     let perp = right.clone().sub(toShip.clone().multiplyScalar(right.dot(toShip)));
     if (perp.lengthSq() < 0.01) perp.set(0, 1, 0);
     perp.normalize();
-    const periapsis = best.pos.clone().add(perp.clone().multiplyScalar(altitude));
+    // Closest-approach offset shifts the periapsis along the orthogonal "up"
+    // axis by `offsetMul × radius`. 0 keeps the original equatorial pass.
+    const offsetAxis = new THREE.Vector3().crossVectors(perp, toShip).normalize();
+    if (offsetAxis.lengthSq() < 0.01) offsetAxis.set(0, 1, 0);
+    const offset = best.size * cfg.offsetMul;
+    const periapsis = best.pos.clone()
+      .add(perp.clone().multiplyScalar(altitude))
+      .add(offsetAxis.clone().multiplyScalar(offset));
     const exit = best.pos.clone().add(toShip.clone().multiplyScalar(-best.dist)); // mirrored across body
     const p0 = this.ship.position.clone();
     const p3 = exit;

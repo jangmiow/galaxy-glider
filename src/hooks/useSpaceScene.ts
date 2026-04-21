@@ -70,6 +70,11 @@ export function useSpaceScene(
     showHints: true,
     medal: null,
     boost: false,
+    boostBurst: false,
+    boostCooldown: 0,
+    boostCooldownMax: 1,
+    boostDuration: 2,
+    boostRemaining: 0,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;

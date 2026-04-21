@@ -366,6 +366,7 @@ export function useSpaceScene(
         warpHoldProgress: spaceState.held
           ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
           : 0,
+        proximity: scene.proximity,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

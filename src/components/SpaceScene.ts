@@ -262,6 +262,10 @@ export class SpaceScene {
     center: THREE.Vector3;
     elapsed: number;
     duration: number;
+    nudgeLateral: number;
+    nudgeVertical: number;
+    perp: THREE.Vector3;
+    up: THREE.Vector3;
   } = {
     active: false, targetId: null, targetName: null,
     p0: new THREE.Vector3(), p1: new THREE.Vector3(), p2: new THREE.Vector3(), p3: new THREE.Vector3(),

@@ -1432,6 +1432,34 @@ export class SpaceScene {
         pos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * env);
         pos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * env);
         this.ship.position.copy(pos);
+        // Update the dashed ghost preview line to show the REMAINING flyby
+        // path, including current nudge offsets. Resampled every frame so the
+        // trail visibly bends as the cursor sweeps or keys are tapped.
+        {
+          const line = this.flybyPreviewLine;
+          line.visible = true;
+          const attr = line.geometry.getAttribute("position") as THREE.BufferAttribute;
+          const segs = attr.count - 1;
+          const tmp = new THREE.Vector3();
+          for (let i = 0; i <= segs; i++) {
+            // Sample from current u → 1 so the preview is always "what's ahead".
+            const tu = u + (1 - u) * (i / segs);
+            const tiu = 1 - tu;
+            tmp.set(0, 0, 0)
+              .addScaledVector(this.flyby.p0, tiu * tiu * tiu)
+              .addScaledVector(this.flyby.p1, 3 * tiu * tiu * tu)
+              .addScaledVector(this.flyby.p2, 3 * tiu * tu * tu)
+              .addScaledVector(this.flyby.p3, tu * tu * tu);
+            const tenv = Math.sin(Math.PI * tu);
+            tmp.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * tenv);
+            tmp.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * tenv);
+            attr.setXYZ(i, tmp.x, tmp.y, tmp.z);
+          }
+          attr.needsUpdate = true;
+          line.geometry.computeBoundingSphere();
+          // Required for LineDashedMaterial to render dashes correctly.
+          line.computeLineDistances();
+        }
         // Frame the planet — slerp ship orientation toward look-at(target).
         const m = new THREE.Matrix4();
         const flipped = pos.clone().multiplyScalar(2).sub(target.mesh.position);

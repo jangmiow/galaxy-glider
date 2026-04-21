@@ -1416,14 +1416,13 @@ export class SpaceScene {
     // Mouse/look just nudges the framing — only explicit thrust/roll/strafe
     // cancels so the pilot can glance around without losing the autopilot.
     if (this.approach.active) {
-      const hardOverride =
-        this.keys.has("KeyW") || this.keys.has("KeyS") ||
-        this.keys.has("KeyA") || this.keys.has("KeyD") ||
-        this.keys.has("KeyQ") || this.keys.has("KeyE") ||
-        this.keys.has("ArrowUp") || this.keys.has("ArrowDown") ||
-        this.keys.has("ArrowLeft") || this.keys.has("ArrowRight");
+      // Manual flight inputs no longer cancel approach — pilots can look
+      // around AND apply thrust/roll/strafe nudges without losing autopilot.
+      // Approach only ends when: (a) explicit abort hotkey (G/X/B handlers
+      // call disengageApproach directly), (b) target vanishes, or
+      // (c) target is fully scanned (mission complete).
       const target = this.bodies.find((b) => b.id === this.approach.targetId);
-      if (hardOverride || !target || target.scanned) {
+      if (!target || target.scanned) {
         this.disengageApproach();
       } else {
         // If the target body has drifted (orbital motion) or the spline got

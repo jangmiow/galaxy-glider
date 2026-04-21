@@ -385,6 +385,9 @@ export function useSpaceScene(
           ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
           : 0,
         proximity: scene.proximity,
+        approach: scene.approach.active && scene.approach.targetName
+          ? { target: scene.approach.targetName, distance: scene.approach.distance }
+          : null,
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

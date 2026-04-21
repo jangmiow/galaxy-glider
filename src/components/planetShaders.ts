@@ -1,11 +1,15 @@
-// Custom GLSL planet shaders. All materials share the same uniform shape so the
+// Cinematic planet shaders. All materials share the same uniform shape so the
 // scene update loop can drive `time` and `sunDir` uniformly across body types.
 //
-// Each material implements:
-//   - 3D simplex/value noise based surface pattern unique to its planet archetype
-//   - Lambert-ish day/night terminator via dot(normal, sunDir)
-//   - Fresnel atmospheric rim glow (color tunable per planet)
-//   - Subtle gamma + tone shaping
+// Phase 1 upgrade: each material now implements:
+//   - 6-octave domain-warped fbm for richer, less repetitive surfaces
+//   - Wrap-around Lambert + soft terminator with a warm sunset tint
+//   - Henyey-Greenstein-ish atmospheric scattering rim (forward & back scatter)
+//   - Specular sun-glint on ocean worlds (Blinn-Phong)
+//   - Separated cloud layer with self-cast shadows on the terrain below
+//   - Sun-aware crater rim shading on barren worlds
+//   - HDR emissive lava that plays nicely with bloom
+//   - Gamma-ish output shaping for a filmic feel
 //
 // Note: we render with the standard WebGL renderer (not WebGPU) — TanStack
 // Start's preview iframe doesn't expose `navigator.gpu`, and three.js's
@@ -64,15 +68,39 @@ float fbm(vec3 p) {
   }
   return v;
 }
+// Higher-octave fbm for sharp surface micro-detail (use sparingly).
+float fbm6(vec3 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 6; i++) {
+    v += a * vnoise(p);
+    p = p * 2.03 + vec3(11.7, 13.1, 17.3);
+    a *= 0.5;
+  }
+  return v;
+}
+// Domain-warped fbm — adds turbulent, organic large-scale flow (continents,
+// gas-giant turbulence, lava cracks). Two warp passes for richer motion.
+float warpedFbm(vec3 p) {
+  vec3 q = vec3(fbm(p + vec3(0.0)), fbm(p + vec3(5.2, 1.3, 9.4)), fbm(p + vec3(2.1, 7.7, 3.3)));
+  vec3 r = vec3(
+    fbm(p + 4.0 * q + vec3(1.7, 9.2, 1.1)),
+    fbm(p + 4.0 * q + vec3(8.3, 2.8, 6.1)),
+    fbm(p + 4.0 * q + vec3(4.5, 5.5, 7.7))
+  );
+  return fbm6(p + 4.0 * r);
+}
 `;
 
 const VERT = /* glsl */ `
 varying vec3 vNormalW;
 varying vec3 vPosW;
 varying vec3 vViewDir;
+varying vec3 vLocalPos;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vPosW = wp.xyz;
+  vLocalPos = position;
   vNormalW = normalize(mat3(modelMatrix) * normal);
   vViewDir = normalize(cameraPosition - wp.xyz);
   gl_Position = projectionMatrix * viewMatrix * wp;
@@ -83,6 +111,7 @@ const FRAG_HEADER = /* glsl */ `
 varying vec3 vNormalW;
 varying vec3 vPosW;
 varying vec3 vViewDir;
+varying vec3 vLocalPos;
 uniform float uTime;
 uniform vec3  uSunDir;
 uniform vec3  uBaseColor;
@@ -93,16 +122,52 @@ uniform float uAtmoStrength;
 uniform float uCloudiness;
 ${COMMON_NOISE_GLSL}
 
+// Cinematic lighting model:
+//  - Wrap-around diffuse for soft terminators
+//  - Warm sunset tint near grazing angles
+//  - Henyey-Greenstein-ish atmospheric rim with forward+back scatter
+//  - Subtle ambient using the atmo color (bounce light)
 vec3 applyLighting(vec3 albedo, vec3 N) {
-  float ndl = dot(N, normalize(uSunDir));
-  // Soft terminator + tiny ambient
-  float lit = clamp(ndl * 0.5 + 0.5, 0.0, 1.0);
-  lit = smoothstep(0.0, 0.85, lit);
-  vec3 dayNight = mix(albedo * 0.06, albedo, lit);
-  // Fresnel rim atmosphere
-  float fres = pow(1.0 - max(dot(vNormalW, vViewDir), 0.0), 3.0);
-  vec3 atmo = uAtmoColor * fres * uAtmoStrength * (0.4 + 0.6 * lit);
-  return dayNight + atmo;
+  vec3 L = normalize(uSunDir);
+  vec3 V = normalize(vViewDir);
+  float ndl = dot(N, L);
+  // Wrap diffuse softens the terminator (Valve half-Lambert, w=0.3)
+  float wrap = 0.3;
+  float lit = clamp((ndl + wrap) / (1.0 + wrap), 0.0, 1.0);
+  lit = smoothstep(0.0, 1.0, lit);
+
+  // Sunset/dawn warm band right around the terminator
+  float term = 1.0 - abs(ndl);
+  float sunset = pow(clamp(term, 0.0, 1.0), 6.0) * smoothstep(-0.15, 0.25, ndl);
+  vec3 sunsetTint = vec3(1.0, 0.55, 0.28) * sunset * 0.55;
+
+  // Soft ambient — atmosphere bounce on the dark side
+  vec3 ambient = mix(uAtmoColor * 0.04, vec3(0.012, 0.014, 0.022), 0.5);
+
+  vec3 dayNight = albedo * (lit + 0.05) + albedo * sunsetTint + albedo * ambient;
+
+  // Atmospheric rim (Fresnel * forward-scatter on lit side)
+  float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), 3.0);
+  float vdl = max(dot(V, -L), 0.0);
+  float forwardScatter = pow(vdl, 8.0); // bright halo when sun is behind planet
+  float rimLit = 0.35 + 0.65 * lit;
+  vec3 atmo = uAtmoColor * uAtmoStrength * (fres * rimLit + forwardScatter * 0.6 * fres);
+
+  vec3 col = dayNight + atmo;
+  // Mild filmic shaping
+  col = col / (col + vec3(0.55));
+  col = pow(col, vec3(0.95));
+  return col;
+}
+
+// Specular highlight (Blinn-Phong) — used on oceans for sun glint.
+float specGlint(vec3 N, float power, float strength) {
+  vec3 L = normalize(uSunDir);
+  vec3 V = normalize(vViewDir);
+  vec3 H = normalize(L + V);
+  float ndh = max(dot(N, H), 0.0);
+  float ndl = max(dot(N, L), 0.0);
+  return pow(ndh, power) * ndl * strength;
 }
 `;
 
@@ -142,31 +207,46 @@ export function makeRockyMaterial(opts: {
       opts.accent,
       opts.atmo,
       opts.seed,
-      opts.atmoStrength ?? 0.55,
+      opts.atmoStrength ?? 0.7,
       opts.cloudiness ?? 0,
     ),
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
-        vec3 p = normalize(vPosW) * 4.0 + vec3(uSeed);
-        // Continents: large fbm, sharpened
-        float continents = fbm(p * 1.2);
-        float craters = smoothstep(0.55, 0.62, fbm(p * 8.0 + 13.0));
-        float dust = fbm(p * 18.0) * 0.15;
-        float h = continents + dust - craters * 0.25;
-        vec3 col = mix(uBaseColor, uAccentColor, smoothstep(-0.1, 0.4, h));
-        // Polar ice caps
-        float lat = abs(normalize(vPosW).y);
-        col = mix(col, vec3(0.92, 0.95, 1.0), smoothstep(0.78, 0.95, lat));
-        // Sparse high-altitude cloud patches — slowly drift, only appear in
-        // isolated tufts. Higher threshold than ocean clouds so coverage stays low.
+        vec3 n = normalize(vPosW);
+        vec3 p = n * 4.0 + vec3(uSeed);
+        // Continents via warped fbm — feels eroded and organic
+        float continents = warpedFbm(p * 0.9);
+        float midDetail  = fbm6(p * 3.5);
+        float craters    = smoothstep(0.55, 0.62, fbm(p * 8.0 + 13.0));
+        float dust       = fbm(p * 22.0) * 0.12;
+        float h = continents * 0.85 + midDetail * 0.18 + dust - craters * 0.22;
+
+        // Three-tone surface: lowland / midland / highland
+        vec3 lowland  = uBaseColor * 0.78;
+        vec3 midland  = uBaseColor;
+        vec3 highland = mix(uAccentColor, vec3(1.0), 0.15);
+        vec3 col = mix(lowland, midland, smoothstep(-0.1, 0.15, h));
+        col = mix(col, highland, smoothstep(0.25, 0.55, h));
+
+        // Valley shadows (darker in low spots) for depth
+        col *= 0.9 + 0.1 * smoothstep(-0.2, 0.4, h);
+
+        // Polar ice caps with noisy edge
+        float lat = abs(n.y);
+        float capEdge = lat + fbm(p * 6.0) * 0.04;
+        col = mix(col, vec3(0.94, 0.96, 1.0), smoothstep(0.78, 0.92, capEdge));
+
+        // Sparse high-altitude cloud patches with self-shadow on the surface
         if (uCloudiness > 0.001) {
           vec3 cp = p * 1.8 + vec3(uTime * 0.006, 0.0, uTime * 0.004);
-          float cloudMask = fbm(cp * 1.6);
-          // Two-stage threshold: only the brightest fbm peaks become clouds,
-          // and a wider noise field gates them into rare patches.
           float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
+          float cloudMask = fbm6(cp * 1.6);
           float clouds = smoothstep(0.62, 0.78, cloudMask) * patches;
+          // Sample a tiny step toward the sun for fake shadow
+          vec3 shadowSample = cp + normalize(uSunDir) * 0.08;
+          float shadow = smoothstep(0.62, 0.78, fbm(shadowSample * 1.6)) * patches;
+          col *= 1.0 - shadow * uCloudiness * 0.35;
           col = mix(col, vec3(0.95, 0.92, 0.86), clouds * uCloudiness);
         }
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
@@ -175,7 +255,7 @@ export function makeRockyMaterial(opts: {
   });
 }
 
-// ─── Ocean (Earth-like blue marble with continents + clouds) ─────────────────
+// ─── Ocean (Earth-like blue marble with continents + clouds + sun glint) ─────
 export function makeOceanMaterial(opts: {
   oceanColor: string;
   landColor: string;
@@ -184,26 +264,59 @@ export function makeOceanMaterial(opts: {
   cloudiness?: number;
 }): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: makeUniforms(opts.oceanColor, opts.landColor, opts.atmo, opts.seed, 1.1, opts.cloudiness ?? 0.55),
+    uniforms: makeUniforms(opts.oceanColor, opts.landColor, opts.atmo, opts.seed, 1.4, opts.cloudiness ?? 0.55),
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
-        vec3 p = normalize(vPosW) * 2.5 + vec3(uSeed);
-        float h = fbm(p * 1.4);
-        // Continent threshold creates oceans + landmasses
-        float land = smoothstep(0.05, 0.18, h);
-        vec3 ocean = uBaseColor;
-        vec3 grass = uAccentColor;
-        vec3 desert = mix(grass, vec3(0.78, 0.66, 0.42), 0.6);
-        vec3 surface = mix(ocean, mix(grass, desert, smoothstep(0.25, 0.55, h)), land);
-        // Polar ice
-        float lat = abs(normalize(vPosW).y);
-        surface = mix(surface, vec3(0.95, 0.97, 1.0), smoothstep(0.82, 0.97, lat));
-        // Animated clouds (fbm domain warped by time)
+        vec3 n = normalize(vPosW);
+        vec3 p = n * 2.5 + vec3(uSeed);
+        // Continent shape via domain-warped fbm — irregular coastlines
+        float h = warpedFbm(p * 1.1);
+        float coast = smoothstep(0.04, 0.10, h);     // shoreline
+        float land  = smoothstep(0.05, 0.18, h);     // interior
+
+        // Ocean shading — depth-based gradient + small wave detail
+        float depth = smoothstep(-0.4, 0.05, h);
+        vec3 deepOcean    = uBaseColor * 0.55;
+        vec3 shallowOcean = mix(uBaseColor, vec3(0.45, 0.78, 0.86), 0.6);
+        vec3 ocean = mix(deepOcean, shallowOcean, depth);
+
+        // Land tones: forest → grass → desert → mountain
+        float biome = fbm(p * 2.5 + 7.1);
+        vec3 forest = uAccentColor * 0.7;
+        vec3 grass  = uAccentColor;
+        vec3 desert = mix(grass, vec3(0.82, 0.68, 0.42), 0.7);
+        vec3 mountain = mix(grass, vec3(0.55, 0.5, 0.45), 0.8);
+        vec3 landCol = mix(forest, grass, smoothstep(0.3, 0.6, biome));
+        landCol = mix(landCol, desert, smoothstep(0.55, 0.85, biome));
+        landCol = mix(landCol, mountain, smoothstep(0.4, 0.7, h));
+
+        vec3 surface = mix(ocean, landCol, land);
+        // Beach line — bright sand at coast
+        surface = mix(surface, vec3(0.92, 0.85, 0.66), (coast - land) * 0.8);
+
+        // Polar ice with noisy edge
+        float lat = abs(n.y);
+        float ice = smoothstep(0.78, 0.94, lat + fbm(p * 8.0) * 0.05);
+        surface = mix(surface, vec3(0.96, 0.98, 1.0), ice);
+
+        // Animated cloud layer (warped fbm) with self-shadow on surface
         vec3 cp = p * 2.2 + vec3(uTime * 0.012, 0.0, uTime * 0.008);
-        float clouds = smoothstep(0.55, 0.75, fbm(cp));
+        float cloudRaw = warpedFbm(cp * 0.9);
+        float clouds = smoothstep(0.48, 0.72, cloudRaw);
+        // Shadow sample slightly toward sun
+        vec3 shadowP = cp + normalize(uSunDir) * 0.12;
+        float cloudShadow = smoothstep(0.48, 0.72, warpedFbm(shadowP * 0.9));
+        surface *= 1.0 - cloudShadow * uCloudiness * 0.45;
         surface = mix(surface, vec3(1.0), clouds * uCloudiness);
-        gl_FragColor = vec4(applyLighting(surface, vNormalW), 1.0);
+
+        vec3 lit = applyLighting(surface, vNormalW);
+
+        // Sun glint — only on water (mask by 1 - land)
+        float glint = specGlint(vNormalW, 90.0, 1.2) * (1.0 - land) * (1.0 - clouds * 0.7);
+        lit += vec3(1.0, 0.95, 0.85) * glint;
+
+        gl_FragColor = vec4(lit, 1.0);
       }
     `,
   });
@@ -219,7 +332,7 @@ export function makeGasGiantMaterial(opts: {
 }): THREE.ShaderMaterial {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
-      ...makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 0.8, 0.7),
+      ...makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 1.0, 0.7),
       uBandStrength: { value: opts.bandStrength ?? 0.7 },
     },
     vertexShader: VERT,
@@ -228,28 +341,35 @@ export function makeGasGiantMaterial(opts: {
       void main() {
         vec3 n = normalize(vPosW);
         float lat = n.y;
-        // Domain warp creates the swirl/turbulence in bands
-        vec3 warp = vec3(fbm(n * 3.0 + uTime * 0.02), 0.0, fbm(n * 3.0 + 7.3));
-        float bandCoord = lat * 6.0 + warp.x * 0.8 * uBandStrength + uSeed;
+        // Heavy domain warp creates sweeping turbulent bands
+        vec3 wp = n * 3.0 + vec3(uTime * 0.02, 0.0, uSeed);
+        float warp1 = warpedFbm(wp);
+        float warp2 = fbm(wp * 2.0 + warp1);
+        float bandCoord = lat * 7.0 + warp1 * 1.2 * uBandStrength + uSeed;
         float bands = sin(bandCoord) * 0.5 + 0.5;
-        bands = pow(bands, 1.4);
+        bands = pow(bands, 1.6);
         vec3 col = mix(uBaseColor, uAccentColor, bands);
-        // Storm spots (rare bright/dark cells)
-        float spots = smoothstep(0.78, 0.85, fbm(n * 12.0 + warp));
-        col = mix(col, uAccentColor * 1.4, spots * 0.4);
-        // Subtle equatorial darkening
-        col *= 1.0 - 0.15 * smoothstep(0.6, 0.0, abs(lat));
 
-        // High-altitude banded cloud layer — thin streaks that flow zonally
-        // (faster along longitude, latitude-locked) and drift over time. They
-        // brighten the lit hemisphere and trace finer detail than the base bands.
-        vec3 cloudP = n * 4.0 + vec3(uTime * 0.05, 0.0, 0.0);
-        float cloudBands = sin(lat * 14.0 + fbm(cloudP) * 1.6 + uTime * 0.08) * 0.5 + 0.5;
-        cloudBands = pow(cloudBands, 2.2);
-        // Break the bands into wisps with a higher-frequency noise gate
-        float wisps = smoothstep(0.45, 0.85, fbm(n * 8.0 + warp * 1.4 + uTime * 0.03));
-        float clouds = cloudBands * wisps * uCloudiness;
+        // Vortex / storm cells — bigger + more dramatic
+        float vortex = smoothstep(0.72, 0.85, fbm6(n * 6.0 + warp2 * 1.5));
+        vec3 stormCol = mix(uAccentColor * 1.5, vec3(1.0, 0.55, 0.4), 0.4);
+        col = mix(col, stormCol, vortex * 0.5);
+
+        // Polar hood (darker, smoother caps like Jupiter's poles)
+        float polar = smoothstep(0.65, 0.95, abs(lat));
+        col = mix(col, uBaseColor * 0.7, polar * 0.6);
+
+        // Subtle equatorial brightening
+        col *= 1.0 + 0.08 * (1.0 - smoothstep(0.0, 0.4, abs(lat)));
+
+        // Zonal cloud streaks — fast-flowing wisps that brighten the lit side
+        vec3 cloudP = n * 4.5 + vec3(uTime * 0.06, 0.0, 0.0);
+        float zonalBands = sin(lat * 16.0 + warpedFbm(cloudP) * 2.0 + uTime * 0.08) * 0.5 + 0.5;
+        zonalBands = pow(zonalBands, 2.2);
+        float wisps = smoothstep(0.42, 0.85, fbm6(n * 9.0 + warp1 * 1.4 + uTime * 0.03));
+        float clouds = zonalBands * wisps * uCloudiness;
         col = mix(col, mix(uBaseColor, vec3(1.0), 0.85), clouds * 0.55);
+
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,
@@ -265,19 +385,31 @@ export function makeIcyMaterial(opts: {
   seed: number;
 }): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 1.3, 0),
+    uniforms: makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 1.6, 0),
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
-        vec3 p = normalize(vPosW) * 3.0 + vec3(uSeed);
-        // Subtle banded structure for ice giants
-        float lat = normalize(vPosW).y;
-        float bands = sin(lat * 4.0 + fbm(p * 2.0) * 0.6) * 0.5 + 0.5;
-        float h = fbm(p * 2.5);
-        vec3 col = mix(uBaseColor, uAccentColor, bands * 0.35 + h * 0.25);
-        // Crack lines (Europa-style) when seed selects it
-        float cracks = smoothstep(0.48, 0.5, abs(fbm(p * 10.0)));
-        col = mix(col, vec3(0.1, 0.2, 0.35), (1.0 - cracks) * 0.18 * step(0.5, fract(uSeed * 7.3)));
+        vec3 n = normalize(vPosW);
+        vec3 p = n * 3.0 + vec3(uSeed);
+        // Subtle banded structure for ice giants — softer than gas giants
+        float lat = n.y;
+        float bands = sin(lat * 4.0 + warpedFbm(p * 1.2) * 0.6) * 0.5 + 0.5;
+        float h = fbm6(p * 2.5);
+        vec3 col = mix(uBaseColor, uAccentColor, bands * 0.35 + h * 0.3);
+
+        // Crack/fracture network (Europa-style) — shows on ~half the worlds
+        float crackField = abs(fbm6(p * 12.0));
+        float cracks = 1.0 - smoothstep(0.02, 0.08, crackField);
+        col = mix(col, vec3(0.08, 0.18, 0.32), cracks * 0.35 * step(0.5, fract(uSeed * 7.3)));
+
+        // Frosty highlights on the lit side — anisotropic-ish
+        float frost = pow(max(dot(vNormalW, normalize(uSunDir)), 0.0), 2.5);
+        col += vec3(0.18, 0.22, 0.28) * frost * 0.25;
+
+        // Specular sheen on smooth ice
+        float sheen = specGlint(vNormalW, 30.0, 0.4);
+        col += vec3(0.7, 0.85, 1.0) * sheen;
+
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,
@@ -292,18 +424,31 @@ export function makeLavaMaterial(opts: {
   seed: number;
 }): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 1.0, 0),
+    uniforms: makeUniforms(opts.base, opts.accent, opts.atmo, opts.seed, 1.2, 0),
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
-        vec3 p = normalize(vPosW) * 5.0 + vec3(uSeed);
-        float h = fbm(p * 1.5);
-        float cracks = smoothstep(0.42, 0.48, fbm(p * 6.0 + uTime * 0.05));
-        vec3 col = mix(uBaseColor, uAccentColor, cracks);
-        // Glowing lava lines (emissive-ish, additive on top of dark crust)
-        float glow = smoothstep(0.55, 0.7, fbm(p * 4.0 - uTime * 0.03));
+        vec3 n = normalize(vPosW);
+        vec3 p = n * 5.0 + vec3(uSeed);
+        // Cracked crust via warped fbm
+        float h = warpedFbm(p * 1.2);
+        float cracks = smoothstep(0.40, 0.50, fbm6(p * 6.0 + uTime * 0.05));
+        // Crust gets darker where it's "cooler" (high h), brighter in cracks
+        vec3 crust = mix(uBaseColor * 0.6, uBaseColor, smoothstep(-0.1, 0.4, h));
+        vec3 col = mix(crust, uAccentColor, cracks);
+
+        // Pulsing lava glow in low spots — HDR for bloom pickup
+        float pulse = 0.7 + 0.3 * sin(uTime * 1.5 + uSeed);
+        float glowMask = smoothstep(0.50, 0.72, fbm6(p * 4.0 - uTime * 0.03));
+        glowMask *= 1.0 - smoothstep(-0.2, 0.3, h); // glow concentrates in valleys
+        vec3 emissive = vec3(2.5, 1.1, 0.25) * glowMask * pulse;
+
+        // Heat shimmer on fresh cracks
+        emissive += vec3(3.0, 0.6, 0.15) * cracks * (0.4 + 0.3 * pulse);
+
         vec3 lit = applyLighting(col, vNormalW);
-        lit += vec3(1.0, 0.45, 0.1) * glow * 0.6;
+        // Add emissive on top (unaffected by sun)
+        lit += emissive;
         gl_FragColor = vec4(lit, 1.0);
       }
     `,
@@ -321,13 +466,31 @@ export function makeBarrenMaterial(opts: {
     vertexShader: VERT,
     fragmentShader: FRAG_HEADER + /* glsl */ `
       void main() {
-        vec3 p = normalize(vPosW) * 6.0 + vec3(uSeed);
-        float regolith = fbm(p * 2.0);
-        // Layered crater rings
+        vec3 n = normalize(vPosW);
+        vec3 p = n * 6.0 + vec3(uSeed);
+        float regolith = fbm6(p * 2.0);
+
+        // Multi-scale crater rings
         float c1 = smoothstep(0.55, 0.6, fbm(p * 5.0));
         float c2 = smoothstep(0.5, 0.55, fbm(p * 12.0 + 19.0));
-        float craters = max(c1, c2 * 0.7);
+        float c3 = smoothstep(0.52, 0.57, fbm(p * 24.0 + 41.0));
+        float craters = max(max(c1, c2 * 0.7), c3 * 0.45);
+
+        // Sun-aware crater rim — bright lit edge, dark shadow edge
+        // Approximate crater normal by gradient of crater field
+        float eps = 0.02;
+        vec3 px = p + vec3(eps, 0.0, 0.0);
+        vec3 py = p + vec3(0.0, eps, 0.0);
+        float cx = max(smoothstep(0.55, 0.6, fbm(px * 5.0)), smoothstep(0.5, 0.55, fbm(px * 12.0 + 19.0)) * 0.7);
+        float cy = max(smoothstep(0.55, 0.6, fbm(py * 5.0)), smoothstep(0.5, 0.55, fbm(py * 12.0 + 19.0)) * 0.7);
+        vec2 craterGrad = vec2(cx - craters, cy - craters) / eps;
+        vec3 sunProj = normalize(uSunDir - n * dot(uSunDir, n)); // sun in tangent plane
+        float rimLight = clamp(dot(normalize(vec3(craterGrad.x, 0.0, craterGrad.y)), sunProj), -1.0, 1.0);
+
         vec3 col = mix(uBaseColor, uAccentColor, regolith * 0.5 + craters * 0.3);
+        col *= 1.0 + rimLight * 0.35;        // rim brighten/darken
+        col *= 0.85 + 0.15 * regolith;       // micro-detail
+
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
     `,

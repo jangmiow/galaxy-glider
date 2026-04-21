@@ -88,6 +88,7 @@ export function useSpaceScene(
     framing: null,
     sensorContact: null,
     flyby: null,
+    flybyConfig: { altitudeMul: 3, offsetMul: 0, durationMul: 1 },
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;

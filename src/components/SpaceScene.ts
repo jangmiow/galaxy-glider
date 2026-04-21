@@ -1410,12 +1410,11 @@ export class SpaceScene {
       }
     }
 
-    // Approach autopilot — engaged via G key. Steers + thrusts toward the
-    // chosen body until ~5 radii away, then station-keeps so it sits framed.
-    // Any manual input (mouse-look / movement keys) cancels approach so the
-    // pilot always wins. Runs BEFORE mouse-look so override detection is clean.
+    // Approach autopilot — engaged via G key. Follows a Catmull-Rom spline
+    // toward a hold point ~5 radii in front of the body, with look-ahead
+    // steering and slew-rate-limited thrust so the lever never snaps.
+    // Manual input cancels so the pilot always wins.
     if (this.approach.active) {
-      // Manual override: nonzero mouse-look or any movement key.
       const hadInput =
         Math.abs(this.mouseX) > 0.05 ||
         Math.abs(this.mouseY) > 0.05 ||
@@ -1428,20 +1427,69 @@ export class SpaceScene {
       if (hadInput || !target || target.scanned) {
         this.disengageApproach();
       } else {
-        // Steer: slerp toward "look at target" at a comfortable rate.
+        // If the target body has drifted (orbital motion) or the spline got
+        // stale, rebuild it. Cheap — just 4 control points.
+        const path = this.approach.path;
+        if (!path) {
+          this.approach.path = this.buildApproachPath(target.mesh.position, target.size);
+          this.approach.pathLength = this.approach.path.getLength();
+          this.approach.pathU = 0;
+        } else {
+          const endPoint = path.getPoint(1);
+          const dirNow = target.mesh.position.clone().sub(this.ship.position).normalize();
+          const expectedHold = target.mesh.position.clone().sub(dirNow.multiplyScalar(target.size * 5));
+          if (endPoint.distanceTo(expectedHold) > target.size * 1.2) {
+            this.approach.path = this.buildApproachPath(target.mesh.position, target.size);
+            this.approach.pathLength = this.approach.path.getLength();
+            this.approach.pathU = Math.min(this.approach.pathU, 0.85);
+          }
+        }
+        const spline = this.approach.path!;
+        // Find the closest u on the spline to the ship by stepping a short
+        // window forward from the cached pathU. Keeps sampling local + cheap.
+        let bestU = this.approach.pathU;
+        let bestSq = Infinity;
+        const SAMPLES = 12;
+        const window = 0.15;
+        for (let i = 0; i <= SAMPLES; i++) {
+          const u = Math.max(0, Math.min(1, this.approach.pathU - window + (i / SAMPLES) * window * 2));
+          const p = spline.getPoint(u);
+          const sq = p.distanceToSquared(this.ship.position);
+          if (sq < bestSq) { bestSq = sq; bestU = u; }
+        }
+        this.approach.pathU = bestU;
+        // Look ahead ~80u along the path for the steering target. Near the
+        // end, lock onto the actual planet so the camera frames it for scanning.
+        const lookAheadU = Math.min(1, bestU + 80 / Math.max(1, this.approach.pathLength));
+        const aimPoint = bestU > 0.92 ? target.mesh.position : spline.getPoint(lookAheadU);
         const m = new THREE.Matrix4();
-        const flipped = this.ship.position.clone().multiplyScalar(2).sub(target.mesh.position);
+        const flipped = this.ship.position.clone().multiplyScalar(2).sub(aimPoint);
         m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
         const desired = new THREE.Quaternion().setFromRotationMatrix(m);
         this.ship.quaternion.slerp(desired, Math.min(1, dt * 1.8));
-        // Distance-based thrust: full far away, ramp down inside 8r, hold at 5r.
+
+        // Distance-based thrust target, then slew-rate-limited so the lever
+        // never changes faster than ~0.6 units/second. Also fades in over 1s.
         const dist = target.mesh.position.distanceTo(this.ship.position);
         const r = target.size;
-        let t = 0;
-        if (dist > r * 8) t = 1;
-        else if (dist > r * 5) t = (dist - r * 5) / (r * 3);
-        else t = 0;
-        this.virtualThrust = t;
+        let targetThrust = 0;
+        if (dist > r * 8) targetThrust = 1;
+        else if (dist > r * 5) targetThrust = (dist - r * 5) / (r * 3);
+        else targetThrust = 0;
+        const sinceEngage = (performance.now() - this.approach.engagedAt) / 1000;
+        const fadeIn = Math.min(1, sinceEngage / 1.0);
+        targetThrust *= fadeIn;
+        // Heading-aware brake: ease off thrust if not yet aligned with the aim
+        // point, so the ship doesn't barrel sideways during the initial turn.
+        const shipFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.ship.quaternion);
+        const aimDir = aimPoint.clone().sub(this.ship.position).normalize();
+        const align = Math.max(0, shipFwd.dot(aimDir));
+        targetThrust *= 0.3 + 0.7 * align;
+        const SLEW = 0.6;
+        const delta = targetThrust - this.approach.smoothedThrust;
+        const maxStep = SLEW * dt;
+        this.approach.smoothedThrust += Math.max(-maxStep, Math.min(maxStep, delta));
+        this.virtualThrust = this.approach.smoothedThrust;
         this.approach.distance = dist;
       }
     }

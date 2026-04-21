@@ -1,3 +1,4 @@
+import { runMigrations } from "./migrations";
 import { getActivePilotId, pilotKey } from "./pilots";
 
 export type Discovery = {

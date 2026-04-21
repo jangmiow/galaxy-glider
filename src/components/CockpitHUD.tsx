@@ -156,6 +156,16 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         <div className="mt-1 text-amber">{state.objective}</div>
       </div>
 
+      {/* Approach autopilot status pill (just below the objective) */}
+      {state.approach && (
+        <div className="absolute left-1/2 top-24 -translate-x-1/2 hud-panel rounded-full border border-hud/60 bg-hud/10 px-3 py-1 text-center text-[10px] tracking-widest">
+          <span className="text-hud-dim">APPROACH ·</span>{" "}
+          <span className="text-hud">{state.approach.target}</span>{" "}
+          <span className="text-hud-dim">·</span>{" "}
+          <span className="text-amber">{state.approach.distance.toFixed(0)}u</span>
+        </div>
+      )}
+
       {/* Bottom-left: velocity + thrust */}
       <div className="absolute bottom-6 left-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
         <div className="flex items-baseline justify-between">

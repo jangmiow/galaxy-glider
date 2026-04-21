@@ -11,6 +11,7 @@ import {
   makeLavaMaterial,
   makeOceanMaterial,
   makeRockyMaterial,
+  makeSunMaterial,
   tickPlanetUniforms,
   type PlanetKind,
 } from "./planetShaders";
@@ -474,7 +475,8 @@ export class SpaceScene {
     let mat: THREE.Material;
     let shaderMat: THREE.ShaderMaterial | undefined;
     if (isStar) {
-      mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(config.color) });
+      shaderMat = makeSunMaterial({ color: config.color, accent: config.accentColor, seed });
+      mat = shaderMat;
     } else {
       switch (config.kind) {
         case "ocean":

@@ -297,6 +297,83 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
 }
 
 /**
+ * Compact boost-burst dial that lives next to the warp drive bar. Three states:
+ *  - READY      → solid amber ring, "BOOST" label, slow scan-pulse glow.
+ *  - ACTIVE     → ring drains anti-clockwise as the 2s burst plays out, big "GO" label.
+ *  - COOLDOWN   → ring fills clockwise from empty back to full over 1s.
+ *
+ * The arc is drawn with a stroke-dasharray trick — we set `dashoffset` from a
+ * 0..1 fraction so we can animate it purely from React state without raf.
+ */
+function BoostIndicator({
+  active,
+  cooldown,
+  cooldownMax,
+  duration,
+  remaining,
+}: {
+  active: boolean;
+  cooldown: number;
+  cooldownMax: number;
+  duration: number;
+  remaining: number;
+}) {
+  const R = 16;
+  const C = 2 * Math.PI * R;
+  // Fraction of the ring to *show* (1 = full, 0 = empty).
+  let fill = 1;
+  let label = "BOOST";
+  let sub = "READY";
+  let color = "text-amber";
+  let ringClass = "stroke-amber";
+  if (active) {
+    fill = duration > 0 ? Math.max(0, remaining / duration) : 0;
+    label = "GO";
+    sub = `${remaining.toFixed(1)}s`;
+    color = "text-amber";
+    ringClass = "stroke-amber";
+  } else if (cooldown > 0) {
+    // Fill rises from 0 → 1 as cooldown counts down to 0.
+    fill = cooldownMax > 0 ? 1 - cooldown / cooldownMax : 1;
+    label = "COOL";
+    sub = `${cooldown.toFixed(1)}s`;
+    color = "text-hud-dim";
+    ringClass = "stroke-hud";
+  }
+  const dashoffset = C * (1 - fill);
+  return (
+    <div className="flex shrink-0 flex-col items-center" aria-label={`Boost ${sub}`}>
+      <div className="relative h-12 w-12">
+        <svg viewBox="-20 -20 40 40" className="h-full w-full -rotate-90">
+          {/* Track */}
+          <circle r={R} fill="none" className="stroke-hud/15" strokeWidth="3" />
+          {/* Fill */}
+          <circle
+            r={R}
+            fill="none"
+            className={`${ringClass} transition-[stroke-dashoffset] duration-150 ease-linear ${
+              !active && cooldown <= 0 ? "scan-pulse" : ""
+            }`}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={dashoffset}
+          />
+        </svg>
+        <div
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center font-display text-[9px] tracking-widest ${color} ${
+            active ? "hud-glow" : ""
+          }`}
+        >
+          {label}
+        </div>
+      </div>
+      <div className="mt-1 font-display text-[9px] tracking-widest text-hud-dim">{sub}</div>
+    </div>
+  );
+}
+
+/**
  * Centered cockpit reticle. When `scanning` is null we render the idle
  * crosshair; when a target is being scanned we light up corner brackets,
  * draw a circular progress ring (clockwise fill via stroke-dashoffset),

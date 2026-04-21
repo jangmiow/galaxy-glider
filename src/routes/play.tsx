@@ -52,6 +52,8 @@ function Play() {
             <div className="ca-overlay ca-cyan" aria-hidden />
             {/* Speed-tunnel vignette. */}
             <div className="boost-vignette" aria-hidden />
+            {/* Radial speed-line burst from screen center, fades over 400ms. */}
+            <div className="boost-speedlines" aria-hidden />
           </>
         )}
       </div>

@@ -1,49 +1,50 @@
 
-# Cosmic Drift — First-Person Spaceship Explorer
+## Bigger, more cinematic worlds — Project Hail Mary inspired
 
-A cinematic, first-person cockpit experience where you pilot a ship through a procedurally generated galaxy, discovering planets and stars, with optional light objectives.
+Goal: make planets feel like real, awe-inspiring objects (the way Rocky's Erid or Tau Ceti feel in PHM) without breaking scan ranges, orbits, or collision. Pair the visual upgrade with a few control polish items so flying near a giant feels deliberate.
 
-## Core experience
-- **View**: First-person from inside the cockpit. A subtle dark cockpit frame (dashboard silhouette + window struts) overlays a huge curved windscreen showing space.
-- **Space**: Real 3D scene built with Three.js — thousands of stars with parallax depth, drifting nebula clouds (volumetric-style sprites), distant galaxy disks, planets of varied size/color/rings, glowing suns with lens flares.
-- **Atmosphere**: Cinematic bloom, subtle vignette, ambient cockpit hum + soft synth pad, engine rumble that scales with thrust, whoosh on light-speed jump.
+### 1. Planet & moon size pass
 
-## Controls
-- **Mouse**: Move cursor to pitch & yaw the ship (smooth, with deadzone in center). Right-click drag for roll (optional).
-- **Keyboard**: `W` / `↑` thrust forward, `S` / `↓` reverse thrust, `A` `D` / `← →` strafe-turn assist, `Shift` boost, `Space` engage light speed, `Esc` pause.
-- **On-screen hint overlay** that fades after first input.
+Bump body sizes meaningfully while keeping stars dominant and orbits readable.
 
-## HUD (sleek sci-fi style, layered over the cockpit)
-- Velocity readout + thrust bar
-- Heading compass / artificial horizon
-- Mini radar showing nearby points of interest
-- Light-speed charge indicator
-- Discovery log button (top-right)
+**Sol system (`buildSolSystem`)** — multipliers chosen per body so terrestrials grow more than gas giants (which are already huge):
+- Mercury 6 → 9, Venus 10 → 16, Earth 11 → 18, Mars 8 → 13
+- Jupiter 40 → 58, Saturn 34 → 50 (rings scale with `size`, so they grow automatically; bump `inner/outer` to 80/150)
+- Uranus 20 → 30, Neptune 19 → 28
+- Sun stays 80 (already cinematic; growing it crowds inner planets)
+- Moons scaled ~1.4× (Luna 2.2 → 3.2, Titan 2.6 → 3.8, Ganymede 3.0 → 4.4, etc.) and moon orbital `radius` grown ~1.3× so they don't clip the now-larger parent
 
-## Gameplay (combining all three scopes)
-1. **Free flight**: Thrust, turn, drift. Stars streak past faster as velocity rises.
-2. **Light speed**: Tap `Space` → screen warps into the classic star-tunnel effect for a few seconds, then drops you near a new star system. Cooldown bar refills.
-3. **Discoveries**: Fly close to a planet/star → it auto-scans → entry added to a **Discovery Journal** (name, type, size, color, distance from origin). Procedurally generated names (e.g., "Kepler-VX 7", "Nyx Prime").
-4. **Mini-objectives**: Rotating soft goals shown subtly in HUD — "Reach the blue giant", "Discover 3 ringed planets", "Collect 5 energy orbs". Completing them increases a **Pilot Rank**.
-5. **Energy orbs**: Occasionally float in space; flying through them gives a small score + brief boost.
+**Procedural systems (`buildSystem`)**:
+- Terrestrial size band: `9 + rng()*11` → `15 + rng()*14` (15–29u)
+- Gas/ringed band: `26 + rng()*24` → `38 + rng()*32` (38–70u)
+- Orbital spacing `330 + i*240` → `420 + i*310` so larger bodies don't visually overlap
+- Moon orbital radius coefficient `2.4 + m*1.1` → `2.8 + m*1.2` for the same reason
 
-## Pages / routes
-- `/` — Main menu: title "COSMIC DRIFT", Start, Controls, About. Animated star background.
-- `/play` — The full cockpit game (Three.js canvas + HUD overlays).
-- `/journal` — Discovery log (persisted in localStorage): grid of discovered bodies with thumbnails and stats.
+### 2. Visual polish to sell scale
 
-## Design direction
-- Realistic & cinematic: deep blacks, soft cyan/amber HUD accents, thin futuristic typography (Orbitron or similar), crisp lens flares, subtle film grain.
-- Cockpit frame rendered as SVG/PNG overlay so it stays sharp at any resolution.
-- Mobile fallback: on-screen joystick + thrust slider; warns desktop is recommended.
+- **Atmosphere rim**: in `addPlanetBody`, slightly raise `uAtmoStrength` default for terrestrial kinds (rocky/ocean/icy) so the limb glow is more pronounced on close approach — this is the single biggest "looks real" lever
+- **Bloom threshold**: lower `UnrealBloomPass` threshold from `0.2` → `0.15` so atmospheres and ring-lit edges catch a touch more bloom (stars already saturate, so the change mainly benefits planets)
+- **Approach awe**: when the ship is within `b.size * 6` of any planet, fade in a subtle vignette tint matching the body's atmosphere color (reuses existing boost-vignette CSS class with a new `.proximity-vignette` variant driven from HUD state)
 
-## Performance
-- Use instanced meshes for stars, sprite-based nebulae, level-of-detail planets, and frustum culling so it runs smoothly in the browser.
+### 3. Controls polish for piloting near giants
 
-## Out of scope (for v1)
-- Combat / enemies / weapons
-- Multiplayer
-- Landing on planets
-- Saving across devices (journal stays in localStorage)
+- **Variable thrust ramp**: current thrust accelerates at one rate. Add a soft cap that tapers max velocity to 70% within `b.size * 4` of any body — gives a natural "approach mode" feel and prevents tunneling past a planet you're trying to admire
+- **Q/E roll keys**: bank the ship on its forward axis (currently no roll). Pure cosmetic / framing tool — essential for taking in a ringed giant from the right angle
+- **F key — frame target**: smoothly rotates the camera to face the nearest unscanned body over ~1.2s. Complements the existing `T` auto-aim (which snaps) with a cinematic version
+- Update `KeyBindingsHUD` to show Q/E/F
 
-We can layer any of these in later iterations.
+### 4. Compatibility checks (no breakage)
+
+- Scan/lock-on uses `b.size / dist` for `angularRadius` — bigger planets become easier to lock from farther, which is the intended feel
+- Collision buffer is `b.size * 1.08` (planet) / `b.size * 1.4` (star) — still proportional, no tuning needed
+- Star flare uses `b.size * 10` for sprite scale — already proportional
+- Minimap dot sizes are based on body type, not `size`, so visual scale on the radar is unchanged
+
+### Files touched
+- `src/components/SpaceScene.ts` — sizes, orbital spacing, bloom threshold, thrust taper near bodies, Q/E roll, F frame-target action, atmosphere strength tweak
+- `src/hooks/useSpaceScene.ts` — wire Q/E/F keys, surface `proximityBody` (color + closeness) into HUD state
+- `src/components/CockpitHUD.tsx` — render the proximity vignette overlay
+- `src/components/KeyBindingsHUD.tsx` — show Q/E/F caps
+- `src/styles.css` — `.proximity-vignette` keyframe / utility
+
+No new dependencies. No persistence schema changes (the migration system is untouched).

@@ -557,6 +557,25 @@ export function useSpaceScene(
     }
   }, []);
 
+  const toggleFlyby = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (scene.flyby.active) {
+      scene.disengageFlyby();
+      toast("FLYBY DISENGAGED");
+    } else {
+      const t = scene.engageFlyby();
+      if (t) {
+        toast("FLYBY ENGAGED", {
+          description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+          duration: 2000,
+        });
+      } else {
+        toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+      }
+    }
+  }, []);
+
   const controller: CockpitController = {
     steer,
     thrust,
@@ -567,6 +586,7 @@ export function useSpaceScene(
     setMuted,
     muted,
     toggleApproach,
+    toggleFlyby,
   };
 
   return { hud, minimap, controller };

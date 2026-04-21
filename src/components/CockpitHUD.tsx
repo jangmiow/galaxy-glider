@@ -30,6 +30,8 @@ export type HUDState = {
   boostDuration: number;
   /** Remaining time on the active boost burst (s). */
   boostRemaining: number;
+  /** 0..1 progress of the hold-Space-to-warp gesture (1 = warp engages). */
+  warpHoldProgress: number;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

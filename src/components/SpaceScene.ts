@@ -1045,7 +1045,19 @@ export class SpaceScene {
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) thrustInput -= 0.6;
     thrustInput += this.virtualThrust;
     thrustInput = Math.max(-1, Math.min(1, thrustInput));
-    this.boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 2.5 : 1;
+    // Tick boost-burst + cooldown timers (Space-tap burst, separate from Shift).
+    if (this.boostActive) {
+      this.boostTimer -= dt;
+      if (this.boostTimer <= 0) {
+        this.boostActive = false;
+        this.boostCooldown = this.BOOST_COOLDOWN;
+      }
+    } else if (this.boostCooldown > 0) {
+      this.boostCooldown = Math.max(0, this.boostCooldown - dt);
+    }
+    const shiftBoost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 2.5 : 1;
+    const burstBoost = this.boostActive ? this.BOOST_MULT : 1;
+    this.boost = Math.max(shiftBoost, burstBoost);
     this.thrust = thrustInput;
 
     const targetVel = thrustInput * 60 * this.boost;

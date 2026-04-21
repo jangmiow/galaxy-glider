@@ -897,6 +897,39 @@ export class SpaceScene {
   }
 
   /**
+   * Cinematic counterpart to `aimAtNearestBody`: tweens the ship's quaternion
+   * toward the nearest unscanned body over ~1.2s instead of snapping. Returns
+   * the chosen target or null when nothing's in range.
+   */
+  frameNearestBody() {
+    const MAX = 2500;
+    const MIN = 50;
+    let best: { dist: number; pos: THREE.Vector3; name: string } | null = null;
+    for (const b of this.bodies) {
+      if (b.scanned || b.isStar) continue;
+      const d = b.mesh.position.distanceTo(this.ship.position);
+      if (d > MAX || d < MIN + b.size) continue;
+      if (!best || d < best.dist) {
+        best = { dist: d, pos: b.mesh.position.clone(), name: b.name };
+      }
+    }
+    if (!best) return null;
+    const m = new THREE.Matrix4();
+    const flipped = this.ship.position.clone().multiplyScalar(2).sub(best.pos);
+    m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
+    const to = new THREE.Quaternion().setFromRotationMatrix(m);
+    this.frameTween = {
+      from: this.ship.quaternion.clone(),
+      to,
+      elapsed: 0,
+      duration: 1.2,
+    };
+    this.mouseX = 0;
+    this.mouseY = 0;
+    return { name: best.name, dist: best.dist };
+  }
+
+  /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
    * Coordinates normalized to [-1, 1] within `range`. x = right, z = forward (negative = ahead).
    */

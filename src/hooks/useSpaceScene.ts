@@ -23,6 +23,8 @@ export type CockpitController = {
   thrust: ThrustInput;
   /** Try to engage warp; no-op if not READY. */
   warp: () => void;
+  /** Fire the 2-second speed burst (Space-tap on desktop, button on mobile). */
+  boostBurst: () => void;
   /** Toggle pause both in scene and HUD. */
   togglePause: () => void;
   /** Resume from a paused HUD state. */

@@ -9,7 +9,9 @@ import {
   addMedal,
   getActivePilot,
   loadStats,
+  loadSystemSeed,
   saveStats,
+  saveSystemSeed,
   type PilotStats,
 } from "@/lib/pilots";
 

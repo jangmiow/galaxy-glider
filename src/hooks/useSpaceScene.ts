@@ -38,6 +38,8 @@ export type CockpitController = {
   toggleApproach: () => void;
   /** Toggle the cinematic flyby autopilot. */
   toggleFlyby: () => void;
+  /** Universal autopilot abort — kills approach + flyby in one call. */
+  abortAutopilot: () => void;
   /** Read current flyby tuning (for the settings panel). */
   getFlybyConfig: () => { altitudeMul: number; offsetMul: number; durationMul: number };
   /** Update flyby tuning (applied to the next engagement). */

@@ -228,10 +228,7 @@ export function useSpaceScene(
       setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 10000);
     };
     const fireBoostBurst = () => {
-      const ok = scene.triggerBoostBurst();
-      // eslint-disable-next-line no-console
-      console.log("[boost] tap fired", { ok, active: scene.boostActive, cd: scene.boostCooldown });
-      if (ok) {
+      if (scene.triggerBoostBurst()) {
         // Re-use the orb ping as a snappy "engage" cue; cheap and on-brand.
         audio.orbPing();
       }

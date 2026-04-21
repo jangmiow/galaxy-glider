@@ -76,7 +76,11 @@ function Play() {
 
       <MuteButton muted={controller.muted} onToggle={() => controller.setMuted(!controller.muted)} />
 
-      <CockpitHUD state={hud} onResume={controller.resume} />
+      <CockpitHUD
+        state={hud}
+        onResume={controller.resume}
+        onFlybyConfigChange={controller.setFlybyConfig}
+      />
 
       {!isMobile && <KeyBindingsHUD />}
 

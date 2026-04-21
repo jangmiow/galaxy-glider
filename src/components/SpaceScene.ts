@@ -1220,13 +1220,22 @@ export class SpaceScene {
     this.ship.rotateY(yawRate * dt);
     this.ship.rotateX(pitchRate * dt);
 
-    // Roll from A/D / arrows (yaw-helpers) AND Q/E (cinematic banking).
+    // Roll: A/D / arrows + Q/E feed an angular-velocity model so banking
+    // ramps up smoothly and decays after release instead of snapping. Tunables
+    // below let us trade snap (high accel/damping) for cinematic float
+    // (low damping). Max rate caps top angular speed regardless of input.
     let rollInput = 0;
     if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) rollInput += 1;
     if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) rollInput -= 1;
     if (this.keys.has("KeyQ")) rollInput += 1;
     if (this.keys.has("KeyE")) rollInput -= 1;
-    this.ship.rotateZ(rollInput * 1.2 * dt);
+    // Accelerate toward (input * MAX_ROLL_RATE); when input is 0, damping
+    // pulls velocity back to zero so the ship slowly levels out on its own.
+    const targetRollVel = rollInput * this.ROLL_MAX_RATE;
+    const k = rollInput !== 0 ? this.ROLL_ACCEL : this.ROLL_DAMPING;
+    this.rollVel += (targetRollVel - this.rollVel) * Math.min(1, dt * k);
+    if (Math.abs(this.rollVel) < 0.001) this.rollVel = 0;
+    this.ship.rotateZ(this.rollVel * dt);
 
     // Smooth "frame target" tween — F key rotates the camera toward a chosen
     // body over ~1.2s so the pilot can compose the shot without snap-cuts.

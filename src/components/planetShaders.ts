@@ -503,3 +503,70 @@ export function tickPlanetUniforms(mat: THREE.ShaderMaterial, time: number, sunD
   u.uTime.value = time;
   u.uSunDir.value.copy(sunDir);
 }
+
+// ─── Sun (active star surface — granulation, limb darkening, chromosphere) ───
+// Self-illuminated; ignores `uSunDir`. HDR-bright so bloom blows it out into a
+// proper corona without needing extra sprite tricks.
+export function makeSunMaterial(opts: {
+  /** Core surface color, e.g. "#ffd070" for G-type, "#bce0ff" for blue-giant. */
+  color: string;
+  /** Hot spot / chromosphere accent, brighter than `color`. */
+  accent?: string;
+  seed?: number;
+}): THREE.ShaderMaterial {
+  const accent = opts.accent ?? "#fff2c0";
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uSunDir: { value: new THREE.Vector3(1, 0, 0) }, // unused but keeps tick API happy
+      uBaseColor: { value: new THREE.Color(opts.color) },
+      uAccentColor: { value: new THREE.Color(accent) },
+      uAtmoColor: { value: new THREE.Color(opts.color) },
+      uSeed: { value: opts.seed ?? Math.random() * 100 },
+      uAtmoStrength: { value: 0 },
+      uCloudiness: { value: 0 },
+    },
+    vertexShader: VERT,
+    fragmentShader: /* glsl */ `
+      varying vec3 vNormalW;
+      varying vec3 vPosW;
+      varying vec3 vViewDir;
+      uniform float uTime;
+      uniform vec3  uBaseColor;
+      uniform vec3  uAccentColor;
+      uniform float uSeed;
+      ${COMMON_NOISE_GLSL}
+      void main() {
+        vec3 n = normalize(vPosW);
+        vec3 p = n * 4.0 + vec3(uSeed);
+
+        // Granulation cells — convective surface texture, slowly drifting
+        vec3 gp = p + vec3(uTime * 0.05, uTime * 0.03, -uTime * 0.04);
+        float granules = warpedFbm(gp * 1.4);
+        float fineGran = fbm6(gp * 6.0) * 0.4;
+        float surface = granules + fineGran;
+
+        // Hot spots / faculae — bright patches that pulse
+        float hot = smoothstep(0.45, 0.7, fbm6(p * 3.0 + uTime * 0.02));
+        float pulse = 0.85 + 0.15 * sin(uTime * 0.8 + uSeed);
+
+        // Color: base + bright accent in hot regions
+        vec3 col = mix(uBaseColor, uAccentColor, hot * 0.85);
+        col *= 0.85 + 0.4 * surface;
+        // HDR boost so bloom catches it dramatically
+        col *= 2.2 * pulse;
+
+        // Limb darkening — physically real edge falloff
+        float mu = max(dot(vNormalW, normalize(vViewDir)), 0.0);
+        float limb = 0.45 + 0.55 * pow(mu, 0.6);
+        col *= limb;
+
+        // Chromospheric edge glow — thin red rim at the limb
+        float rim = pow(1.0 - mu, 2.5);
+        col += vec3(2.5, 0.8, 0.3) * rim * 0.6;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+}

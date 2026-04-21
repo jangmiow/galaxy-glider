@@ -81,6 +81,7 @@ export function useSpaceScene(
     approach: null,
     framing: null,
     sensorContact: null,
+    flyby: null,
   });
   const hudRef = useRef(hud);
   hudRef.current = hud;

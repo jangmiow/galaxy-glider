@@ -10,6 +10,8 @@
  * boundary.
  */
 
+import { runMigrations } from "./migrations";
+
 export const UNLOCK_CODE = "0811";
 
 export type Pilot = {
@@ -32,6 +34,7 @@ export function pilotKey(pilotId: string, suffix: string): string {
 
 export function loadPilots(): Pilot[] {
   if (typeof window === "undefined") return [];
+  runMigrations();
   try {
     const raw = localStorage.getItem(PILOTS_KEY);
     return raw ? (JSON.parse(raw) as Pilot[]) : [];

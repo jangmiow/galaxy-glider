@@ -1,3 +1,4 @@
+import { runMigrations } from "./migrations";
 import { getActivePilotId, pilotKey } from "./pilots";
 
 export type Discovery = {
@@ -23,6 +24,7 @@ function journalKey(): string {
 
 export function loadJournal(): Discovery[] {
   if (typeof window === "undefined") return [];
+  runMigrations();
   try {
     const raw = localStorage.getItem(journalKey());
     return raw ? (JSON.parse(raw) as Discovery[]) : [];

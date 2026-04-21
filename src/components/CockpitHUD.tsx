@@ -20,6 +20,16 @@ export type HUDState = {
   medal: { systemName: string; bodyCount: number } | null;
   /** True while SHIFT is held — drives the cockpit BOOST indicator. */
   boost: boolean;
+  /** True while the 2s Space-tap burst is currently firing. */
+  boostBurst: boolean;
+  /** Remaining boost-burst cooldown in seconds (0 when ready to fire again). */
+  boostCooldown: number;
+  /** Total cooldown duration in seconds — used to render the ring fill. */
+  boostCooldownMax: number;
+  /** Total boost-burst duration in seconds — used to render the active ring drain. */
+  boostDuration: number;
+  /** Remaining time on the active boost burst (s). */
+  boostRemaining: number;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {
@@ -160,21 +170,32 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
         </div>
       </div>
 
-      {/* Bottom-right: warp drive */}
+      {/* Bottom-right: warp drive + boost burst indicator */}
       <div className="absolute bottom-6 right-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
-        <div className="flex items-baseline justify-between">
-          <span className="text-hud-dim">WARP DRIVE</span>
-          <span className={state.warpCharge >= 1 ? "text-amber scan-pulse" : "text-hud"}>
-            {state.warpCharge >= 1 ? "READY" : `${Math.floor(state.warpCharge * 100)}%`}
-          </span>
-        </div>
-        <div className="mt-2 h-2 w-full rounded bg-hud/10">
-          <div
-            className={state.warpCharge >= 1 ? "h-full rounded bg-amber" : "h-full rounded bg-hud"}
-            style={{ width: `${state.warpCharge * 100}%` }}
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-hud-dim">WARP DRIVE</span>
+              <span className={state.warpCharge >= 1 ? "text-amber scan-pulse" : "text-hud"}>
+                {state.warpCharge >= 1 ? "READY" : `${Math.floor(state.warpCharge * 100)}%`}
+              </span>
+            </div>
+            <div className="mt-2 h-2 w-full rounded bg-hud/10">
+              <div
+                className={state.warpCharge >= 1 ? "h-full rounded bg-amber" : "h-full rounded bg-hud"}
+                style={{ width: `${state.warpCharge * 100}%` }}
+              />
+            </div>
+            <div className="mt-2 text-[10px] text-hud-dim">[HOLD SPACE] engage · [TAP] boost</div>
+          </div>
+          <BoostIndicator
+            active={state.boostBurst}
+            cooldown={state.boostCooldown}
+            cooldownMax={state.boostCooldownMax}
+            duration={state.boostDuration}
+            remaining={state.boostRemaining}
           />
         </div>
-        <div className="mt-2 text-[10px] text-hud-dim">[SPACE] to engage</div>
       </div>
 
       {/* Bottom-center: artificial horizon */}
@@ -271,6 +292,83 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Compact boost-burst dial that lives next to the warp drive bar. Three states:
+ *  - READY      → solid amber ring, "BOOST" label, slow scan-pulse glow.
+ *  - ACTIVE     → ring drains anti-clockwise as the 2s burst plays out, big "GO" label.
+ *  - COOLDOWN   → ring fills clockwise from empty back to full over 1s.
+ *
+ * The arc is drawn with a stroke-dasharray trick — we set `dashoffset` from a
+ * 0..1 fraction so we can animate it purely from React state without raf.
+ */
+function BoostIndicator({
+  active,
+  cooldown,
+  cooldownMax,
+  duration,
+  remaining,
+}: {
+  active: boolean;
+  cooldown: number;
+  cooldownMax: number;
+  duration: number;
+  remaining: number;
+}) {
+  const R = 16;
+  const C = 2 * Math.PI * R;
+  // Fraction of the ring to *show* (1 = full, 0 = empty).
+  let fill = 1;
+  let label = "BOOST";
+  let sub = "READY";
+  let color = "text-amber";
+  let ringClass = "stroke-amber";
+  if (active) {
+    fill = duration > 0 ? Math.max(0, remaining / duration) : 0;
+    label = "GO";
+    sub = `${remaining.toFixed(1)}s`;
+    color = "text-amber";
+    ringClass = "stroke-amber";
+  } else if (cooldown > 0) {
+    // Fill rises from 0 → 1 as cooldown counts down to 0.
+    fill = cooldownMax > 0 ? 1 - cooldown / cooldownMax : 1;
+    label = "COOL";
+    sub = `${cooldown.toFixed(1)}s`;
+    color = "text-hud-dim";
+    ringClass = "stroke-hud";
+  }
+  const dashoffset = C * (1 - fill);
+  return (
+    <div className="flex shrink-0 flex-col items-center" aria-label={`Boost ${sub}`}>
+      <div className="relative h-12 w-12">
+        <svg viewBox="-20 -20 40 40" className="h-full w-full -rotate-90">
+          {/* Track */}
+          <circle r={R} fill="none" className="stroke-hud/15" strokeWidth="3" />
+          {/* Fill */}
+          <circle
+            r={R}
+            fill="none"
+            className={`${ringClass} transition-[stroke-dashoffset] duration-150 ease-linear ${
+              !active && cooldown <= 0 ? "scan-pulse" : ""
+            }`}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={dashoffset}
+          />
+        </svg>
+        <div
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center font-display text-[9px] tracking-widest ${color} ${
+            active ? "hud-glow" : ""
+          }`}
+        >
+          {label}
+        </div>
+      </div>
+      <div className="mt-1 font-display text-[9px] tracking-widest text-hud-dim">{sub}</div>
     </div>
   );
 }

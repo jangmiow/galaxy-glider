@@ -1103,7 +1103,7 @@ export class SpaceScene {
       center: best.pos.clone(),
       elapsed: 0,
       // Duration scales loosely with body size so big planets get a longer pass.
-      duration: 8 + Math.min(6, best.size * 0.15),
+      duration: (8 + Math.min(6, best.size * 0.15)) * cfg.durationMul,
       nudgeLateral: 0,
       nudgeVertical: 0,
       perp: perp.clone(),

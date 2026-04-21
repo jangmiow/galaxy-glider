@@ -486,6 +486,7 @@ export function useSpaceScene(
         flyby: scene.flyby.active && scene.flyby.targetName
           ? { target: scene.flyby.targetName, progress: scene.flyby.elapsed / scene.flyby.duration }
           : null,
+        flybyConfig: { ...scene.flybyConfig },
       }));
 
       // Refresh minimap ~10fps to keep allocation pressure low.

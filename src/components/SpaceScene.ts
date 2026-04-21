@@ -908,10 +908,18 @@ export class SpaceScene {
     let target: { dist: number; idx: number } | null = null;
     // Track nearest objective target across ALL distances (for off-radar arrow)
     let nearestTarget: { distance: number; dx: number; dz: number } | null = null;
+    // Track nearest UNCATALOGUED body of any kind across ALL distances — drives
+    // the always-on "next discovery" pointer on the star map.
+    let nearestUnscanned: { distance: number; dx: number; dz: number } | null = null;
 
     const considerNearestTarget = (distance: number, dx: number, dz: number) => {
       if (!nearestTarget || distance < nearestTarget.distance) {
         nearestTarget = { distance, dx, dz };
+      }
+    };
+    const considerNearestUnscanned = (distance: number, dx: number, dz: number) => {
+      if (!nearestUnscanned || distance < nearestUnscanned.distance) {
+        nearestUnscanned = { distance, dx, dz };
       }
     };
 

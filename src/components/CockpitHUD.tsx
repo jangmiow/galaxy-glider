@@ -38,6 +38,8 @@ export type HUDState = {
   approach: { target: string; distance: number } | null;
   /** Active F-key framing tween — drives the center-screen reticle that names the chosen body. */
   framing: { target: string; distance: number; progress: number } | null;
+  /** Passive proximity meter to nearest uncatalogued body (signal 0..1, 1 = at ship). */
+  sensorContact: { name: string; distance: number; signal: number } | null;
 };
 
 export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () => void }) {

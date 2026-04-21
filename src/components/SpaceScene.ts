@@ -321,6 +321,8 @@ export class SpaceScene {
   scanRingInner!: THREE.Mesh;
   /** Drives the rotating sweep + pulse on the scan ring. */
   private scanRingTime = 0;
+  /** Dashed ghost line that previews the flyby curve while autopilot is active. */
+  flybyPreviewLine!: THREE.Line;
   /** Cinematic banking model — angular velocity (rad/s) on the ship's roll axis. */
   rollVel = 0;
   /** Max sustained roll rate (rad/s). Tweak for snappier or floatier banks. */
@@ -383,6 +385,32 @@ export class SpaceScene {
     this.scanRingGroup.add(this.scanRingOuter);
     this.scanRingGroup.add(this.scanRingInner);
     this.ship.add(this.scanRingGroup);
+
+    // Ghost preview line for the upcoming flyby curve. Hidden until a flyby
+    // is active; when active, we resample the Bezier (with current nudges
+    // applied) every frame so the dashed trail visibly shifts as the pilot
+    // sweeps the cursor or taps WASD/arrows. 64 segments is enough for a
+    // smooth arc at typical fly-by ranges; geometry is updated in place.
+    {
+      const segs = 64;
+      const positions = new Float32Array((segs + 1) * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.LineDashedMaterial({
+        color: 0x66ddff,
+        transparent: true,
+        opacity: 0.7,
+        dashSize: 12,
+        gapSize: 8,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+      });
+      this.flybyPreviewLine = new THREE.Line(geo, mat);
+      this.flybyPreviewLine.frustumCulled = false;
+      this.flybyPreviewLine.visible = false;
+      this.scene.add(this.flybyPreviewLine);
+    }
 
     this.buildStarfield();
     this.buildWarpField();
@@ -1168,6 +1196,7 @@ export class SpaceScene {
     this.flyby.targetId = null;
     this.flyby.targetName = null;
     this.virtualThrust = 0;
+    if (this.flybyPreviewLine) this.flybyPreviewLine.visible = false;
   }
   /**
    * Returns ship-local positions of nearby bodies/orbs for the minimap.
@@ -1403,6 +1432,34 @@ export class SpaceScene {
         pos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * env);
         pos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * env);
         this.ship.position.copy(pos);
+        // Update the dashed ghost preview line to show the REMAINING flyby
+        // path, including current nudge offsets. Resampled every frame so the
+        // trail visibly bends as the cursor sweeps or keys are tapped.
+        {
+          const line = this.flybyPreviewLine;
+          line.visible = true;
+          const attr = line.geometry.getAttribute("position") as THREE.BufferAttribute;
+          const segs = attr.count - 1;
+          const tmp = new THREE.Vector3();
+          for (let i = 0; i <= segs; i++) {
+            // Sample from current u → 1 so the preview is always "what's ahead".
+            const tu = u + (1 - u) * (i / segs);
+            const tiu = 1 - tu;
+            tmp.set(0, 0, 0)
+              .addScaledVector(this.flyby.p0, tiu * tiu * tiu)
+              .addScaledVector(this.flyby.p1, 3 * tiu * tiu * tu)
+              .addScaledVector(this.flyby.p2, 3 * tiu * tu * tu)
+              .addScaledVector(this.flyby.p3, tu * tu * tu);
+            const tenv = Math.sin(Math.PI * tu);
+            tmp.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * tenv);
+            tmp.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * tenv);
+            attr.setXYZ(i, tmp.x, tmp.y, tmp.z);
+          }
+          attr.needsUpdate = true;
+          line.geometry.computeBoundingSphere();
+          // Required for LineDashedMaterial to render dashes correctly.
+          line.computeLineDistances();
+        }
         // Frame the planet — slerp ship orientation toward look-at(target).
         const m = new THREE.Matrix4();
         const flipped = pos.clone().multiplyScalar(2).sub(target.mesh.position);

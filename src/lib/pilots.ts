@@ -10,6 +10,8 @@
  * boundary.
  */
 
+import { runMigrations } from "./migrations";
+
 export const UNLOCK_CODE = "0811";
 
 export type Pilot = {

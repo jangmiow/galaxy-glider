@@ -1146,6 +1146,42 @@ export class SpaceScene {
       return;
     }
 
+    // Approach autopilot — engaged via G key. Steers + thrusts toward the
+    // chosen body until ~5 radii away, then station-keeps so it sits framed.
+    // Any manual input (mouse-look / movement keys) cancels approach so the
+    // pilot always wins. Runs BEFORE mouse-look so override detection is clean.
+    if (this.approach.active) {
+      // Manual override: nonzero mouse-look or any movement key.
+      const hadInput =
+        Math.abs(this.mouseX) > 0.05 ||
+        Math.abs(this.mouseY) > 0.05 ||
+        this.keys.has("KeyW") || this.keys.has("KeyS") ||
+        this.keys.has("KeyA") || this.keys.has("KeyD") ||
+        this.keys.has("KeyQ") || this.keys.has("KeyE") ||
+        this.keys.has("ArrowUp") || this.keys.has("ArrowDown") ||
+        this.keys.has("ArrowLeft") || this.keys.has("ArrowRight");
+      const target = this.bodies.find((b) => b.id === this.approach.targetId);
+      if (hadInput || !target || target.scanned) {
+        this.disengageApproach();
+      } else {
+        // Steer: slerp toward "look at target" at a comfortable rate.
+        const m = new THREE.Matrix4();
+        const flipped = this.ship.position.clone().multiplyScalar(2).sub(target.mesh.position);
+        m.lookAt(this.ship.position, flipped, new THREE.Vector3(0, 1, 0));
+        const desired = new THREE.Quaternion().setFromRotationMatrix(m);
+        this.ship.quaternion.slerp(desired, Math.min(1, dt * 1.8));
+        // Distance-based thrust: full far away, ramp down inside 8r, hold at 5r.
+        const dist = target.mesh.position.distanceTo(this.ship.position);
+        const r = target.size;
+        let t = 0;
+        if (dist > r * 8) t = 1;
+        else if (dist > r * 5) t = (dist - r * 5) / (r * 3);
+        else t = 0;
+        this.virtualThrust = t;
+        this.approach.distance = dist;
+      }
+    }
+
     // Steering from mouse
     const yawRate = -this.mouseX * 0.8;
     const pitchRate = -this.mouseY * 0.8;

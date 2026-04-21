@@ -36,6 +36,8 @@ export type CockpitController = {
   muted: boolean;
   /** Toggle the approach autopilot from a UI button (mobile). */
   toggleApproach: () => void;
+  /** Toggle the cinematic flyby autopilot. */
+  toggleFlyby: () => void;
 };
 
 /**

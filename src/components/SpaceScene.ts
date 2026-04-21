@@ -1249,6 +1249,8 @@ export class SpaceScene {
     this.flyby.targetName = null;
     this.virtualThrust = 0;
     if (this.flybyPreviewLine) this.flybyPreviewLine.visible = false;
+    this.overrideState.flyby.heldMs = 0;
+    this.overrideState.flyby.accum = 0;
   }
 
   /**

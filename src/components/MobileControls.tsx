@@ -165,7 +165,7 @@ export function MobileControls({ onSteer, onThrust, onWarp, onBoost, onPause, on
         {(approachActive || flybyActive) && (
           <button
             onClick={onAbort}
-            className="rounded-md border border-red-500/70 bg-red-500/20 px-4 py-2 font-display text-[11px] tracking-widest text-red-300 backdrop-blur-sm hover:bg-red-500/30 active:scale-95"
+            className="rounded-md border border-destructive/70 bg-destructive/20 px-4 py-2 font-display text-[11px] tracking-widest text-destructive backdrop-blur-sm hover:bg-destructive/30 active:scale-95"
             aria-label="Abort all autopilots"
           >
             ABORT

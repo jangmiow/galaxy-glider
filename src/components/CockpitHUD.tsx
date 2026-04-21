@@ -217,9 +217,29 @@ export function CockpitHUD({ state, onResume }: { state: HUDState; onResume: () 
             }}
           />
         </div>
+        {/* Passive sensor contact — fills as the nearest unscanned body
+            approaches the 2000u sensor edge. Empty when nothing's in range. */}
+        <div className="mt-3 flex items-baseline justify-between">
+          <span className="text-hud-dim">SENSOR</span>
+          <span className="text-[10px] text-hud-dim">
+            {state.sensorContact ? `${state.sensorContact.distance.toFixed(0)}u` : "—"}
+          </span>
+        </div>
+        <div className="relative mt-1 h-2 w-full overflow-hidden rounded bg-hud/10">
+          <div
+            className="h-full bg-hud transition-[width] duration-150 ease-out"
+            style={{
+              width: `${(state.sensorContact?.signal ?? 0) * 100}%`,
+              boxShadow: state.sensorContact && state.sensorContact.signal > 0.6
+                ? "0 0 8px oklch(var(--hud) / 0.6)"
+                : undefined,
+            }}
+          />
+        </div>
+        <div className="mt-1 truncate text-[10px] text-amber">
+          {state.sensorContact ? `· ${state.sensorContact.name}` : "no contact"}
+        </div>
       </div>
-
-      {/* Bottom-right: warp drive + boost burst indicator */}
       <div className="absolute bottom-6 right-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
         <div className="flex items-start gap-3">
           <div className="flex-1">

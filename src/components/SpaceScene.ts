@@ -267,6 +267,13 @@ export class SpaceScene {
     p0: new THREE.Vector3(), p1: new THREE.Vector3(), p2: new THREE.Vector3(), p3: new THREE.Vector3(),
     center: new THREE.Vector3(),
     elapsed: 0, duration: 0,
+    /** Lateral nudge from manual cursor input (perp axis units, decays toward 0). */
+    nudgeLateral: 0,
+    /** Vertical nudge (ship-up axis units, decays toward 0). */
+    nudgeVertical: 0,
+    /** Cached perpendicular + up axes (world) so nudges stay consistent during the pass. */
+    perp: new THREE.Vector3(),
+    up: new THREE.Vector3(),
   };
   /** Scan-range ring visualization (lives on the XZ plane around the ship). */
   readonly SCAN_RING_RADIUS = 2000;

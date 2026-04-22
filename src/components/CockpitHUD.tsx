@@ -5,6 +5,8 @@ export type HUDState = {
   velocity: number;
   thrust: number; // -1..1
   warpCharge: number; // 0..1
+  /** Seconds until the warp drive finishes charging (0 when READY). */
+  warpCooldown: number;
   isWarping: boolean;
   heading: { pitch: number; yaw: number };
   score: number;

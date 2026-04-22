@@ -222,13 +222,10 @@ export function CockpitHUD({
         </div>
       )}
 
-      {/* Flyby autopilot status pill — sits beside/below the approach pill. */}
       {/* Flyby autopilot status pill — also surfaces the live ghost-curve
           preview indicator and which inputs (cursor / keys) are currently
           shaping the upcoming spline so the pilot can see what's "active". */}
-      {state.flyby && (
-        <FlybyStatusPanel flyby={state.flyby} />
-      )}
+      {state.flyby && <FlybyStatusPanel flyby={state.flyby} />}
       <div className="absolute bottom-6 left-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
         <div className="flex items-baseline justify-between">
           <span className="text-hud-dim">VELOCITY</span>

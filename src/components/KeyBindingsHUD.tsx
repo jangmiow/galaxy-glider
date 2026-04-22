@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 
 /**
- * Desktop-only cockpit "control map" HUD. Shows the keyboard bindings for
- * thrust (W/S or ↑/↓), yaw/pitch (A/D/←/→ for yaw, W/S/↑/↓ already cover
- * pitch via the same axis pair on most flight sims — here we surface the
- * exact mapping the SpaceScene listens for) and boost (Space tap / hold).
+ * Desktop-only minimal control map. Three rows: steering keys, the dual-purpose
+ * Space bar (boost / warp), and a tiny mouse legend for click-to-fly autopilot.
  *
- * Each key cap lights up while the corresponding physical key is held,
- * giving the pilot immediate feedback that input is reaching the game.
- *
- * Pure presentational component — listens to window keydown/keyup directly
- * so it stays decoupled from the scene's input pipeline.
+ * Key caps light up while the corresponding physical key is held so the pilot
+ * sees that input is reaching the game. Pure presentational — listens to
+ * window keydown/keyup directly to stay decoupled from the scene's input pipe.
  */
 export function KeyBindingsHUD() {
   const [pressed, setPressed] = useState<Set<string>>(new Set());
@@ -43,9 +39,9 @@ export function KeyBindingsHUD() {
   return (
     <div className="pointer-events-none absolute bottom-6 left-6 z-10 hidden font-display text-hud md:block">
       <div className="rounded border border-hud/40 bg-black/55 p-3 text-[10px] tracking-widest backdrop-blur-sm">
-        <div className="mb-2 text-hud/70">CONTROL MAP</div>
+        <div className="mb-2 text-hud/70">CONTROLS</div>
 
-        {/* Pitch / Yaw cluster — arranged like a directional pad */}
+        {/* Steering — WASD / arrows */}
         <div className="mb-2 flex items-center gap-3">
           <div className="grid grid-cols-3 gap-1">
             <span />
@@ -56,78 +52,35 @@ export function KeyBindingsHUD() {
             <Key label="D" active={isDown("KeyD", "ArrowRight")} />
           </div>
           <div className="text-hud/60 leading-tight">
-            <div>W/S · THRUST</div>
-            <div>A/D · YAW</div>
-            <div className="text-hud/40">↑↓←→ ALT</div>
+            <div>W / S · THRUST</div>
+            <div>A / D · STEER</div>
           </div>
         </div>
 
-        {/* Cinematic framing: Q/E roll, F frame, G approach, H flyby, X abort */}
+        {/* Space — boost (tap) / warp (hold) */}
         <div className="mb-2 flex items-center gap-3">
-          <div className="flex gap-1">
-            <Key label="Q" active={isDown("KeyQ")} />
-            <Key label="E" active={isDown("KeyE")} />
-            <Key label="F" active={isDown("KeyF")} />
-            <Key label="G" active={isDown("KeyG")} />
-            <Key label="H" active={isDown("KeyH")} />
-            <Key label="X" active={isDown("KeyX")} />
-          </div>
-          <div className="text-hud/60 leading-tight">
-            <div>Q/E ROLL · F FRAME</div>
-            <div>G APPR · H FLY · X ABORT</div>
-          </div>
-        </div>
-
-        {/* Dedicated flyby start/abort — non-toggle, safe with arrow-key thrust */}
-        <div className="mb-2 flex items-center gap-3">
-          <div className="flex gap-1">
-            <Key label="Y" active={isDown("KeyY")} />
-            <Key label="B" active={isDown("KeyB")} />
-          </div>
-          <div className="text-hud/60 leading-tight">
-            <div>Y · FLYBY START</div>
-            <div>B · FLYBY ABORT</div>
-          </div>
-        </div>
-
-        {/* Manual-override threshold tuning */}
-        <div className="mb-2 flex items-center gap-3">
-          <div className="flex gap-1">
-            <Key label="1" active={isDown("Digit1")} />
-            <Key label="2" active={isDown("Digit2")} />
-            <Key label="3" active={isDown("Digit3")} />
-            <Key label="4" active={isDown("Digit4")} />
-          </div>
-          <div className="text-hud/60 leading-tight">
-            <div>1/2 · OVERRIDE HOLD ms</div>
-            <div>3/4 · OVERRIDE ACCUM s</div>
-          </div>
-        </div>
-
-        {/* Flyby tuning hotkeys */}
-        <div className="mb-2 flex items-center gap-3">
-          <div className="flex gap-1">
-            <Key label="[" active={isDown("BracketLeft")} />
-            <Key label="]" active={isDown("BracketRight")} />
-            <Key label=";" active={isDown("Semicolon")} />
-            <Key label="'" active={isDown("Quote")} />
-            <Key label="," active={isDown("Comma")} />
-            <Key label="." active={isDown("Period")} />
-          </div>
-          <div className="text-hud/60 leading-tight">
-            <div>[ ] · ALT · ; ' · OFFSET</div>
-            <div>, . · DURATION (next flyby)</div>
-          </div>
-        </div>
-
-        {/* Boost / Warp on the spacebar */}
-        <div className="flex items-center gap-3">
           <Key label="SPACE" wide active={isDown("Space")} />
           <div className="text-hud/60 leading-tight">
             <div>TAP · BOOST</div>
             <div>HOLD · WARP</div>
           </div>
         </div>
+
+        {/* Mouse — click-to-fly autopilot */}
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-1">
+            <MouseHint label="CLICK" />
+            <MouseHint label="2× CLICK" />
+            <MouseHint label="RIGHT" />
+          </div>
+          <div className="text-hud/60 leading-tight">
+            <div>CLICK PLANET · APPROACH</div>
+            <div>DOUBLE-CLICK · FLYBY</div>
+            <div>RIGHT-CLICK · ABORT</div>
+          </div>
+        </div>
+
+        <div className="mt-2 text-[9px] text-hud/40">ESC · PAUSE</div>
       </div>
     </div>
   );
@@ -144,6 +97,14 @@ function Key({ label, active, wide }: { label: string; active: boolean; wide?: b
           : "border-hud/40 bg-black/40 text-hud/70"
       }`}
     >
+      {label}
+    </div>
+  );
+}
+
+function MouseHint({ label }: { label: string }) {
+  return (
+    <div className="flex h-5 w-20 items-center justify-center rounded border border-hud/40 bg-black/40 text-[9px] tracking-widest text-hud/70">
       {label}
     </div>
   );

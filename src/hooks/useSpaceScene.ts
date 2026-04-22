@@ -307,151 +307,6 @@ export function useSpaceScene(
           adjustRangeRef.current(-1);
         } else if (e.code === "Minus" || e.code === "NumpadSubtract") {
           adjustRangeRef.current(1);
-        } else if (e.code === "KeyT") {
-          // Debug: auto-aim at the nearest unscanned body so the lock-on
-          // reticle can be triggered without manual mouse-look.
-          const target = scene.aimAtNearestBody();
-          toast("AUTO-AIM ENGAGED", {
-            description: target ? `Locking ${target.name} · ${target.dist.toFixed(0)}u` : "No target in range",
-            duration: 1500,
-          });
-        } else if (e.code === "KeyF") {
-          // Cinematic frame-target: smoothly tween to face the nearest
-          // unscanned body over ~1.2s. Pairs with T (snap) for two flavors.
-          const target = scene.frameNearestBody();
-          if (target) {
-            toast("FRAMING TARGET", {
-              description: `${target.name} · ${target.dist.toFixed(0)}u`,
-              duration: 1500,
-            });
-          }
-        } else if (e.code === "KeyG") {
-          // Approach autopilot toggle — flies + frames toward nearest unscanned.
-          if (scene.approach.active) {
-            scene.disengageApproach();
-            toast("APPROACH DISENGAGED");
-          } else {
-            const target = scene.engageApproach();
-            if (target) {
-              toast("APPROACH ENGAGED", {
-                description: `${target.name} · ${target.dist.toFixed(0)}u`,
-                duration: 1800,
-              });
-            } else {
-              toast("APPROACH UNAVAILABLE", { description: "No unscanned body in range" });
-            }
-          }
-        } else if (e.code === "KeyH") {
-          // Cinematic flyby — curved pass at ~3× target radius.
-          if (scene.flyby.active) {
-            scene.disengageFlyby();
-            toast("FLYBY DISENGAGED");
-          } else {
-            const t = scene.engageFlyby();
-            if (t) {
-              toast("FLYBY ENGAGED", {
-                description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
-                duration: 2000,
-              });
-            } else {
-              toast("FLYBY UNAVAILABLE", { description: "No body in range" });
-            }
-          }
-        } else if (e.code === "KeyX") {
-          // Universal autopilot abort — kills whichever autopilot is active
-          // without any side effects on manual flight controls.
-          const wasFlyby = scene.flyby.active;
-          const wasApproach = scene.approach.active;
-          if (wasFlyby) scene.disengageFlyby();
-          if (wasApproach) scene.disengageApproach();
-          if (wasFlyby || wasApproach) {
-            toast("AUTOPILOT ABORTED", {
-              description: wasFlyby && wasApproach ? "all systems disengaged" : wasFlyby ? "flyby disengaged" : "approach disengaged",
-              duration: 1200,
-            });
-          }
-        } else if (e.code === "KeyY") {
-          // Dedicated FLYBY START — non-toggle. Safe to mash; no-ops if already
-          // active. Kept separate from H so arrow-key thrust users have a
-          // reliable "engage" key that never accidentally aborts.
-          if (!scene.flyby.active) {
-            const t = scene.engageFlyby();
-            if (t) {
-              toast("FLYBY ENGAGED", {
-                description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
-                duration: 2000,
-              });
-            } else {
-              toast("FLYBY UNAVAILABLE", { description: "No body in range" });
-            }
-          }
-        } else if (e.code === "KeyB") {
-          // Dedicated FLYBY ABORT — non-toggle. Only kills flyby; leaves
-          // approach autopilot and all manual controls untouched.
-          if (scene.flyby.active) {
-            scene.disengageFlyby();
-            toast("FLYBY ABORTED", { duration: 1200 });
-          }
-        } else if (
-          e.code === "BracketLeft" || e.code === "BracketRight" ||
-          e.code === "Semicolon" || e.code === "Quote" ||
-          e.code === "Comma" || e.code === "Period"
-        ) {
-          // Live-tune flyby parameters. Applied to the NEXT engagement only —
-          // active flybys keep their pre-built curve so the camera doesn't snap.
-          const L = SpaceScene.FLYBY_LIMITS;
-          const cur = scene.flybyConfig;
-          const clamp = (v: number, lim: { min: number; max: number }) =>
-            Math.max(lim.min, Math.min(lim.max, Math.round(v * 100) / 100));
-          let next = { ...cur };
-          let label = "";
-          if (e.code === "BracketLeft") {
-            next.altitudeMul = clamp(cur.altitudeMul - L.altitudeMul.step, L.altitudeMul);
-            label = `ALTITUDE ${next.altitudeMul.toFixed(2)}× R`;
-          } else if (e.code === "BracketRight") {
-            next.altitudeMul = clamp(cur.altitudeMul + L.altitudeMul.step, L.altitudeMul);
-            label = `ALTITUDE ${next.altitudeMul.toFixed(2)}× R`;
-          } else if (e.code === "Semicolon") {
-            next.offsetMul = clamp(cur.offsetMul - L.offsetMul.step, L.offsetMul);
-            label = `OFFSET ${next.offsetMul.toFixed(2)}× R`;
-          } else if (e.code === "Quote") {
-            next.offsetMul = clamp(cur.offsetMul + L.offsetMul.step, L.offsetMul);
-            label = `OFFSET ${next.offsetMul.toFixed(2)}× R`;
-          } else if (e.code === "Comma") {
-            next.durationMul = clamp(cur.durationMul - L.durationMul.step, L.durationMul);
-            label = `DURATION ${next.durationMul.toFixed(2)}×`;
-          } else if (e.code === "Period") {
-            next.durationMul = clamp(cur.durationMul + L.durationMul.step, L.durationMul);
-            label = `DURATION ${next.durationMul.toFixed(2)}×`;
-          }
-          scene.flybyConfig = next;
-          setFlybyConfigState(next);
-          toast(`FLYBY · ${label}`, { duration: 1200 });
-        } else if (
-          e.code === "Digit1" || e.code === "Digit2" ||
-          e.code === "Digit3" || e.code === "Digit4"
-        ) {
-          // Live-tune autopilot manual-override thresholds. Applies to BOTH
-          // approach + flyby. 1/2 = hold-duration −/+, 3/4 = accumulated −/+.
-          const L = SpaceScene.OVERRIDE_LIMITS;
-          const cur = scene.overrideConfig;
-          const clamp = (v: number, lim: { min: number; max: number; step: number }) =>
-            Math.max(lim.min, Math.min(lim.max, Math.round(v / lim.step) * lim.step));
-          let label = "";
-          if (e.code === "Digit1") {
-            cur.holdMs = clamp(cur.holdMs - L.holdMs.step, L.holdMs);
-            label = `HOLD ${cur.holdMs}ms`;
-          } else if (e.code === "Digit2") {
-            cur.holdMs = clamp(cur.holdMs + L.holdMs.step, L.holdMs);
-            label = `HOLD ${cur.holdMs}ms`;
-          } else if (e.code === "Digit3") {
-            cur.accumSec = clamp(cur.accumSec - L.accumSec.step, L.accumSec);
-            label = `ACCUM ${cur.accumSec.toFixed(1)}s`;
-          } else if (e.code === "Digit4") {
-            cur.accumSec = clamp(cur.accumSec + L.accumSec.step, L.accumSec);
-            label = `ACCUM ${cur.accumSec.toFixed(1)}s`;
-          }
-          toast(`OVERRIDE · ${label}`, { duration: 1200 });
         }
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
@@ -471,10 +326,100 @@ export function useSpaceScene(
         scene.keys.delete(e.code);
       }
     };
+
+    // ── Mouse-driven autopilot ────────────────────────────────────────────
+    // Single click (left)  → APPROACH the picked body (or nearest if click missed).
+    // Double click (left)  → upgrade to FLYBY (cinematic curved pass).
+    // Right click anywhere → ABORT all autopilot.
+    // Single-click action is debounced so a double-click doesn't fire approach
+    // first and then immediately swap to flyby.
+    const DOUBLE_MS = 280;
+    let pendingClick: ReturnType<typeof setTimeout> | null = null;
+    let lastClickAt = 0;
+    let lastPick: { id: string; name: string; dist: number } | null = null;
+
+    const ndcFromEvent = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        y: -(((e.clientY - rect.top) / rect.height) * 2 - 1),
+      };
+    };
+
+    const doApproach = (target: { id: string; name: string; dist: number } | null) => {
+      const t = scene.engageApproach(target?.id);
+      if (t) {
+        toast("APPROACH ENGAGED", {
+          description: `${t.name} · ${t.dist.toFixed(0)}u`,
+          duration: 1800,
+        });
+      } else {
+        toast("APPROACH UNAVAILABLE", { description: "No body in range" });
+      }
+    };
+
+    const doFlyby = (target: { id: string; name: string; dist: number } | null) => {
+      const t = scene.engageFlyby(target?.id);
+      if (t) {
+        toast("FLYBY ENGAGED", {
+          description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+          duration: 2000,
+        });
+      } else {
+        toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+      }
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      startAudio();
+      if (e.button === 2 || e.button === 1) {
+        e.preventDefault();
+        const wasFlyby = scene.flyby.active;
+        const wasApproach = scene.approach.active;
+        if (wasFlyby) scene.disengageFlyby();
+        if (wasApproach) scene.disengageApproach();
+        if (wasFlyby || wasApproach) {
+          toast("AUTOPILOT ABORTED", { duration: 1200 });
+        }
+        return;
+      }
+      if (e.button !== 0) return;
+      if (e.target !== canvas) return;
+
+      const ndc = ndcFromEvent(e);
+      const pick = scene.pickBodyAt(ndc.x, ndc.y);
+      const now = performance.now();
+      const isDouble = now - lastClickAt < DOUBLE_MS;
+      lastClickAt = now;
+
+      if (isDouble) {
+        if (pendingClick) {
+          clearTimeout(pendingClick);
+          pendingClick = null;
+        }
+        doFlyby(pick ?? lastPick);
+        lastPick = pick ?? lastPick;
+        return;
+      }
+
+      lastPick = pick;
+      if (pendingClick) clearTimeout(pendingClick);
+      pendingClick = setTimeout(() => {
+        pendingClick = null;
+        doApproach(pick);
+      }, DOUBLE_MS);
+    };
+
+    const onContextMenu = (e: MouseEvent) => {
+      // Right-click is our "abort" gesture; suppress browser menu.
+      e.preventDefault();
+    };
+
     const kd = (e: KeyboardEvent) => onKey(e, true);
     const ku = (e: KeyboardEvent) => onKey(e, false);
     canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("pointerdown", startAudio);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
 
@@ -584,7 +529,8 @@ export function useSpaceScene(
       clearWarpHold();
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("pointerdown", startAudio);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
       scene.dispose();

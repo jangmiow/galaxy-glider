@@ -361,49 +361,134 @@ export function CockpitHUD({
         </div>
       )}
 
-      {/* Pause overlay — also doubles as a quick controls reference. */}
+      {/* Full pause screen — covers the viewport, groups every control the
+          pilot might need into clear sections so they don't have to remember
+          which key does what mid-flight. */}
       {state.paused && (
-        <div className="pointer-events-auto absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="hud-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg p-8 text-center">
-            <div className="font-display text-3xl text-hud hud-glow">PAUSED</div>
-
-            <div className="mt-6 text-left">
-              <div className="mb-2 font-display text-[11px] tracking-widest text-amber">FLIGHT CONTROLS</div>
-              <ul className="space-y-1.5 font-display text-[11px] tracking-wider text-hud-dim">
-                <li><span className="text-hud">MOUSE</span> · steer (pitch / yaw)</li>
-                <li><span className="text-hud">W / S</span> · thrust forward / reverse</li>
-                <li><span className="text-hud">SHIFT</span> · sustained afterburner</li>
-                <li><span className="text-hud">SPACE (tap)</span> · 2-second boost burst <span className="text-hud-dim">(1s cooldown)</span></li>
-                <li><span className="text-hud">SPACE (hold 1s)</span> · engage lightspeed (10s, jumps systems)</li>
-                <li><span className="text-hud">F / G / H</span> · frame · approach · flyby · <span className="text-hud">X</span> abort</li>
-                <li><span className="text-hud">[ ]</span> alt · <span className="text-hud">; '</span> offset · <span className="text-hud">, .</span> duration</li>
-                <li><span className="text-hud">+ / −</span> · minimap zoom</li>
-                <li><span className="text-hud">ESC</span> · pause / resume</li>
-              </ul>
-              <div className="mt-3 font-display text-[10px] tracking-wider text-hud-dim">
-                Lock the reticle on a body for ~4s to catalogue it. Survey every body in a system for a medal.
+        <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-background/90 backdrop-blur-md">
+          <div className="hud-panel my-8 w-full max-w-4xl rounded-lg p-8">
+            {/* Header */}
+            <div className="flex flex-col items-center text-center">
+              <div className="font-display text-4xl tracking-[0.3em] text-hud hud-glow">PAUSED</div>
+              <div className="mt-2 font-display text-[11px] tracking-widest text-hud-dim">
+                FLIGHT DECK · {state.callsign} · {state.rank}
               </div>
             </div>
 
-            <FlybyPanel
-              config={state.flybyConfig}
-              onChange={onFlybyConfigChange}
-              activePass={state.flyby}
-            />
+            {/* Controls grid */}
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              <ControlSection title="FLIGHT">
+                <ControlRow keys={["W", "S"]} desc="thrust forward / reverse" />
+                <ControlRow keys={["A", "D"]} desc="steer left / right" />
+                <ControlRow keys={["↑", "↓", "←", "→"]} desc="alternate steering" />
+                <ControlRow keys={["MOUSE"]} desc="fine pitch & yaw" />
+              </ControlSection>
 
-            <button
-              onClick={onResume}
-              className="mt-6 rounded-md border border-hud bg-hud/10 px-6 py-2 font-display text-sm tracking-widest text-hud hover:bg-hud hover:text-background"
-            >
-              RESUME
-            </button>
-            <div className="mt-4">
-              <Link to="/" className="text-xs text-hud-dim hover:text-hud">Return to main menu</Link>
+              <ControlSection title="SPEED">
+                <ControlRow keys={["SPACE"]} desc="tap · 2s boost burst" />
+                <ControlRow keys={["SPACE"]} desc="hold 1s · engage lightspeed" />
+                <ControlRow keys={["SPACE"]} desc="tap during warp · cancel jump" />
+              </ControlSection>
+
+              <ControlSection title="AUTOPILOT">
+                <ControlRow keys={["CLICK"]} desc="approach a planet" mouse />
+                <ControlRow keys={["2× CLICK"]} desc="cinematic flyby" mouse />
+                <ControlRow keys={["RIGHT-CLICK"]} desc="abort autopilot" mouse />
+              </ControlSection>
+
+              <ControlSection title="SCANNING">
+                <ControlRow keys={["AIM"]} desc="hold target in reticle ~4s to catalogue" />
+                <ControlRow keys={["SURVEY"]} desc="catalogue every body for a system medal" />
+              </ControlSection>
+
+              <ControlSection title="MAP">
+                <ControlRow keys={["+"]} desc="minimap zoom in" />
+                <ControlRow keys={["−"]} desc="minimap zoom out" />
+              </ControlSection>
+
+              <ControlSection title="SYSTEM">
+                <ControlRow keys={["ESC"]} desc="pause / resume" />
+                <ControlRow keys={["MUTE"]} desc="audio toggle (top-right)" />
+              </ControlSection>
+            </div>
+
+            {/* Flyby tuning — kept here because the panel is the only way to
+                tune it now that the bracket/semicolon hotkeys were removed. */}
+            <div className="mt-8 border-t border-hud/20 pt-6">
+              <FlybyPanel
+                config={state.flybyConfig}
+                onChange={onFlybyConfigChange}
+                activePass={state.flyby}
+              />
+            </div>
+
+            {/* Footer actions */}
+            <div className="mt-8 flex flex-col items-center gap-3">
+              <button
+                onClick={onResume}
+                className="rounded-md border border-hud bg-hud/10 px-8 py-3 font-display text-sm tracking-[0.25em] text-hud transition-colors hover:bg-hud hover:text-background"
+              >
+                RESUME FLIGHT
+              </button>
+              <Link
+                to="/"
+                className="font-display text-[11px] tracking-widest text-hud-dim hover:text-hud"
+              >
+                ← RETURN TO MAIN MENU
+              </Link>
             </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Small section card used inside the pause screen's control grid.
+ * Renders a labelled column with one row per binding.
+ */
+function ControlSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-hud/20 bg-black/30 p-4">
+      <div className="mb-3 font-display text-[11px] tracking-[0.25em] text-amber">{title}</div>
+      <ul className="space-y-2 font-display text-[11px] tracking-wider text-hud-dim">
+        {children}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Single binding row: one or more key caps on the left + plain-language
+ * description on the right. `mouse` swaps the cap styling for a slightly
+ * wider pill since mouse labels are longer than single keys.
+ */
+function ControlRow({
+  keys,
+  desc,
+  mouse = false,
+}: {
+  keys: string[];
+  desc: string;
+  mouse?: boolean;
+}) {
+  return (
+    <li className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-wrap gap-1">
+        {keys.map((k) => (
+          <span
+            key={k}
+            className={`inline-flex items-center justify-center rounded border border-hud/50 bg-hud/10 px-1.5 text-[10px] font-semibold tracking-widest text-hud ${
+              mouse ? "min-w-[64px] h-5" : "min-w-[20px] h-5"
+            }`}
+          >
+            {k}
+          </span>
+        ))}
+      </div>
+      <span className="text-hud-dim">{desc}</span>
+    </li>
   );
 }
 

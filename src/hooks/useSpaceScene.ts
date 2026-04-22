@@ -529,7 +529,8 @@ export function useSpaceScene(
       clearWarpHold();
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("pointerdown", startAudio);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
       scene.dispose();

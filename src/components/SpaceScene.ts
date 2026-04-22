@@ -1232,14 +1232,24 @@ export class SpaceScene {
    * the far side. The update loop steps along the curve and slerps the
    * camera to keep the planet framed throughout. Returns target info or null.
    */
-  engageFlyby(): { name: string; dist: number; altitude: number } | null {
+  engageFlyby(targetId?: string): { name: string; dist: number; altitude: number } | null {
     const MAX = 3500;
     let best: { dist: number; id: string; name: string; pos: THREE.Vector3; size: number } | null = null;
-    for (const b of this.bodies) {
-      if (b.isStar) continue;
-      const d = b.mesh.position.distanceTo(this.ship.position);
-      if (d > MAX) continue;
-      if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
+    if (targetId) {
+      const b = this.bodies.find((x) => x.id === targetId);
+      if (b && !b.isStar) {
+        best = {
+          dist: b.mesh.position.distanceTo(this.ship.position),
+          id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size,
+        };
+      }
+    } else {
+      for (const b of this.bodies) {
+        if (b.isStar) continue;
+        const d = b.mesh.position.distanceTo(this.ship.position);
+        if (d > MAX) continue;
+        if (!best || d < best.dist) best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
+      }
     }
     if (!best) return null;
     const cfg = this.flybyConfig;

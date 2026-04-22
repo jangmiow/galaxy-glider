@@ -1019,6 +1019,43 @@ export class SpaceScene {
   }
 
   /**
+   * Raycast from the camera through normalized device coords (-1..1) and
+   * return the first body hit. Falls back to the nearest body within a small
+   * angular tolerance of the click so tiny dots are still selectable. Stars
+   * are excluded so a stray click on Sol can't engage autopilot toward it.
+   */
+  pickBodyAt(ndcX: number, ndcY: number): { id: string; name: string; dist: number } | null {
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
+    // Direct mesh hit first.
+    const meshes = this.bodies.filter((b) => !b.isStar).map((b) => b.mesh);
+    const hits = ray.intersectObjects(meshes, false);
+    if (hits.length > 0) {
+      const hit = hits[0].object as THREE.Mesh;
+      const body = this.bodies.find((b) => b.mesh === hit);
+      if (body) {
+        return { id: body.id, name: body.name, dist: body.mesh.position.distanceTo(this.ship.position) };
+      }
+    }
+    // Angular tolerance fallback — pick the body whose screen-space angle to
+    // the click ray is smallest, within ~3° and inside 4000u.
+    const TOL = Math.cos((3 * Math.PI) / 180);
+    const MAX = 4000;
+    let best: { dot: number; id: string; name: string; dist: number } | null = null;
+    for (const b of this.bodies) {
+      if (b.isStar) continue;
+      const to = b.mesh.position.clone().sub(ray.ray.origin);
+      const dist = to.length();
+      if (dist > MAX) continue;
+      to.normalize();
+      const dot = to.dot(ray.ray.direction);
+      if (dot < TOL) continue;
+      if (!best || dot > best.dot) best = { dot, id: b.id, name: b.name, dist };
+    }
+    return best ? { id: best.id, name: best.name, dist: best.dist } : null;
+  }
+
+  /**
    * Debug helper: snap the ship to face the nearest unscanned body so the
    * crosshair lands on a scannable target without manual mouse-look. Also
    * resets mouse-look input so the ship stops drifting after the snap.

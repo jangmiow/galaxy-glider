@@ -67,6 +67,7 @@ export function useSpaceScene(
     velocity: 0,
     thrust: 0,
     warpCharge: 0,
+    warpCooldown: 0,
     isWarping: false,
     heading: { pitch: 0, yaw: 0 },
     score: 0,
@@ -435,6 +436,9 @@ export function useSpaceScene(
         velocity: Math.abs(scene.velocity),
         thrust: scene.thrust,
         warpCharge: scene.warpCharge,
+        // Charging rate in scene = dt * 0.08 (full charge ≈ 12.5s). Project the
+        // remaining cooldown so the HUD can show a clean "X.Xs" countdown.
+        warpCooldown: scene.warpCharge >= 1 ? 0 : (1 - scene.warpCharge) / 0.08,
         heading: { pitch: scene.ship.rotation.x, yaw: scene.ship.rotation.y },
         boost: scene.boost > 1,
         boostBurst: scene.boostActive,

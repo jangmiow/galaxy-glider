@@ -249,23 +249,16 @@ export function useSpaceScene(
       if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
     };
 
-    // Space-key state for tap (boost) vs hold (warp). We start a 1s timer on
-    // keydown; if it fires while still held, warp engages. Releasing before
-    // the timer fires triggers a 2-second speed burst instead.
-    const HOLD_WARP_MS = 1000;
-    const spaceState = { downAt: 0, held: false };
-    let warpHoldTimer: ReturnType<typeof setTimeout> | null = null;
-    const clearWarpHold = () => {
-      if (warpHoldTimer) {
-        clearTimeout(warpHoldTimer);
-        warpHoldTimer = null;
-      }
-    };
+    // SPACE = boost burst (tap). J = lightspeed jump (single press; press
+    // again during warp to cancel). Splitting them onto dedicated keys removes
+    // the old tap-vs-hold ambiguity and lets the cooldown indicator be a clear
+    // "press J when ready" signal.
     const engageWarp = () => {
-      if (scene.warpCharge >= 1 && !scene.isWarping) audio.warpWhoosh();
+      if (scene.warpCharge < 1 || scene.isWarping) return;
+      audio.warpWhoosh();
       scene.triggerWarp();
       setHud((s) => ({ ...s, isWarping: true }));
-      // Lightspeed cinematic now lasts 10 seconds — match the scene timer.
+      // Lightspeed cinematic lasts 10 seconds — match the scene timer.
       setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 10000);
     };
     const fireBoostBurst = () => {
@@ -285,22 +278,25 @@ export function useSpaceScene(
         }
         if (e.code === "Space") {
           e.preventDefault();
-          if (spaceState.held) return;
-          // In lightspeed: Space cancels the jump rather than queueing warp/burst.
+          // OS auto-fires repeat events while held — ignore so the boost only
+          // triggers once per physical press.
+          if (e.repeat) return;
+          fireBoostBurst();
+          if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
+          return;
+        }
+        if (e.code === "KeyJ") {
+          e.preventDefault();
+          if (e.repeat) return;
+          // Single dedicated key: engage warp if charged, OR cancel an
+          // in-progress jump. No hold gesture, no ambiguity.
           if (scene.isWarping) {
-            spaceState.held = true;
-            spaceState.downAt = performance.now();
             scene.exitWarp();
             setHud((s) => ({ ...s, isWarping: false }));
-            return;
-          }
-          spaceState.held = true;
-          spaceState.downAt = performance.now();
-          clearWarpHold();
-          warpHoldTimer = setTimeout(() => {
-            warpHoldTimer = null;
+          } else {
             engageWarp();
-          }, HOLD_WARP_MS);
+          }
+          if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
           return;
         }
         if (e.code === "Equal" || e.code === "NumpadAdd") {
@@ -311,18 +307,7 @@ export function useSpaceScene(
         scene.keys.add(e.code);
         if (hudRef.current.showHints) setHud((s) => ({ ...s, showHints: false }));
       } else {
-        if (e.code === "Space") {
-          spaceState.held = false;
-          const heldMs = performance.now() - spaceState.downAt;
-          // If the warp timer hasn't fired yet, this was a tap → burst.
-          if (warpHoldTimer && heldMs < HOLD_WARP_MS) {
-            clearWarpHold();
-            fireBoostBurst();
-          } else {
-            clearWarpHold();
-          }
-          return;
-        }
+        if (e.code === "Space" || e.code === "KeyJ") return;
         scene.keys.delete(e.code);
       }
     };

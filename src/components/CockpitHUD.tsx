@@ -269,23 +269,55 @@ export function CockpitHUD({
         </div>
       </div>
 
-      {/* Bottom-right: warp drive + boost burst indicator */}
-      <div className="absolute bottom-6 right-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
+      {/* Bottom-right: warp drive + boost burst indicator. The warp drive
+          panel is the single source of truth for jump cooldown — shows the
+          dedicated key cap, a fill bar, a "READY" / "X.Xs" countdown, and
+          flashes amber when the press-J prompt is live. */}
+      <div className="absolute bottom-6 right-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 240 }}>
         <div className="flex items-start gap-3">
           <div className="flex-1">
             <div className="flex items-baseline justify-between">
               <span className="text-hud-dim">WARP DRIVE</span>
-              <span className={state.warpCharge >= 1 ? "text-amber scan-pulse" : "text-hud"}>
-                {state.warpCharge >= 1 ? "READY" : `${Math.floor(state.warpCharge * 100)}%`}
+              <span className={state.isWarping ? "text-amber scan-pulse" : state.warpCharge >= 1 ? "text-amber scan-pulse" : "text-hud"}>
+                {state.isWarping
+                  ? "JUMPING"
+                  : state.warpCharge >= 1
+                    ? "READY"
+                    : `${state.warpCooldown.toFixed(1)}s`}
               </span>
             </div>
-            <div className="mt-2 h-2 w-full rounded bg-hud/10">
+            <div className="relative mt-2 h-2 w-full overflow-hidden rounded bg-hud/10">
               <div
-                className={state.warpCharge >= 1 ? "h-full rounded bg-amber" : "h-full rounded bg-hud"}
+                className={`h-full rounded transition-[width] duration-150 ${
+                  state.warpCharge >= 1 ? "bg-amber" : "bg-hud"
+                }`}
                 style={{ width: `${state.warpCharge * 100}%` }}
               />
+              {state.warpCharge >= 1 && !state.isWarping && (
+                // Soft sweep across the bar to draw attention when ready.
+                <div className="pointer-events-none absolute inset-0 animate-pulse bg-amber/20" />
+              )}
             </div>
-            <div className="mt-2 text-[10px] text-hud-dim">[HOLD SPACE] engage · [TAP] boost</div>
+            <div className="mt-2 flex items-center gap-2 text-[10px] text-hud-dim">
+              <span
+                className={`inline-flex h-5 w-5 items-center justify-center rounded border text-[10px] font-semibold tracking-widest transition-colors ${
+                  state.isWarping
+                    ? "border-amber bg-amber/30 text-amber shadow-[0_0_8px_var(--color-amber)]"
+                    : state.warpCharge >= 1
+                      ? "border-amber bg-amber/20 text-amber shadow-[0_0_6px_var(--color-amber)] animate-pulse"
+                      : "border-hud/40 bg-black/40 text-hud/60"
+                }`}
+              >
+                J
+              </span>
+              <span>
+                {state.isWarping
+                  ? "press J to cancel jump"
+                  : state.warpCharge >= 1
+                    ? "press J to engage lightspeed"
+                    : "charging…"}
+              </span>
+            </div>
           </div>
           <BoostIndicator
             active={state.boostBurst}

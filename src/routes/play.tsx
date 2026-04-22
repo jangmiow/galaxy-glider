@@ -82,7 +82,7 @@ function Play() {
         onFlybyConfigChange={controller.setFlybyConfig}
       />
 
-      {!isMobile && <KeyBindingsHUD />}
+      {!isMobile && <KeyBindingsHUD hud={hud} />}
 
       {isMobile && (
         <MobileControls

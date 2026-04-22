@@ -41,7 +41,18 @@ export type HUDState = {
   /** Passive proximity meter to nearest uncatalogued body (signal 0..1, 1 = at ship). */
   sensorContact: { name: string; distance: number; signal: number } | null;
   /** Active flyby autopilot — target name + 0..1 progress along the curve. */
-  flyby: { target: string; progress: number } | null;
+  flyby: {
+    target: string;
+    progress: number;
+    /** Current lateral nudge (-1..1) shaping the curve. */
+    nudgeLateral: number;
+    /** Current vertical nudge (-1..1) shaping the curve. */
+    nudgeVertical: number;
+    /** Live cursor input, normalized -1..1, contributing to the nudge. */
+    cursor: { x: number; y: number };
+    /** Which steering keys are currently pushing on the curve. */
+    keys: { left: boolean; right: boolean; up: boolean; down: boolean };
+  } | null;
   /** Tunable flyby parameters surfaced in the pause menu + tweaked via hotkeys. */
   flybyConfig: { altitudeMul: number; offsetMul: number; durationMul: number };
 };

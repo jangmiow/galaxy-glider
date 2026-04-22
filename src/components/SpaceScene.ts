@@ -1135,15 +1135,25 @@ export class SpaceScene {
    * target, steering with look-ahead and applying slew-rate-limited thrust so
    * the lever never snaps. Returns the chosen target (or null if nothing's reachable).
    */
-  engageApproach(): { name: string; dist: number } | null {
+  engageApproach(targetId?: string): { name: string; dist: number } | null {
     const MAX = 3000;
     let best: { dist: number; id: string; name: string; pos: THREE.Vector3; size: number } | null = null;
-    for (const b of this.bodies) {
-      if (b.scanned || b.isStar) continue;
-      const d = b.mesh.position.distanceTo(this.ship.position);
-      if (d > MAX) continue;
-      if (!best || d < best.dist)
-        best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
+    if (targetId) {
+      const b = this.bodies.find((x) => x.id === targetId);
+      if (b && !b.isStar) {
+        best = {
+          dist: b.mesh.position.distanceTo(this.ship.position),
+          id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size,
+        };
+      }
+    } else {
+      for (const b of this.bodies) {
+        if (b.scanned || b.isStar) continue;
+        const d = b.mesh.position.distanceTo(this.ship.position);
+        if (d > MAX) continue;
+        if (!best || d < best.dist)
+          best = { dist: d, id: b.id, name: b.name, pos: b.mesh.position.clone(), size: b.size };
+      }
     }
     if (!best) return null;
     const path = this.buildApproachPath(best.pos, best.size);

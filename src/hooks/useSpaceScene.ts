@@ -524,7 +524,6 @@ export function useSpaceScene(
 
     return () => {
       cancelAnimationFrame(raf);
-      clearWarpHold();
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("pointerdown", onPointerDown);

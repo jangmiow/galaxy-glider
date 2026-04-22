@@ -99,13 +99,24 @@ export function KeyBindingsHUD({ hud }: { hud: HUDState }) {
           active={steerActive}
         />
 
-        {/* BOOST / WARP — Space tap vs hold. */}
+        {/* BOOST — Space (tap). */}
         <ControlRow
           caps={<Cap label="SPACE" wide active={isDown("Space")} />}
-          label={hud.isWarping ? "WARPING" : warpReady ? "BOOST · WARP" : "BOOST"}
-          hint={hud.isWarping ? "tap to cancel" : warpReady ? "tap · hold 1s" : "tap"}
-          active={isDown("Space") || hud.isWarping || hud.boost}
-          accent={hud.isWarping ? "amber" : undefined}
+          label="BOOST"
+          hint="2-second burst"
+          active={isDown("Space") || hud.boost}
+        />
+
+        {/* WARP / lightspeed — dedicated J key with explicit cooldown.
+            Label flips between "X.Xs" cooldown, "READY", and "JUMPING" so the
+            pilot can time the press without leaning on the hold-gesture. */}
+        <ControlRow
+          caps={<Cap label="J" active={isDown("KeyJ") || warpReady || hud.isWarping} accent={warpReady || hud.isWarping ? "amber" : undefined} />}
+          label={hud.isWarping ? "JUMPING" : warpReady ? "WARP READY" : "WARP"}
+          hint={hud.isWarping ? "press to cancel" : warpReady ? "press to engage" : `${hud.warpCooldown.toFixed(1)}s cooldown`}
+          active={isDown("KeyJ") || warpReady || hud.isWarping}
+          accent={hud.isWarping || warpReady ? "amber" : undefined}
+          pulse={warpReady && !hud.isWarping}
         />
 
         {/* FLYBY click gesture — left-click = approach, double-click = flyby. */}
@@ -192,16 +203,26 @@ function ControlRow({
   );
 }
 
-function Cap({ label, active, wide }: { label: string; active: boolean; wide?: boolean }) {
+function Cap({
+  label,
+  active,
+  wide,
+  accent = "hud",
+}: {
+  label: string;
+  active: boolean;
+  wide?: boolean;
+  accent?: "hud" | "amber";
+}) {
+  const activeClass =
+    accent === "amber"
+      ? "border-amber bg-amber/30 text-amber shadow-[0_0_8px_var(--color-amber)]"
+      : "border-hud bg-hud/30 text-hud shadow-[0_0_8px_var(--color-hud)]";
   return (
     <div
       className={`flex h-5 items-center justify-center rounded border text-[9px] tracking-widest transition-colors ${
         wide ? "w-[60px]" : "w-5"
-      } ${
-        active
-          ? "border-hud bg-hud/30 text-hud shadow-[0_0_8px_var(--color-hud)]"
-          : "border-hud/40 bg-black/40 text-hud/70"
-      }`}
+      } ${active ? activeClass : "border-hud/40 bg-black/40 text-hud/70"}`}
     >
       {label}
     </div>

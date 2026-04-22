@@ -326,10 +326,100 @@ export function useSpaceScene(
         scene.keys.delete(e.code);
       }
     };
+
+    // ── Mouse-driven autopilot ────────────────────────────────────────────
+    // Single click (left)  → APPROACH the picked body (or nearest if click missed).
+    // Double click (left)  → upgrade to FLYBY (cinematic curved pass).
+    // Right click anywhere → ABORT all autopilot.
+    // Single-click action is debounced so a double-click doesn't fire approach
+    // first and then immediately swap to flyby.
+    const DOUBLE_MS = 280;
+    let pendingClick: ReturnType<typeof setTimeout> | null = null;
+    let lastClickAt = 0;
+    let lastPick: { id: string; name: string; dist: number } | null = null;
+
+    const ndcFromEvent = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        y: -(((e.clientY - rect.top) / rect.height) * 2 - 1),
+      };
+    };
+
+    const doApproach = (target: { id: string; name: string; dist: number } | null) => {
+      const t = scene.engageApproach(target?.id);
+      if (t) {
+        toast("APPROACH ENGAGED", {
+          description: `${t.name} · ${t.dist.toFixed(0)}u`,
+          duration: 1800,
+        });
+      } else {
+        toast("APPROACH UNAVAILABLE", { description: "No body in range" });
+      }
+    };
+
+    const doFlyby = (target: { id: string; name: string; dist: number } | null) => {
+      const t = scene.engageFlyby(target?.id);
+      if (t) {
+        toast("FLYBY ENGAGED", {
+          description: `${t.name} · altitude ${t.altitude.toFixed(0)}u`,
+          duration: 2000,
+        });
+      } else {
+        toast("FLYBY UNAVAILABLE", { description: "No body in range" });
+      }
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      startAudio();
+      if (e.button === 2 || e.button === 1) {
+        e.preventDefault();
+        const wasFlyby = scene.flyby.active;
+        const wasApproach = scene.approach.active;
+        if (wasFlyby) scene.disengageFlyby();
+        if (wasApproach) scene.disengageApproach();
+        if (wasFlyby || wasApproach) {
+          toast("AUTOPILOT ABORTED", { duration: 1200 });
+        }
+        return;
+      }
+      if (e.button !== 0) return;
+      if (e.target !== canvas) return;
+
+      const ndc = ndcFromEvent(e);
+      const pick = scene.pickBodyAt(ndc.x, ndc.y);
+      const now = performance.now();
+      const isDouble = now - lastClickAt < DOUBLE_MS;
+      lastClickAt = now;
+
+      if (isDouble) {
+        if (pendingClick) {
+          clearTimeout(pendingClick);
+          pendingClick = null;
+        }
+        doFlyby(pick ?? lastPick);
+        lastPick = pick ?? lastPick;
+        return;
+      }
+
+      lastPick = pick;
+      if (pendingClick) clearTimeout(pendingClick);
+      pendingClick = setTimeout(() => {
+        pendingClick = null;
+        doApproach(pick);
+      }, DOUBLE_MS);
+    };
+
+    const onContextMenu = (e: MouseEvent) => {
+      // Right-click is our "abort" gesture; suppress browser menu.
+      e.preventDefault();
+    };
+
     const kd = (e: KeyboardEvent) => onKey(e, true);
     const ku = (e: KeyboardEvent) => onKey(e, false);
     canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("pointerdown", startAudio);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
 

@@ -99,13 +99,24 @@ export function KeyBindingsHUD({ hud }: { hud: HUDState }) {
           active={steerActive}
         />
 
-        {/* BOOST / WARP — Space tap vs hold. */}
+        {/* BOOST — Space (tap). */}
         <ControlRow
           caps={<Cap label="SPACE" wide active={isDown("Space")} />}
-          label={hud.isWarping ? "WARPING" : warpReady ? "BOOST · WARP" : "BOOST"}
-          hint={hud.isWarping ? "tap to cancel" : warpReady ? "tap · hold 1s" : "tap"}
-          active={isDown("Space") || hud.isWarping || hud.boost}
-          accent={hud.isWarping ? "amber" : undefined}
+          label="BOOST"
+          hint="2-second burst"
+          active={isDown("Space") || hud.boost}
+        />
+
+        {/* WARP / lightspeed — dedicated J key with explicit cooldown.
+            Label flips between "X.Xs" cooldown, "READY", and "JUMPING" so the
+            pilot can time the press without leaning on the hold-gesture. */}
+        <ControlRow
+          caps={<Cap label="J" active={isDown("KeyJ") || warpReady || hud.isWarping} accent={warpReady || hud.isWarping ? "amber" : undefined} />}
+          label={hud.isWarping ? "JUMPING" : warpReady ? "WARP READY" : "WARP"}
+          hint={hud.isWarping ? "press to cancel" : warpReady ? "press to engage" : `${hud.warpCooldown.toFixed(1)}s cooldown`}
+          active={isDown("KeyJ") || warpReady || hud.isWarping}
+          accent={hud.isWarping || warpReady ? "amber" : undefined}
+          pulse={warpReady && !hud.isWarping}
         />
 
         {/* FLYBY click gesture — left-click = approach, double-click = flyby. */}

@@ -442,9 +442,7 @@ export function useSpaceScene(
         boostCooldownMax: scene.BOOST_COOLDOWN,
         boostDuration: scene.BOOST_DURATION,
         boostRemaining: scene.boostTimer,
-        warpHoldProgress: spaceState.held
-          ? Math.min(1, (performance.now() - spaceState.downAt) / HOLD_WARP_MS)
-          : 0,
+        warpHoldProgress: 0,
         proximity: scene.proximity,
         approach: scene.approach.active && scene.approach.targetName
           ? { target: scene.approach.targetName, distance: scene.approach.distance }

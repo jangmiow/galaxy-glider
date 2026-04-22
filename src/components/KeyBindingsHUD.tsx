@@ -203,16 +203,26 @@ function ControlRow({
   );
 }
 
-function Cap({ label, active, wide }: { label: string; active: boolean; wide?: boolean }) {
+function Cap({
+  label,
+  active,
+  wide,
+  accent = "hud",
+}: {
+  label: string;
+  active: boolean;
+  wide?: boolean;
+  accent?: "hud" | "amber";
+}) {
+  const activeClass =
+    accent === "amber"
+      ? "border-amber bg-amber/30 text-amber shadow-[0_0_8px_var(--color-amber)]"
+      : "border-hud bg-hud/30 text-hud shadow-[0_0_8px_var(--color-hud)]";
   return (
     <div
       className={`flex h-5 items-center justify-center rounded border text-[9px] tracking-widest transition-colors ${
         wide ? "w-[60px]" : "w-5"
-      } ${
-        active
-          ? "border-hud bg-hud/30 text-hud shadow-[0_0_8px_var(--color-hud)]"
-          : "border-hud/40 bg-black/40 text-hud/70"
-      }`}
+      } ${active ? activeClass : "border-hud/40 bg-black/40 text-hud/70"}`}
     >
       {label}
     </div>

@@ -491,7 +491,22 @@ export function useSpaceScene(
             : null;
         })(),
         flyby: scene.flyby.active && scene.flyby.targetName
-          ? { target: scene.flyby.targetName, progress: scene.flyby.elapsed / scene.flyby.duration }
+          ? {
+              target: scene.flyby.targetName,
+              progress: scene.flyby.elapsed / scene.flyby.duration,
+              // Normalize the raw nudge magnitudes to -1..1 for the HUD bar.
+              // Scene clamps each axis to ~1.5× target radius; we approximate
+              // a unitless 0..1 fill by dividing against the same maxNudge.
+              nudgeLateral: Math.max(-1, Math.min(1, scene.flyby.nudgeLateral / 60)),
+              nudgeVertical: Math.max(-1, Math.min(1, scene.flyby.nudgeVertical / 60)),
+              cursor: { x: scene.mouseX, y: scene.mouseY },
+              keys: {
+                left: scene.keys.has("KeyA") || scene.keys.has("ArrowLeft"),
+                right: scene.keys.has("KeyD") || scene.keys.has("ArrowRight"),
+                up: scene.keys.has("KeyW") || scene.keys.has("ArrowUp"),
+                down: scene.keys.has("KeyS") || scene.keys.has("ArrowDown"),
+              },
+            }
           : null,
         flybyConfig: { ...scene.flybyConfig },
       }));

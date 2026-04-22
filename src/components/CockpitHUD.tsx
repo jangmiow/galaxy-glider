@@ -41,7 +41,18 @@ export type HUDState = {
   /** Passive proximity meter to nearest uncatalogued body (signal 0..1, 1 = at ship). */
   sensorContact: { name: string; distance: number; signal: number } | null;
   /** Active flyby autopilot — target name + 0..1 progress along the curve. */
-  flyby: { target: string; progress: number } | null;
+  flyby: {
+    target: string;
+    progress: number;
+    /** Current lateral nudge (-1..1) shaping the curve. */
+    nudgeLateral: number;
+    /** Current vertical nudge (-1..1) shaping the curve. */
+    nudgeVertical: number;
+    /** Live cursor input, normalized -1..1, contributing to the nudge. */
+    cursor: { x: number; y: number };
+    /** Which steering keys are currently pushing on the curve. */
+    keys: { left: boolean; right: boolean; up: boolean; down: boolean };
+  } | null;
   /** Tunable flyby parameters surfaced in the pause menu + tweaked via hotkeys. */
   flybyConfig: { altitudeMul: number; offsetMul: number; durationMul: number };
 };
@@ -211,15 +222,10 @@ export function CockpitHUD({
         </div>
       )}
 
-      {/* Flyby autopilot status pill — sits beside/below the approach pill. */}
-      {state.flyby && (
-        <div className="absolute left-1/2 top-36 -translate-x-1/2 hud-panel rounded-full border border-amber/60 bg-amber/10 px-3 py-1 text-center text-[10px] tracking-widest">
-          <span className="text-hud-dim">FLYBY ·</span>{" "}
-          <span className="text-amber">{state.flyby.target}</span>{" "}
-          <span className="text-hud-dim">·</span>{" "}
-          <span className="text-hud">{Math.round(state.flyby.progress * 100)}%</span>
-        </div>
-      )}
+      {/* Flyby autopilot status pill — also surfaces the live ghost-curve
+          preview indicator and which inputs (cursor / keys) are currently
+          shaping the upcoming spline so the pilot can see what's "active". */}
+      {state.flyby && <FlybyStatusPanel flyby={state.flyby} />}
       <div className="absolute bottom-6 left-6 hud-panel rounded-md px-4 py-3 text-xs" style={{ minWidth: 220 }}>
         <div className="flex items-baseline justify-between">
           <span className="text-hud-dim">VELOCITY</span>
@@ -1110,5 +1116,98 @@ function SystemMedal({ systemName, bodyCount }: { systemName: string; bodyCount:
         <div className="mt-1 text-xs text-hud-dim">{bodyCount} bodies catalogued · +1000</div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Live status panel for the active flyby autopilot. Replaces the small pill
+ * with a richer block that:
+ *  • announces the dashed ghost preview is rendered in-world,
+ *  • shows the current lateral / vertical nudge as horizontal bars, and
+ *  • lights up which steering keys + cursor axes are currently shaping the
+ *    upcoming curve so the pilot can see exactly what's affecting it.
+ *
+ * Width is capped so it doesn't fight the central reticle for attention.
+ */
+function FlybyStatusPanel({ flyby }: { flyby: NonNullable<HUDState["flyby"]> }) {
+  const { target, progress, nudgeLateral, nudgeVertical, cursor, keys } = flyby;
+  const cursorActive = Math.abs(cursor.x) > 0.05 || Math.abs(cursor.y) > 0.05;
+  const anyKey = keys.left || keys.right || keys.up || keys.down;
+  const previewActive = cursorActive || anyKey || Math.abs(nudgeLateral) > 0.02 || Math.abs(nudgeVertical) > 0.02;
+
+  return (
+    <div className="absolute left-1/2 top-36 -translate-x-1/2 hud-panel rounded-md border border-amber/60 bg-amber/10 px-3 py-2 text-center text-[10px] tracking-widest" style={{ minWidth: 280 }}>
+      {/* Header: target + progress, plus the always-on "ghost preview" badge */}
+      <div className="flex items-center justify-center gap-2">
+        <span className="text-hud-dim">FLYBY ·</span>
+        <span className="text-amber">{target}</span>
+        <span className="text-hud-dim">·</span>
+        <span className="text-hud">{Math.round(progress * 100)}%</span>
+      </div>
+
+      <div className="mt-1 flex items-center justify-center gap-1.5 text-[9px]">
+        <span
+          className={`inline-block h-1.5 w-1.5 rounded-full ${
+            previewActive ? "bg-amber animate-pulse" : "bg-amber/40"
+          }`}
+        />
+        <span className={previewActive ? "text-amber" : "text-hud-dim"}>
+          GHOST PREVIEW {previewActive ? "· NUDGING" : "· STABLE"}
+        </span>
+      </div>
+
+      {/* Nudge bars — bipolar, centered at zero */}
+      <div className="mt-2 flex items-center gap-2 text-[9px]">
+        <span className="w-12 text-right text-hud-dim">LATERAL</span>
+        <NudgeBar value={nudgeLateral} />
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-[9px]">
+        <span className="w-12 text-right text-hud-dim">VERTICAL</span>
+        <NudgeBar value={nudgeVertical} />
+      </div>
+
+      {/* Active inputs — keys + cursor axes */}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
+        <InputChip label="A" active={keys.left} />
+        <InputChip label="D" active={keys.right} />
+        <InputChip label="W" active={keys.up} />
+        <InputChip label="S" active={keys.down} />
+        <InputChip label="CURSOR-X" active={Math.abs(cursor.x) > 0.05} />
+        <InputChip label="CURSOR-Y" active={Math.abs(cursor.y) > 0.05} />
+      </div>
+    </div>
+  );
+}
+
+/** Horizontal bipolar bar (-1..1) with a center tick. */
+function NudgeBar({ value }: { value: number }) {
+  const v = Math.max(-1, Math.min(1, value));
+  const pct = Math.abs(v) * 50; // half-width fill from center
+  return (
+    <div className="relative h-1.5 flex-1 rounded bg-hud/10">
+      <div className="absolute left-1/2 top-0 h-full w-px bg-hud/40" />
+      <div
+        className="absolute top-0 h-full rounded bg-amber"
+        style={{
+          left: v >= 0 ? "50%" : `${50 - pct}%`,
+          width: `${pct}%`,
+        }}
+      />
+    </div>
+  );
+}
+
+/** Tiny pill that lights up when the named input is currently active. */
+function InputChip({ label, active }: { label: string; active: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-4 items-center justify-center rounded border px-1.5 text-[8px] tracking-widest transition-colors ${
+        active
+          ? "border-amber bg-amber/30 text-amber"
+          : "border-hud/30 bg-black/30 text-hud-dim"
+      }`}
+    >
+      {label}
+    </span>
   );
 }

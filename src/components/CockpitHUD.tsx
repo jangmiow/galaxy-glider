@@ -425,9 +425,9 @@ export function CockpitHUD({
               </ControlSection>
 
               <ControlSection title="SPEED">
-                <ControlRow keys={["SPACE"]} desc="tap · 2s boost burst" />
-                <ControlRow keys={["SPACE"]} desc="hold 1s · engage lightspeed" />
-                <ControlRow keys={["SPACE"]} desc="tap during warp · cancel jump" />
+                <ControlRow keys={["SPACE"]} desc="2-second boost burst" />
+                <ControlRow keys={["J"]} desc="engage lightspeed (when READY)" />
+                <ControlRow keys={["J"]} desc="press again to cancel a jump" />
               </ControlSection>
 
               <ControlSection title="AUTOPILOT">

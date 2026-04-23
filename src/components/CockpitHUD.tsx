@@ -8,6 +8,8 @@ export type HUDState = {
   /** Seconds until the warp drive finishes charging (0 when READY). */
   warpCooldown: number;
   isWarping: boolean;
+  /** Name of the system the current warp jump will land in. Shown in the LIGHTSPEED overlay. */
+  nextSystemName: string | null;
   heading: { pitch: number; yaw: number };
   score: number;
   rank: string;
@@ -365,8 +367,16 @@ export function CockpitHUD({
 
       {/* Warp overlay flash */}
       {state.isWarping && (
-        <div className="absolute inset-0 flex items-center justify-center bg-hud/10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-hud/10">
           <div className="font-display text-6xl text-hud hud-glow scan-pulse">LIGHTSPEED</div>
+          {state.nextSystemName && (
+            <div className="flex flex-col items-center gap-1">
+              <div className="text-[10px] tracking-[0.4em] text-hud-dim">DESTINATION SYSTEM</div>
+              <div className="font-display text-2xl text-amber hud-glow tracking-[0.2em]">
+                {state.nextSystemName}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

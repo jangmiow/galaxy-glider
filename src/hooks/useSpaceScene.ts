@@ -71,6 +71,7 @@ export function useSpaceScene(
     warpCharge: 0,
     warpCooldown: 0,
     isWarping: false,
+    nextSystemName: null,
     heading: { pitch: 0, yaw: 0 },
     score: 0,
     rank: "CADET",

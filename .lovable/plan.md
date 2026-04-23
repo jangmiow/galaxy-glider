@@ -1,50 +1,49 @@
 
-## Bigger, more cinematic worlds — Project Hail Mary inspired
 
-Goal: make planets feel like real, awe-inspiring objects (the way Rocky's Erid or Tau Ceti feel in PHM) without breaking scan ranges, orbits, or collision. Pair the visual upgrade with a few control polish items so flying near a giant feels deliberate.
+## Goal
+Let the pilot click HUD elements (pause, minimap zoom, flyby tuners) without the mouse breaking flight steering, and add a clearly visible **PAUSE** button.
 
-### 1. Planet & moon size pass
+## What you'll see
+- A new **PAUSE** button pinned **top-right** of the cockpit, next to the mute button. Round, HUD-styled, with a `❚❚` icon that flips to `▶` when paused. Tooltip shows "Pause (Esc)".
+- The button sits in a small "safe zone" — a 64×64 area where the mouse will **not** steer the ship, so you can move to it without the cockpit tilting.
+- A subtle outlined chip underneath shows the current state ("FLIGHT" / "PAUSED") so it reads at a glance.
+- All existing HUD panels (minimap zoom buttons, flyby tuner sliders, debug etc.) remain clickable — they already are, but we'll make the affordance clearer with a faint hover ring on interactive HUD controls.
 
-Bump body sizes meaningfully while keeping stars dominant and orbits readable.
+## How clicks stay out of the way of flight
+Mouse-look and click-to-approach are bound to the `<canvas>` element directly (not `window`), and the click handler already early-returns when `e.target !== canvas`. So any HUD element with `pointer-events-auto` is automatically safe — clicking it will **not** trigger approach/flyby/abort.
 
-**Sol system (`buildSolSystem`)** — multipliers chosen per body so terrestrials grow more than gas giants (which are already huge):
-- Mercury 6 → 9, Venus 10 → 16, Earth 11 → 18, Mars 8 → 13
-- Jupiter 40 → 58, Saturn 34 → 50 (rings scale with `size`, so they grow automatically; bump `inner/outer` to 80/150)
-- Uranus 20 → 30, Neptune 19 → 28
-- Sun stays 80 (already cinematic; growing it crowds inner planets)
-- Moons scaled ~1.4× (Luna 2.2 → 3.2, Titan 2.6 → 3.8, Ganymede 3.0 → 4.4, etc.) and moon orbital `radius` grown ~1.3× so they don't clip the now-larger parent
+The only remaining issue is **mouse-look drift**: moving the cursor up to reach the pause button currently yaws the ship. Fix: introduce HUD "dead zones" where `mousemove` is ignored.
 
-**Procedural systems (`buildSystem`)**:
-- Terrestrial size band: `9 + rng()*11` → `15 + rng()*14` (15–29u)
-- Gas/ringed band: `26 + rng()*24` → `38 + rng()*32` (38–70u)
-- Orbital spacing `330 + i*240` → `420 + i*310` so larger bodies don't visually overlap
-- Moon orbital radius coefficient `2.4 + m*1.1` → `2.8 + m*1.2` for the same reason
+## Technical changes
 
-### 2. Visual polish to sell scale
+**1. `src/components/PauseButton.tsx` (new)**
+- Small component mirroring `MuteButton`'s style.
+- Props: `paused: boolean`, `onToggle: () => void`.
+- Positioned `absolute top-6 right-6` (mute button shifts to `right-20`).
+- Uses `pointer-events-auto` and `data-hud-safe="true"` attribute (see step 3).
 
-- **Atmosphere rim**: in `addPlanetBody`, slightly raise `uAtmoStrength` default for terrestrial kinds (rocky/ocean/icy) so the limb glow is more pronounced on close approach — this is the single biggest "looks real" lever
-- **Bloom threshold**: lower `UnrealBloomPass` threshold from `0.2` → `0.15` so atmospheres and ring-lit edges catch a touch more bloom (stars already saturate, so the change mainly benefits planets)
-- **Approach awe**: when the ship is within `b.size * 6` of any planet, fade in a subtle vignette tint matching the body's atmosphere color (reuses existing boost-vignette CSS class with a new `.proximity-vignette` variant driven from HUD state)
+**2. `src/routes/play.tsx`**
+- Render `<PauseButton paused={hud.paused} onToggle={controller.togglePause} />`.
+- Move `<MuteButton>` left to make room (or stack vertically).
 
-### 3. Controls polish for piloting near giants
+**3. `src/hooks/useSpaceScene.ts` — mouse-look dead zone**
+- In `onMove`, check `e.target` and walk up via `closest('[data-hud-safe="true"]')`. If matched, skip `scene.setMouse(...)` for that frame and zero out the steering delta so the ship stops drifting toward the button.
+- Tag the pause button, mute button, and minimap wrapper with `data-hud-safe="true"`.
+- This is a 4-line change inside the existing `onMove` handler.
 
-- **Variable thrust ramp**: current thrust accelerates at one rate. Add a soft cap that tapers max velocity to 70% within `b.size * 4` of any body — gives a natural "approach mode" feel and prevents tunneling past a planet you're trying to admire
-- **Q/E roll keys**: bank the ship on its forward axis (currently no roll). Pure cosmetic / framing tool — essential for taking in a ringed giant from the right angle
-- **F key — frame target**: smoothly rotates the camera to face the nearest unscanned body over ~1.2s. Complements the existing `T` auto-aim (which snaps) with a cinematic version
-- Update `KeyBindingsHUD` to show Q/E/F
+**4. `src/components/CockpitHUD.tsx` — light polish**
+- Add a `hover:ring-1 hover:ring-hud/40` class to interactive controls in the flyby tuner so users see they're clickable.
+- No structural changes to the pause overlay itself (already done in prior turn).
 
-### 4. Compatibility checks (no breakage)
+## Files touched
+- `src/components/PauseButton.tsx` (new, ~40 lines)
+- `src/routes/play.tsx` (add import + render)
+- `src/hooks/useSpaceScene.ts` (dead-zone check in `onMove`, ~5 lines)
+- `src/components/MuteButton.tsx` (shift position or accept a `className` prop)
+- `src/components/Minimap.tsx` + `src/components/CockpitHUD.tsx` (add `data-hud-safe` attr on wrappers)
 
-- Scan/lock-on uses `b.size / dist` for `angularRadius` — bigger planets become easier to lock from farther, which is the intended feel
-- Collision buffer is `b.size * 1.08` (planet) / `b.size * 1.4` (star) — still proportional, no tuning needed
-- Star flare uses `b.size * 10` for sprite scale — already proportional
-- Minimap dot sizes are based on body type, not `size`, so visual scale on the radar is unchanged
+## Out of scope
+- No change to keyboard controls. `Esc` still pauses.
+- No change to the existing fullscreen pause menu.
+- No change to click-to-approach / double-click-to-flyby behavior.
 
-### Files touched
-- `src/components/SpaceScene.ts` — sizes, orbital spacing, bloom threshold, thrust taper near bodies, Q/E roll, F frame-target action, atmosphere strength tweak
-- `src/hooks/useSpaceScene.ts` — wire Q/E/F keys, surface `proximityBody` (color + closeness) into HUD state
-- `src/components/CockpitHUD.tsx` — render the proximity vignette overlay
-- `src/components/KeyBindingsHUD.tsx` — show Q/E/F caps
-- `src/styles.css` — `.proximity-vignette` keyframe / utility
-
-No new dependencies. No persistence schema changes (the migration system is untouched).

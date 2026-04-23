@@ -555,6 +555,21 @@ export function useSpaceScene(
         if (scene.systemSeed !== lastPersistedSeed && pilotIdRef.current) {
           lastPersistedSeed = scene.systemSeed;
           saveSystemSeed(pilotIdRef.current, scene.systemSeed);
+          // Force a flight-state save on system change so the new seed
+          // doesn't get paired with a stale position from the prior system.
+          flushFlightState();
+          saveAcc = 0;
+        }
+      }
+
+      // Autosave flight transform every ~3s OR when ship has drifted >5u
+      // from the last save point. Skip while warping (snapshot would be junk).
+      saveAcc += dt;
+      if (!scene.isWarping && pilotIdRef.current) {
+        const drift = scene.ship.position.distanceTo(lastSavedPos);
+        if (saveAcc > 3 || drift > 5) {
+          flushFlightState();
+          saveAcc = 0;
         }
       }
 
@@ -562,14 +577,21 @@ export function useSpaceScene(
     };
     raf = requestAnimationFrame(loop);
 
+    // Flush flight state on tab unload so refresh / close preserves position.
+    const onUnload = () => flushFlightState();
+    window.addEventListener("beforeunload", onUnload);
+
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("beforeunload", onUnload);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
+      // Final save on unmount so navigating away (e.g. /journal) preserves state.
+      flushFlightState();
       scene.dispose();
       audio.dispose();
       audioRef.current = null;

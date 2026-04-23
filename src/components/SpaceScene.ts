@@ -1506,6 +1506,21 @@ export class SpaceScene {
     return { dots, range, offRangeTarget, nextUnscanned };
   }
 
+  /**
+   * Lightweight serialisable snapshot of the ship's transform and forward
+   * velocity — used by `useSpaceScene` to autosave and restore the pilot's
+   * exact position/heading between sessions.
+   */
+  getSnapshot(): { pos: [number, number, number]; quat: [number, number, number, number]; velocity: number } {
+    const p = this.ship.position;
+    const q = this.ship.quaternion;
+    return {
+      pos: [p.x, p.y, p.z],
+      quat: [q.x, q.y, q.z, q.w],
+      velocity: this.velocity,
+    };
+  }
+
   resize(w: number, h: number) {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);

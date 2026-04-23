@@ -267,33 +267,52 @@ export class SpaceScene {
     active: false, targetId: null, targetName: null, distance: 0,
     path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
   };
-  /** Cinematic flyby autopilot — fly a curved pass at ~3× target radius. */
+  /**
+   * Cinematic flyby autopilot — orbits the target body for ~1.25 laps so the
+   * pilot can study it from every angle (terminator pass, back-lit crescent,
+   * ring shadow). The orbit lives on a plane defined by `center` + `normal`,
+   * radius is periapsis altitude, and the ship sweeps `sweep` radians.
+   */
   flyby: {
     active: boolean;
     targetId: string | null;
     targetName: string | null;
-    /** Bezier control points in world space, recomputed at engage. */
-    p0: THREE.Vector3; p1: THREE.Vector3; p2: THREE.Vector3; p3: THREE.Vector3;
-    /** Center of pass + ship-up for stable framing. */
-    center: THREE.Vector3;
     elapsed: number;
     duration: number;
+    /** World-space orbit center (target body position at engage). */
+    center: THREE.Vector3;
+    /** Plane normal — defines orbit orientation. */
+    normal: THREE.Vector3;
+    /** First in-plane basis vector (cos axis). */
+    basisX: THREE.Vector3;
+    /** Second in-plane basis vector (sin axis). */
+    basisY: THREE.Vector3;
+    /** Periapsis altitude (distance from center). */
+    radius: number;
+    startAngle: number;
+    /** Total radians to sweep — 2.5π ≈ 1.25 laps for the cinematic full orbit. */
+    sweep: number;
+    /** Manual nudge — widens / tightens the radius via cursor + WASD. */
+    nudgeRadius: number;
+    /** Manual nudge — tilts the orbital plane via cursor + WASD. */
+    nudgeTilt: number;
+    /** Compatibility aliases mapped onto the new model so the HUD bars keep working. */
     nudgeLateral: number;
     nudgeVertical: number;
-    perp: THREE.Vector3;
-    up: THREE.Vector3;
   } = {
     active: false, targetId: null, targetName: null,
-    p0: new THREE.Vector3(), p1: new THREE.Vector3(), p2: new THREE.Vector3(), p3: new THREE.Vector3(),
-    center: new THREE.Vector3(),
     elapsed: 0, duration: 0,
-    /** Lateral nudge from manual cursor input (perp axis units, decays toward 0). */
+    center: new THREE.Vector3(),
+    normal: new THREE.Vector3(0, 1, 0),
+    basisX: new THREE.Vector3(1, 0, 0),
+    basisY: new THREE.Vector3(0, 0, 1),
+    radius: 0,
+    startAngle: 0,
+    sweep: Math.PI * 2.5,
+    nudgeRadius: 0,
+    nudgeTilt: 0,
     nudgeLateral: 0,
-    /** Vertical nudge (ship-up axis units, decays toward 0). */
     nudgeVertical: 0,
-    /** Cached perpendicular + up axes (world) so nudges stay consistent during the pass. */
-    perp: new THREE.Vector3(),
-    up: new THREE.Vector3(),
   };
   /**
    * Configurable flyby parameters. Applied at engage time only — changes

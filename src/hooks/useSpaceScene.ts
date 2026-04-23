@@ -242,6 +242,14 @@ export function useSpaceScene(
     const startAudio = () => audio.start();
 
     const onMove = (e: MouseEvent) => {
+      // HUD dead zone: if the cursor is over an element flagged as
+      // `data-hud-safe`, freeze steering so reaching for the pause/mute
+      // button doesn't yaw the ship.
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      if (el && el.closest('[data-hud-safe="true"]')) {
+        scene.setMouse(0, 0);
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;

@@ -1532,9 +1532,10 @@ export class SpaceScene {
   triggerWarp() {
     if (this.warpCharge < 1 || this.isWarping) return;
     this.isWarping = true;
-    // Lightspeed lasts longer now — gives the pilot ~10s in hyperspace
-    // before the next system materialises.
-    this.warpTimer = 10;
+    // Lightspeed is a single jump: ~3s of hyperspace, then materialise in the
+    // very next solar system. Short enough to feel snappy, long enough to read
+    // as a "jump" rather than a teleport.
+    this.warpTimer = 3;
     this.warpCharge = 0;
     (this.warpStars.material as THREE.PointsMaterial).opacity = 1;
     this.warpStars.visible = true;

@@ -651,7 +651,7 @@ export class SpaceScene {
     const accent = config.accentColor ?? config.color;
     const atmo = config.atmoColor ?? config.color;
     const isStar = config.kind === "star";
-    const geo = new THREE.SphereGeometry(config.size, isStar ? 48 : 64, isStar ? 32 : 48);
+    const geo = new THREE.SphereGeometry(config.size, isStar ? 48 : 96, isStar ? 32 : 72);
 
     let mat: THREE.Material;
     let shaderMat: THREE.ShaderMaterial | undefined;
@@ -808,7 +808,7 @@ export class SpaceScene {
     const kind = config.kind ?? "barren";
     const seed = config.seed ?? Math.random() * 100;
     const accent = config.accentColor ?? config.color;
-    const geo = new THREE.SphereGeometry(config.size, 32, 24);
+    const geo = new THREE.SphereGeometry(config.size, 64, 48);
 
     let shaderMat: THREE.ShaderMaterial;
     switch (kind) {
@@ -2094,12 +2094,19 @@ export class SpaceScene {
       }
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
-      // Drive shader uniforms (time + sun direction in world space, pointing FROM planet TO sun)
+      // Drive shader uniforms (time + sun direction in world space, pointing
+      // FROM planet TO sun) plus a proximity factor that ramps up close-up
+      // detail (rim brightness, cloud contrast, micro-octave terrain).
       if (b.shaderMat) {
         sunDirTmp.copy(sunPos).sub(b.mesh.position);
         if (sunDirTmp.lengthSq() < 1e-6) sunDirTmp.set(1, 0.3, 0.5);
         sunDirTmp.normalize();
-        tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp);
+        let prox = 0;
+        if (!b.isStar) {
+          const d = b.mesh.position.distanceTo(this.ship.position);
+          prox = Math.max(0, Math.min(1, 1 - d / Math.max(1, b.size * 8)));
+        }
+        tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp, prox);
       }
       if (b.flare && b.isStar) {
         tmp.copy(b.mesh.position).sub(this.ship.position);

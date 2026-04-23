@@ -319,7 +319,10 @@ export function makeOceanMaterial(opts: {
         // Animated cloud layer (warped fbm) with self-shadow on surface
         vec3 cp = p * 2.2 + vec3(uTime * 0.012, 0.0, uTime * 0.008);
         float cloudRaw = warpedFbm(cp * 0.9);
-        float clouds = smoothstep(0.48, 0.72, cloudRaw);
+        // Sharper, higher-contrast cloud edges fade in with proximity.
+        float cloudLo = mix(0.48, 0.52, uProximity);
+        float cloudHi = mix(0.72, 0.66, uProximity);
+        float clouds = smoothstep(cloudLo, cloudHi, cloudRaw);
         // Shadow sample slightly toward sun
         vec3 shadowP = cp + normalize(uSunDir) * 0.12;
         float cloudShadow = smoothstep(0.48, 0.72, warpedFbm(shadowP * 0.9));
@@ -385,6 +388,11 @@ export function makeGasGiantMaterial(opts: {
         float wisps = smoothstep(0.42, 0.85, fbm6(n * 9.0 + warp1 * 1.4 + uTime * 0.03));
         float clouds = zonalBands * wisps * uCloudiness;
         col = mix(col, mix(uBaseColor, vec3(1.0), 0.85), clouds * 0.55);
+
+        // Close-approach band detail — extra high-frequency turbulence that
+        // only appears when uProximity ramps up. Reveals filaments / curls.
+        float bandDetail = fbm6(n * 18.0 + warp2 * 2.5 + uTime * 0.04);
+        col = mix(col, uAccentColor, bandDetail * 0.18 * uProximity);
 
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }

@@ -334,7 +334,7 @@ export function useSpaceScene(
           // in-progress jump. No hold gesture, no ambiguity.
           if (scene.isWarping) {
             scene.exitWarp();
-            setHud((s) => ({ ...s, isWarping: false }));
+            setHud((s) => ({ ...s, isWarping: false, nextSystemName: null }));
           } else {
             engageWarp();
           }
@@ -627,9 +627,10 @@ export function useSpaceScene(
     if (!scene || scene.warpCharge < 1) return;
     audioRef.current?.start();
     audioRef.current?.warpWhoosh();
+    const destName = generateName((scene.systemSeed + 1) * 1000);
     scene.triggerWarp();
-    setHud((s) => ({ ...s, isWarping: true }));
-    setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 3000);
+    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName }));
+    setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null })), 3000);
   }, []);
 
   const boostBurst = useCallback(() => {

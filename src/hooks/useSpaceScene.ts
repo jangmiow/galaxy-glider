@@ -295,8 +295,8 @@ export function useSpaceScene(
       audio.warpWhoosh();
       scene.triggerWarp();
       setHud((s) => ({ ...s, isWarping: true }));
-      // Lightspeed cinematic lasts 10 seconds — match the scene timer.
-      setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 10000);
+      // Lightspeed cinematic lasts 3 seconds — single jump to the next system.
+      setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 3000);
     };
     const fireBoostBurst = () => {
       if (scene.triggerBoostBurst()) {
@@ -624,7 +624,7 @@ export function useSpaceScene(
     audioRef.current?.warpWhoosh();
     scene.triggerWarp();
     setHud((s) => ({ ...s, isWarping: true }));
-    setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 10000);
+    setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 3000);
   }, []);
 
   const boostBurst = useCallback(() => {

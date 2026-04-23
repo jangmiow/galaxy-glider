@@ -28,6 +28,13 @@ export type PlanetUniforms = {
   uSeed: { value: number };
   uAtmoStrength: { value: number };
   uCloudiness: { value: number };
+  /**
+   * 0 (far) → 1 (right at the surface). Drives cinematic detail boost when
+   * the camera closes in: brighter atmospheric rim, sharper cloud contrast,
+   * extra micro-detail octave on terrain. Updated every frame by
+   * `tickPlanetUniforms`.
+   */
+  uProximity: { value: number };
 };
 
 const COMMON_NOISE_GLSL = /* glsl */ `

@@ -127,6 +127,7 @@ uniform vec3  uAtmoColor;
 uniform float uSeed;
 uniform float uAtmoStrength;
 uniform float uCloudiness;
+uniform float uProximity;
 ${COMMON_NOISE_GLSL}
 
 // Cinematic lighting model:
@@ -153,12 +154,14 @@ vec3 applyLighting(vec3 albedo, vec3 N) {
 
   vec3 dayNight = albedo * (lit + 0.05) + albedo * sunsetTint + albedo * ambient;
 
-  // Atmospheric rim (Fresnel * forward-scatter on lit side)
+  // Atmospheric rim (Fresnel * forward-scatter on lit side). Boosted by
+  // proximity so close approaches feel atmospherically dense.
   float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), 3.0);
   float vdl = max(dot(V, -L), 0.0);
   float forwardScatter = pow(vdl, 8.0); // bright halo when sun is behind planet
   float rimLit = 0.35 + 0.65 * lit;
-  vec3 atmo = uAtmoColor * uAtmoStrength * (fres * rimLit + forwardScatter * 0.6 * fres);
+  float atmoBoost = mix(1.0, 1.6, uProximity);
+  vec3 atmo = uAtmoColor * uAtmoStrength * atmoBoost * (fres * rimLit + forwardScatter * 0.6 * fres);
 
   vec3 col = dayNight + atmo;
   // Mild filmic shaping
@@ -195,6 +198,7 @@ function makeUniforms(
     uSeed: { value: seed },
     uAtmoStrength: { value: atmoStrength },
     uCloudiness: { value: cloudiness },
+    uProximity: { value: 0 },
   };
 }
 
@@ -504,11 +508,21 @@ export function makeBarrenMaterial(opts: {
   });
 }
 
-/** Update time + sun direction on a planet ShaderMaterial (cheap). */
-export function tickPlanetUniforms(mat: THREE.ShaderMaterial, time: number, sunDir: THREE.Vector3) {
+/**
+ * Update time + sun direction + proximity on a planet ShaderMaterial.
+ * `proximity` is 0 (far) to 1 (right at the surface) and drives cinematic
+ * close-up detail (rim brightness, cloud contrast) inside the shader.
+ */
+export function tickPlanetUniforms(
+  mat: THREE.ShaderMaterial,
+  time: number,
+  sunDir: THREE.Vector3,
+  proximity = 0,
+) {
   const u = mat.uniforms as PlanetUniforms;
   u.uTime.value = time;
   u.uSunDir.value.copy(sunDir);
+  if (u.uProximity) u.uProximity.value = proximity;
 }
 
 // ─── Sun (active star surface — granulation, limb darkening, chromosphere) ───

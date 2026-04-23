@@ -1246,9 +1246,8 @@ export class SpaceScene {
 
   /**
    * Engage cinematic flyby autopilot — picks the nearest non-star body and
-   * builds a 3-point Bezier curve that arcs the ship from its current
-   * position, sweeps past the planet at ~3× radius (periapsis), and exits on
-   * the far side. The update loop steps along the curve and slerps the
+   * builds an orbital path that loops the ship around it ~1.25 times at
+   * periapsis altitude. The update loop steps along the orbit and slerps the
    * camera to keep the planet framed throughout. Returns target info or null.
    */
   engageFlyby(targetId?: string): { name: string; dist: number; altitude: number } | null {
@@ -1273,45 +1272,48 @@ export class SpaceScene {
     if (!best) return null;
     const cfg = this.flybyConfig;
     const altitude = best.size * cfg.altitudeMul;
-    // Build curve: ingress from current ship position, periapsis on a perpendicular
-    // offset at `altitude`, egress mirrored on the far side. Control points pulled
-    // outward so the path bends instead of cutting through the body.
-    const toShip = this.ship.position.clone().sub(best.pos).normalize();
-    // Pick a perpendicular axis for the periapsis offset (use ship-right if not parallel).
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.ship.quaternion);
-    let perp = right.clone().sub(toShip.clone().multiplyScalar(right.dot(toShip)));
-    if (perp.lengthSq() < 0.01) perp.set(0, 1, 0);
-    perp.normalize();
-    // Closest-approach offset shifts the periapsis along the orthogonal "up"
-    // axis by `offsetMul × radius`. 0 keeps the original equatorial pass.
-    const offsetAxis = new THREE.Vector3().crossVectors(perp, toShip).normalize();
-    if (offsetAxis.lengthSq() < 0.01) offsetAxis.set(0, 1, 0);
-    const offset = best.size * cfg.offsetMul;
-    const periapsis = best.pos.clone()
-      .add(perp.clone().multiplyScalar(altitude))
-      .add(offsetAxis.clone().multiplyScalar(offset));
-    const exit = best.pos.clone().add(toShip.clone().multiplyScalar(-best.dist)); // mirrored across body
-    const p0 = this.ship.position.clone();
-    const p3 = exit;
-    // Pull controls toward periapsis so the curve bows around the planet.
-    const p1 = p0.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
-    const p2 = p3.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
-    // Compute a stable "up" axis (perpendicular to both toShip and perp) for vertical nudges.
-    const up = new THREE.Vector3().crossVectors(perp, toShip).normalize();
-    if (up.lengthSq() < 0.01) up.set(0, 1, 0);
+
+    // Orbital plane: place ship on a circle of radius `altitude` around the
+    // body. The in-plane basis (basisX, basisY) is built so the current ship
+    // direction → body sits at angle 0; sweep proceeds counter-clockwise.
+    const center = best.pos.clone();
+    const toShip = this.ship.position.clone().sub(center);
+    if (toShip.lengthSq() < 1e-4) toShip.set(1, 0, 0);
+    const basisX = toShip.clone().normalize();
+    // Plane normal: cross with world-up. Fall back to an alternate axis if
+    // toShip is nearly parallel to up so the orbit always has a stable plane.
+    let normal = new THREE.Vector3().crossVectors(basisX, new THREE.Vector3(0, 1, 0));
+    if (normal.lengthSq() < 0.01) {
+      normal = new THREE.Vector3().crossVectors(basisX, new THREE.Vector3(0, 0, 1));
+    }
+    normal.normalize();
+    // Apply offsetMul as an initial plane tilt so the existing tuner control
+    // still has a meaningful effect on the orbit's tilt at engage time.
+    if (Math.abs(cfg.offsetMul) > 0.001) {
+      const tiltAxis = basisX.clone();
+      normal.applyAxisAngle(tiltAxis, cfg.offsetMul * 0.25).normalize();
+    }
+    const basisY = new THREE.Vector3().crossVectors(normal, basisX).normalize();
+
     this.flyby = {
       active: true,
       targetId: best.id,
       targetName: best.name,
-      p0, p1, p2, p3,
-      center: best.pos.clone(),
       elapsed: 0,
       // Duration scales loosely with body size so big planets get a longer pass.
-      duration: (8 + Math.min(6, best.size * 0.15)) * cfg.durationMul,
+      // 1.25 laps at ~12s base feels cinematic without dragging.
+      duration: (12 + Math.min(8, best.size * 0.18)) * cfg.durationMul,
+      center,
+      normal,
+      basisX,
+      basisY,
+      radius: altitude,
+      startAngle: 0,
+      sweep: Math.PI * 2.5, // 1.25 laps
+      nudgeRadius: 0,
+      nudgeTilt: 0,
       nudgeLateral: 0,
       nudgeVertical: 0,
-      perp: perp.clone(),
-      up,
     };
     // Cancel competing autopilots.
     this.approach.active = false;

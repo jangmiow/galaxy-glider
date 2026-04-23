@@ -66,7 +66,10 @@ function Play() {
         aria-hidden
       />
 
-      <div className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud">
+      <div
+        data-hud-safe="true"
+        className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud"
+      >
         <Minimap
           data={minimap}
           objective={hud.objective}

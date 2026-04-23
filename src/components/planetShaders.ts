@@ -231,7 +231,10 @@ export function makeRockyMaterial(opts: {
         float midDetail  = fbm6(p * 3.5);
         float craters    = smoothstep(0.55, 0.62, fbm(p * 8.0 + 13.0));
         float dust       = fbm(p * 22.0) * 0.12;
-        float h = continents * 0.85 + midDetail * 0.18 + dust - craters * 0.22;
+        // Extra micro-detail octave that fades in with proximity — keeps
+        // far-away silhouettes clean but rewards close approaches.
+        float micro      = fbm6(p * 14.0) * 0.18 * uProximity;
+        float h = continents * 0.85 + midDetail * 0.18 + dust + micro - craters * 0.22;
 
         // Three-tone surface: lowland / midland / highland
         vec3 lowland  = uBaseColor * 0.78;
@@ -253,12 +256,14 @@ export function makeRockyMaterial(opts: {
           vec3 cp = p * 1.8 + vec3(uTime * 0.006, 0.0, uTime * 0.004);
           float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
           float cloudMask = fbm6(cp * 1.6);
-          float clouds = smoothstep(0.62, 0.78, cloudMask) * patches;
+          // Boost contrast on close approach so wisps read as crisp shapes.
+          float cloudContrast = mix(1.0, 1.4, uProximity);
+          float clouds = smoothstep(0.62, 0.78, cloudMask) * patches * cloudContrast;
           // Sample a tiny step toward the sun for fake shadow
           vec3 shadowSample = cp + normalize(uSunDir) * 0.08;
           float shadow = smoothstep(0.62, 0.78, fbm(shadowSample * 1.6)) * patches;
           col *= 1.0 - shadow * uCloudiness * 0.35;
-          col = mix(col, vec3(0.95, 0.92, 0.86), clouds * uCloudiness);
+          col = mix(col, vec3(0.95, 0.92, 0.86), clamp(clouds, 0.0, 1.0) * uCloudiness);
         }
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }

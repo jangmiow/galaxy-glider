@@ -8,8 +8,10 @@ import { OBJECTIVES, OBJECTIVE_TARGET, rankFor } from "@/lib/cockpit";
 import {
   addMedal,
   getActivePilot,
+  loadFlightState,
   loadStats,
   loadSystemSeed,
+  saveFlightState,
   saveStats,
   saveSystemSeed,
   type PilotStats,
@@ -218,9 +220,10 @@ export function useSpaceScene(
     });
     sceneRef.current = scene;
 
-    // Restore previously persisted system seed for the active pilot. We read
-    // it directly here (rather than relying on the pilot-hydration effect)
-    // because effect order means sceneRef is still null when that runs.
+    // Restore previously persisted system seed + flight transform for the
+    // active pilot. We read directly here (rather than relying on the
+    // pilot-hydration effect) because effect order means sceneRef is still
+    // null when that runs.
     const pilotForSeed = getActivePilot();
     if (pilotForSeed) {
       const savedSeed = loadSystemSeed(pilotForSeed.id);
@@ -228,8 +231,33 @@ export function useSpaceScene(
         scene.systemSeed = savedSeed;
         scene.buildSystem(savedSeed);
       }
+      // Apply saved ship transform if it matches the system we just built —
+      // otherwise the snapshot is stale (warped to a new system since save).
+      const flight = loadFlightState(pilotForSeed.id);
+      if (flight && flight.systemSeed === scene.systemSeed) {
+        scene.ship.position.set(flight.pos[0], flight.pos[1], flight.pos[2]);
+        scene.ship.quaternion.set(flight.quat[0], flight.quat[1], flight.quat[2], flight.quat[3]);
+        scene.velocity = flight.velocity;
+        toast("RESUMED", { description: "Last position restored", duration: 1800 });
+      }
     }
     let lastPersistedSeed = scene.systemSeed;
+    // Autosave bookkeeping — flush every 3s OR when the ship has drifted >5u.
+    let saveAcc = 0;
+    let lastSavedPos = scene.ship.position.clone();
+    const flushFlightState = () => {
+      const id = pilotIdRef.current;
+      if (!id) return;
+      const snap = scene.getSnapshot();
+      saveFlightState(id, {
+        systemSeed: scene.systemSeed,
+        pos: snap.pos,
+        quat: snap.quat,
+        velocity: snap.velocity,
+        savedAt: Date.now(),
+      });
+      lastSavedPos.copy(scene.ship.position);
+    };
 
     const resize = () => {
       scene.resize(canvas.clientWidth, canvas.clientHeight);

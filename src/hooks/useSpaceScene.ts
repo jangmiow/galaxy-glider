@@ -5,6 +5,7 @@ import type { MinimapData } from "@/components/Minimap";
 import { SpaceScene } from "@/components/SpaceScene";
 import { CockpitAudio } from "@/lib/audio";
 import { OBJECTIVES, OBJECTIVE_TARGET, rankFor } from "@/lib/cockpit";
+import { generateName } from "@/lib/journal";
 import {
   addMedal,
   getActivePilot,
@@ -294,10 +295,13 @@ export function useSpaceScene(
     const engageWarp = () => {
       if (scene.warpCharge < 1 || scene.isWarping) return;
       audio.warpWhoosh();
+      // Compute the destination system name from the seed the scene WILL use
+      // when warp completes (current systemSeed + 1 — see SpaceScene.update).
+      const destName = generateName((scene.systemSeed + 1) * 1000);
       scene.triggerWarp();
-      setHud((s) => ({ ...s, isWarping: true }));
+      setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName }));
       // Lightspeed cinematic lasts 3 seconds — single jump to the next system.
-      setTimeout(() => setHud((s) => ({ ...s, isWarping: false })), 3000);
+      setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null })), 3000);
     };
     const fireBoostBurst = () => {
       if (scene.triggerBoostBurst()) {

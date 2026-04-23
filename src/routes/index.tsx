@@ -139,6 +139,18 @@ function PilotHub({ onLock }: { onLock: () => void }) {
   const refresh = () => setPilots(loadPilots());
   useEffect(() => { refresh(); }, []);
 
+  // Auto-dive: if exactly one pilot exists and the creation form is closed,
+  // skip the picker entirely and launch them straight into /play. Keeps the
+  // single-user case (e.g. just LOTUS) friction-free while still showing the
+  // hub the moment a second pilot is added.
+  useEffect(() => {
+    if (showNew) return;
+    if (pilots.length !== 1) return;
+    const only = pilots[0];
+    setActivePilotId(only.id);
+    navigate({ to: "/play" });
+  }, [pilots, showNew, navigate]);
+
   // Sort by score desc for the leaderboard ordering.
   const ranked = useMemo(() => {
     return pilots

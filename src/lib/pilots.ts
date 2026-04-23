@@ -169,3 +169,53 @@ export function saveSystemSeed(pilotId: string, seed: number): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(pilotKey(pilotId, "system-seed"), String(seed));
 }
+
+// ── Per-pilot flight state (auto-save / resume) ─────────────────────────────
+
+/**
+ * Snapshot of where the pilot's ship was when they last left /play. Restored
+ * on the next mount so the cockpit picks up exactly where it left off:
+ * same system, same position, same heading, same forward velocity.
+ *
+ * Stored under `cosmic-drift:p:{id}:flight`. Updated by the scene loop at
+ * ~3s cadence (or on big position deltas), on pause, and on tab unload.
+ */
+export type PilotFlightState = {
+  systemSeed: number;
+  pos: [number, number, number];
+  quat: [number, number, number, number];
+  velocity: number;
+  savedAt: number;
+};
+
+export function loadFlightState(pilotId: string): PilotFlightState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(pilotKey(pilotId, "flight"));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PilotFlightState>;
+    if (
+      typeof parsed.systemSeed !== "number" ||
+      !Array.isArray(parsed.pos) || parsed.pos.length !== 3 ||
+      !Array.isArray(parsed.quat) || parsed.quat.length !== 4
+    ) return null;
+    return {
+      systemSeed: parsed.systemSeed,
+      pos: parsed.pos as [number, number, number],
+      quat: parsed.quat as [number, number, number, number],
+      velocity: parsed.velocity ?? 0,
+      savedAt: parsed.savedAt ?? Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveFlightState(pilotId: string, state: PilotFlightState): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(pilotKey(pilotId, "flight"), JSON.stringify(state));
+  } catch {
+    // Quota / serialisation errors are non-fatal — autosave silently skips.
+  }
+}

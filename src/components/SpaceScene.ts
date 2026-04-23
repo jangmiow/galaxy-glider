@@ -267,33 +267,52 @@ export class SpaceScene {
     active: false, targetId: null, targetName: null, distance: 0,
     path: null, pathLength: 0, pathU: 0, smoothedThrust: 0, engagedAt: 0,
   };
-  /** Cinematic flyby autopilot — fly a curved pass at ~3× target radius. */
+  /**
+   * Cinematic flyby autopilot — orbits the target body for ~1.25 laps so the
+   * pilot can study it from every angle (terminator pass, back-lit crescent,
+   * ring shadow). The orbit lives on a plane defined by `center` + `normal`,
+   * radius is periapsis altitude, and the ship sweeps `sweep` radians.
+   */
   flyby: {
     active: boolean;
     targetId: string | null;
     targetName: string | null;
-    /** Bezier control points in world space, recomputed at engage. */
-    p0: THREE.Vector3; p1: THREE.Vector3; p2: THREE.Vector3; p3: THREE.Vector3;
-    /** Center of pass + ship-up for stable framing. */
-    center: THREE.Vector3;
     elapsed: number;
     duration: number;
+    /** World-space orbit center (target body position at engage). */
+    center: THREE.Vector3;
+    /** Plane normal — defines orbit orientation. */
+    normal: THREE.Vector3;
+    /** First in-plane basis vector (cos axis). */
+    basisX: THREE.Vector3;
+    /** Second in-plane basis vector (sin axis). */
+    basisY: THREE.Vector3;
+    /** Periapsis altitude (distance from center). */
+    radius: number;
+    startAngle: number;
+    /** Total radians to sweep — 2.5π ≈ 1.25 laps for the cinematic full orbit. */
+    sweep: number;
+    /** Manual nudge — widens / tightens the radius via cursor + WASD. */
+    nudgeRadius: number;
+    /** Manual nudge — tilts the orbital plane via cursor + WASD. */
+    nudgeTilt: number;
+    /** Compatibility aliases mapped onto the new model so the HUD bars keep working. */
     nudgeLateral: number;
     nudgeVertical: number;
-    perp: THREE.Vector3;
-    up: THREE.Vector3;
   } = {
     active: false, targetId: null, targetName: null,
-    p0: new THREE.Vector3(), p1: new THREE.Vector3(), p2: new THREE.Vector3(), p3: new THREE.Vector3(),
-    center: new THREE.Vector3(),
     elapsed: 0, duration: 0,
-    /** Lateral nudge from manual cursor input (perp axis units, decays toward 0). */
+    center: new THREE.Vector3(),
+    normal: new THREE.Vector3(0, 1, 0),
+    basisX: new THREE.Vector3(1, 0, 0),
+    basisY: new THREE.Vector3(0, 0, 1),
+    radius: 0,
+    startAngle: 0,
+    sweep: Math.PI * 2.5,
+    nudgeRadius: 0,
+    nudgeTilt: 0,
     nudgeLateral: 0,
-    /** Vertical nudge (ship-up axis units, decays toward 0). */
     nudgeVertical: 0,
-    /** Cached perpendicular + up axes (world) so nudges stay consistent during the pass. */
-    perp: new THREE.Vector3(),
-    up: new THREE.Vector3(),
   };
   /**
    * Configurable flyby parameters. Applied at engage time only — changes
@@ -632,7 +651,7 @@ export class SpaceScene {
     const accent = config.accentColor ?? config.color;
     const atmo = config.atmoColor ?? config.color;
     const isStar = config.kind === "star";
-    const geo = new THREE.SphereGeometry(config.size, isStar ? 48 : 64, isStar ? 32 : 48);
+    const geo = new THREE.SphereGeometry(config.size, isStar ? 48 : 96, isStar ? 32 : 72);
 
     let mat: THREE.Material;
     let shaderMat: THREE.ShaderMaterial | undefined;
@@ -789,7 +808,7 @@ export class SpaceScene {
     const kind = config.kind ?? "barren";
     const seed = config.seed ?? Math.random() * 100;
     const accent = config.accentColor ?? config.color;
-    const geo = new THREE.SphereGeometry(config.size, 32, 24);
+    const geo = new THREE.SphereGeometry(config.size, 64, 48);
 
     let shaderMat: THREE.ShaderMaterial;
     switch (kind) {
@@ -1227,9 +1246,8 @@ export class SpaceScene {
 
   /**
    * Engage cinematic flyby autopilot — picks the nearest non-star body and
-   * builds a 3-point Bezier curve that arcs the ship from its current
-   * position, sweeps past the planet at ~3× radius (periapsis), and exits on
-   * the far side. The update loop steps along the curve and slerps the
+   * builds an orbital path that loops the ship around it ~1.25 times at
+   * periapsis altitude. The update loop steps along the orbit and slerps the
    * camera to keep the planet framed throughout. Returns target info or null.
    */
   engageFlyby(targetId?: string): { name: string; dist: number; altitude: number } | null {
@@ -1254,45 +1272,48 @@ export class SpaceScene {
     if (!best) return null;
     const cfg = this.flybyConfig;
     const altitude = best.size * cfg.altitudeMul;
-    // Build curve: ingress from current ship position, periapsis on a perpendicular
-    // offset at `altitude`, egress mirrored on the far side. Control points pulled
-    // outward so the path bends instead of cutting through the body.
-    const toShip = this.ship.position.clone().sub(best.pos).normalize();
-    // Pick a perpendicular axis for the periapsis offset (use ship-right if not parallel).
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.ship.quaternion);
-    let perp = right.clone().sub(toShip.clone().multiplyScalar(right.dot(toShip)));
-    if (perp.lengthSq() < 0.01) perp.set(0, 1, 0);
-    perp.normalize();
-    // Closest-approach offset shifts the periapsis along the orthogonal "up"
-    // axis by `offsetMul × radius`. 0 keeps the original equatorial pass.
-    const offsetAxis = new THREE.Vector3().crossVectors(perp, toShip).normalize();
-    if (offsetAxis.lengthSq() < 0.01) offsetAxis.set(0, 1, 0);
-    const offset = best.size * cfg.offsetMul;
-    const periapsis = best.pos.clone()
-      .add(perp.clone().multiplyScalar(altitude))
-      .add(offsetAxis.clone().multiplyScalar(offset));
-    const exit = best.pos.clone().add(toShip.clone().multiplyScalar(-best.dist)); // mirrored across body
-    const p0 = this.ship.position.clone();
-    const p3 = exit;
-    // Pull controls toward periapsis so the curve bows around the planet.
-    const p1 = p0.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
-    const p2 = p3.clone().lerp(periapsis, 0.55).add(perp.clone().multiplyScalar(altitude * 0.4));
-    // Compute a stable "up" axis (perpendicular to both toShip and perp) for vertical nudges.
-    const up = new THREE.Vector3().crossVectors(perp, toShip).normalize();
-    if (up.lengthSq() < 0.01) up.set(0, 1, 0);
+
+    // Orbital plane: place ship on a circle of radius `altitude` around the
+    // body. The in-plane basis (basisX, basisY) is built so the current ship
+    // direction → body sits at angle 0; sweep proceeds counter-clockwise.
+    const center = best.pos.clone();
+    const toShip = this.ship.position.clone().sub(center);
+    if (toShip.lengthSq() < 1e-4) toShip.set(1, 0, 0);
+    const basisX = toShip.clone().normalize();
+    // Plane normal: cross with world-up. Fall back to an alternate axis if
+    // toShip is nearly parallel to up so the orbit always has a stable plane.
+    let normal = new THREE.Vector3().crossVectors(basisX, new THREE.Vector3(0, 1, 0));
+    if (normal.lengthSq() < 0.01) {
+      normal = new THREE.Vector3().crossVectors(basisX, new THREE.Vector3(0, 0, 1));
+    }
+    normal.normalize();
+    // Apply offsetMul as an initial plane tilt so the existing tuner control
+    // still has a meaningful effect on the orbit's tilt at engage time.
+    if (Math.abs(cfg.offsetMul) > 0.001) {
+      const tiltAxis = basisX.clone();
+      normal.applyAxisAngle(tiltAxis, cfg.offsetMul * 0.25).normalize();
+    }
+    const basisY = new THREE.Vector3().crossVectors(normal, basisX).normalize();
+
     this.flyby = {
       active: true,
       targetId: best.id,
       targetName: best.name,
-      p0, p1, p2, p3,
-      center: best.pos.clone(),
       elapsed: 0,
       // Duration scales loosely with body size so big planets get a longer pass.
-      duration: (8 + Math.min(6, best.size * 0.15)) * cfg.durationMul,
+      // 1.25 laps at ~12s base feels cinematic without dragging.
+      duration: (12 + Math.min(8, best.size * 0.18)) * cfg.durationMul,
+      center,
+      normal,
+      basisX,
+      basisY,
+      radius: altitude,
+      startAngle: 0,
+      sweep: Math.PI * 2.5, // 1.25 laps
+      nudgeRadius: 0,
+      nudgeTilt: 0,
       nudgeLateral: 0,
       nudgeVertical: 0,
-      perp: perp.clone(),
-      up,
     };
     // Cancel competing autopilots.
     this.approach.active = false;
@@ -1485,6 +1506,21 @@ export class SpaceScene {
     return { dots, range, offRangeTarget, nextUnscanned };
   }
 
+  /**
+   * Lightweight serialisable snapshot of the ship's transform and forward
+   * velocity — used by `useSpaceScene` to autosave and restore the pilot's
+   * exact position/heading between sessions.
+   */
+  getSnapshot(): { pos: [number, number, number]; quat: [number, number, number, number]; velocity: number } {
+    const p = this.ship.position;
+    const q = this.ship.quaternion;
+    return {
+      pos: [p.x, p.y, p.z],
+      quat: [q.x, q.y, q.z, q.w],
+      velocity: this.velocity,
+    };
+  }
+
   resize(w: number, h: number) {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
@@ -1541,76 +1577,78 @@ export class SpaceScene {
       return;
     }
 
-    // Cinematic flyby — engaged via H. Steps along a precomputed Bezier curve,
-    // overrides ship position directly (so it ignores velocity/thrust), and
-    // slerps the camera to keep the target framed. Mouse input nudges the
-    // curve laterally/vertically without canceling; keyboard thrust/roll cancels.
+    // Cinematic flyby — orbital lap around the target. Position is
+    // parameterized by an angle on the orbit plane; the ship sweeps ~1.25
+    // laps so the pilot can study the day/night terminator, ring shadows,
+    // and back-lit crescents. Cursor + WASD nudge the radius/tilt without
+    // canceling — only the override threshold (W/S/A/D held long enough)
+    // aborts the flyby.
     if (this.flyby.active) {
       const target = this.bodies.find((b) => b.id === this.flyby.targetId);
       if (!target) {
         this.disengageFlyby();
       } else if (this.evaluateOverride("flyby", dt)) {
-        // Configurable manual override crossed threshold (held long enough or
-        // accumulated enough tap-input) — abort the flyby.
         this.disengageFlyby();
       } else {
-        // Blend cursor + key input into nudge offsets. Scale by target radius
-        // so bigger planets allow proportionally bigger sweeps. Clamp the
-        // total offset so the player can't slingshot the curve through the body.
-        // Keys (A/D + ←/→ for lateral, W/S + ↑/↓ for vertical) feed the same
-        // nudge channels as the mouse, so they steer the curve without ever
-        // canceling autopilot. Q/E and explicit abort hotkeys (H toggle, X,
-        // B) are still the only way to end a flyby.
-        const maxNudge = target.size * 1.8;
-        const nudgeRate = target.size * 2.2; // units/sec at full deflection
-        const decay = Math.exp(-dt * 0.6);   // gently relaxes back to baseline
+        // Re-anchor the orbit center to the (possibly moving) target so
+        // moons / orbiting planets stay framed.
+        this.flyby.center.copy(target.mesh.position);
+
+        // Manual nudge channels: A/D + cursor X tweak orbital radius
+        // (tighter / wider). W/S + cursor Y tilt the orbital plane.
+        const maxRadiusNudge = target.size * 1.6;
+        const maxTiltNudge = 0.6; // radians
+        const radRate = target.size * 1.4;
+        const tiltRate = 0.7;
+        const decay = Math.exp(-dt * 0.5);
         const keyLat =
           (this.keys.has("KeyD") || this.keys.has("ArrowRight") ? 1 : 0) +
           (this.keys.has("KeyA") || this.keys.has("ArrowLeft") ? -1 : 0);
         const keyVert =
           (this.keys.has("KeyW") || this.keys.has("ArrowUp") ? 1 : 0) +
           (this.keys.has("KeyS") || this.keys.has("ArrowDown") ? -1 : 0);
-        this.flyby.nudgeLateral = THREE.MathUtils.clamp(
-          this.flyby.nudgeLateral * decay + (this.mouseX + keyLat) * nudgeRate * dt,
-          -maxNudge, maxNudge,
+        this.flyby.nudgeRadius = THREE.MathUtils.clamp(
+          this.flyby.nudgeRadius * decay + (this.mouseX + keyLat) * radRate * dt,
+          -maxRadiusNudge, maxRadiusNudge,
         );
-        this.flyby.nudgeVertical = THREE.MathUtils.clamp(
-          this.flyby.nudgeVertical * decay + (-this.mouseY + keyVert) * nudgeRate * dt,
-          -maxNudge, maxNudge,
+        this.flyby.nudgeTilt = THREE.MathUtils.clamp(
+          this.flyby.nudgeTilt * decay + (-this.mouseY + keyVert) * tiltRate * dt,
+          -maxTiltNudge, maxTiltNudge,
         );
+        // Mirror onto compatibility aliases so the HUD nudge bars keep working.
+        this.flyby.nudgeLateral = (this.flyby.nudgeRadius / Math.max(1, maxRadiusNudge)) * 60;
+        this.flyby.nudgeVertical = (this.flyby.nudgeTilt / Math.max(0.001, maxTiltNudge)) * 60;
+
         this.flyby.elapsed += dt;
         const u = Math.min(1, this.flyby.elapsed / this.flyby.duration);
-        // Cubic Bezier B(u) = (1-u)^3 p0 + 3(1-u)^2 u p1 + 3(1-u) u^2 p2 + u^3 p3
-        const iu = 1 - u;
-        const pos = new THREE.Vector3()
-          .addScaledVector(this.flyby.p0, iu * iu * iu)
-          .addScaledVector(this.flyby.p1, 3 * iu * iu * u)
-          .addScaledVector(this.flyby.p2, 3 * iu * u * u)
-          .addScaledVector(this.flyby.p3, u * u * u);
-        // Bell-shaped envelope (peak at periapsis u=0.5) so nudges fade in/out
-        // smoothly instead of yanking endpoints around.
+        // Smooth ease so start + end of the orbit don't lurch.
+        const eased = u * u * (3 - 2 * u);
+        const angle = this.flyby.startAngle + this.flyby.sweep * eased;
+        // Bell envelope so radius/tilt nudges fade in over the lap.
         const env = Math.sin(Math.PI * u);
-        pos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * env);
-        pos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * env);
-        // Collision avoidance: push the curve away from any non-target body
-        // sitting near the next short segment. Sampled one step ahead so the
-        // ship reacts before the threat is on top of it.
-        const nextU = Math.min(1, u + 0.08);
-        const niu = 1 - nextU;
-        const nextPos = new THREE.Vector3()
-          .addScaledVector(this.flyby.p0, niu * niu * niu)
-          .addScaledVector(this.flyby.p1, 3 * niu * niu * nextU)
-          .addScaledVector(this.flyby.p2, 3 * niu * nextU * nextU)
-          .addScaledVector(this.flyby.p3, nextU * nextU * nextU);
-        const nenv = Math.sin(Math.PI * nextU);
-        nextPos.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * nenv);
-        nextPos.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * nenv);
+        const radius = this.flyby.radius + this.flyby.nudgeRadius * env;
+        // Apply tilt by rotating the in-plane basis around basisX (tilts the orbit plane).
+        const tiltAngle = this.flyby.nudgeTilt * env;
+        const tilted = this.flyby.basisY.clone().applyAxisAngle(this.flyby.basisX, tiltAngle);
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const pos = this.flyby.center.clone()
+          .addScaledVector(this.flyby.basisX, cosA * radius)
+          .addScaledVector(tilted, sinA * radius);
+
+        // Collision avoidance: sample one short step ahead and push the
+        // position away from any non-target body brushing the segment.
+        const dAng = (this.flyby.sweep * 0.02);
+        const nextAngle = angle + dAng;
+        const nextPos = this.flyby.center.clone()
+          .addScaledVector(this.flyby.basisX, Math.cos(nextAngle) * radius)
+          .addScaledVector(tilted, Math.sin(nextAngle) * radius);
         const flybyAvoid = this.computeAvoidanceOffset(pos, nextPos, this.flyby.targetId);
         if (flybyAvoid) pos.add(flybyAvoid.multiplyScalar(0.5));
         this.ship.position.copy(pos);
-        // Update the dashed ghost preview line to show the REMAINING flyby
-        // path, including current nudge offsets. Resampled every frame so the
-        // trail visibly bends as the cursor sweeps or keys are tapped.
+
+        // Update the dashed ghost preview line: sample the REMAINING orbit
+        // (current u → 1) with the same nudges applied so it bends live.
         {
           const line = this.flybyPreviewLine;
           line.visible = true;
@@ -1618,22 +1656,20 @@ export class SpaceScene {
           const segs = attr.count - 1;
           const tmp = new THREE.Vector3();
           for (let i = 0; i <= segs; i++) {
-            // Sample from current u → 1 so the preview is always "what's ahead".
             const tu = u + (1 - u) * (i / segs);
-            const tiu = 1 - tu;
-            tmp.set(0, 0, 0)
-              .addScaledVector(this.flyby.p0, tiu * tiu * tiu)
-              .addScaledVector(this.flyby.p1, 3 * tiu * tiu * tu)
-              .addScaledVector(this.flyby.p2, 3 * tiu * tu * tu)
-              .addScaledVector(this.flyby.p3, tu * tu * tu);
-            const tenv = Math.sin(Math.PI * tu);
-            tmp.addScaledVector(this.flyby.perp, this.flyby.nudgeLateral * tenv);
-            tmp.addScaledVector(this.flyby.up, this.flyby.nudgeVertical * tenv);
+            const teased = tu * tu * (3 - 2 * tu);
+            const tAngle = this.flyby.startAngle + this.flyby.sweep * teased;
+            const tEnv = Math.sin(Math.PI * tu);
+            const tRadius = this.flyby.radius + this.flyby.nudgeRadius * tEnv;
+            const tTiltAngle = this.flyby.nudgeTilt * tEnv;
+            const tTilted = this.flyby.basisY.clone().applyAxisAngle(this.flyby.basisX, tTiltAngle);
+            tmp.copy(this.flyby.center)
+              .addScaledVector(this.flyby.basisX, Math.cos(tAngle) * tRadius)
+              .addScaledVector(tTilted, Math.sin(tAngle) * tRadius);
             attr.setXYZ(i, tmp.x, tmp.y, tmp.z);
           }
           attr.needsUpdate = true;
           line.geometry.computeBoundingSphere();
-          // Required for LineDashedMaterial to render dashes correctly.
           line.computeLineDistances();
         }
         // Frame the planet — slerp ship orientation toward look-at(target).
@@ -2073,12 +2109,19 @@ export class SpaceScene {
       }
       const spin = (b.mesh as THREE.Mesh & { _spin?: number })._spin;
       if (spin) b.mesh.rotation.y += spin * dt;
-      // Drive shader uniforms (time + sun direction in world space, pointing FROM planet TO sun)
+      // Drive shader uniforms (time + sun direction in world space, pointing
+      // FROM planet TO sun) plus a proximity factor that ramps up close-up
+      // detail (rim brightness, cloud contrast, micro-octave terrain).
       if (b.shaderMat) {
         sunDirTmp.copy(sunPos).sub(b.mesh.position);
         if (sunDirTmp.lengthSq() < 1e-6) sunDirTmp.set(1, 0.3, 0.5);
         sunDirTmp.normalize();
-        tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp);
+        let prox = 0;
+        if (!b.isStar) {
+          const d = b.mesh.position.distanceTo(this.ship.position);
+          prox = Math.max(0, Math.min(1, 1 - d / Math.max(1, b.size * 8)));
+        }
+        tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp, prox);
       }
       if (b.flare && b.isStar) {
         tmp.copy(b.mesh.position).sub(this.ship.position);

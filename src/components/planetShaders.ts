@@ -28,6 +28,13 @@ export type PlanetUniforms = {
   uSeed: { value: number };
   uAtmoStrength: { value: number };
   uCloudiness: { value: number };
+  /**
+   * 0 (far) → 1 (right at the surface). Drives cinematic detail boost when
+   * the camera closes in: brighter atmospheric rim, sharper cloud contrast,
+   * extra micro-detail octave on terrain. Updated every frame by
+   * `tickPlanetUniforms`.
+   */
+  uProximity: { value: number };
 };
 
 const COMMON_NOISE_GLSL = /* glsl */ `
@@ -120,6 +127,7 @@ uniform vec3  uAtmoColor;
 uniform float uSeed;
 uniform float uAtmoStrength;
 uniform float uCloudiness;
+uniform float uProximity;
 ${COMMON_NOISE_GLSL}
 
 // Cinematic lighting model:
@@ -146,12 +154,14 @@ vec3 applyLighting(vec3 albedo, vec3 N) {
 
   vec3 dayNight = albedo * (lit + 0.05) + albedo * sunsetTint + albedo * ambient;
 
-  // Atmospheric rim (Fresnel * forward-scatter on lit side)
+  // Atmospheric rim (Fresnel * forward-scatter on lit side). Boosted by
+  // proximity so close approaches feel atmospherically dense.
   float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), 3.0);
   float vdl = max(dot(V, -L), 0.0);
   float forwardScatter = pow(vdl, 8.0); // bright halo when sun is behind planet
   float rimLit = 0.35 + 0.65 * lit;
-  vec3 atmo = uAtmoColor * uAtmoStrength * (fres * rimLit + forwardScatter * 0.6 * fres);
+  float atmoBoost = mix(1.0, 1.6, uProximity);
+  vec3 atmo = uAtmoColor * uAtmoStrength * atmoBoost * (fres * rimLit + forwardScatter * 0.6 * fres);
 
   vec3 col = dayNight + atmo;
   // Mild filmic shaping
@@ -188,6 +198,7 @@ function makeUniforms(
     uSeed: { value: seed },
     uAtmoStrength: { value: atmoStrength },
     uCloudiness: { value: cloudiness },
+    uProximity: { value: 0 },
   };
 }
 
@@ -220,7 +231,10 @@ export function makeRockyMaterial(opts: {
         float midDetail  = fbm6(p * 3.5);
         float craters    = smoothstep(0.55, 0.62, fbm(p * 8.0 + 13.0));
         float dust       = fbm(p * 22.0) * 0.12;
-        float h = continents * 0.85 + midDetail * 0.18 + dust - craters * 0.22;
+        // Extra micro-detail octave that fades in with proximity — keeps
+        // far-away silhouettes clean but rewards close approaches.
+        float micro      = fbm6(p * 14.0) * 0.18 * uProximity;
+        float h = continents * 0.85 + midDetail * 0.18 + dust + micro - craters * 0.22;
 
         // Three-tone surface: lowland / midland / highland
         vec3 lowland  = uBaseColor * 0.78;
@@ -242,12 +256,14 @@ export function makeRockyMaterial(opts: {
           vec3 cp = p * 1.8 + vec3(uTime * 0.006, 0.0, uTime * 0.004);
           float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
           float cloudMask = fbm6(cp * 1.6);
-          float clouds = smoothstep(0.62, 0.78, cloudMask) * patches;
+          // Boost contrast on close approach so wisps read as crisp shapes.
+          float cloudContrast = mix(1.0, 1.4, uProximity);
+          float clouds = smoothstep(0.62, 0.78, cloudMask) * patches * cloudContrast;
           // Sample a tiny step toward the sun for fake shadow
           vec3 shadowSample = cp + normalize(uSunDir) * 0.08;
           float shadow = smoothstep(0.62, 0.78, fbm(shadowSample * 1.6)) * patches;
           col *= 1.0 - shadow * uCloudiness * 0.35;
-          col = mix(col, vec3(0.95, 0.92, 0.86), clouds * uCloudiness);
+          col = mix(col, vec3(0.95, 0.92, 0.86), clamp(clouds, 0.0, 1.0) * uCloudiness);
         }
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
@@ -303,7 +319,10 @@ export function makeOceanMaterial(opts: {
         // Animated cloud layer (warped fbm) with self-shadow on surface
         vec3 cp = p * 2.2 + vec3(uTime * 0.012, 0.0, uTime * 0.008);
         float cloudRaw = warpedFbm(cp * 0.9);
-        float clouds = smoothstep(0.48, 0.72, cloudRaw);
+        // Sharper, higher-contrast cloud edges fade in with proximity.
+        float cloudLo = mix(0.48, 0.52, uProximity);
+        float cloudHi = mix(0.72, 0.66, uProximity);
+        float clouds = smoothstep(cloudLo, cloudHi, cloudRaw);
         // Shadow sample slightly toward sun
         vec3 shadowP = cp + normalize(uSunDir) * 0.12;
         float cloudShadow = smoothstep(0.48, 0.72, warpedFbm(shadowP * 0.9));
@@ -369,6 +388,11 @@ export function makeGasGiantMaterial(opts: {
         float wisps = smoothstep(0.42, 0.85, fbm6(n * 9.0 + warp1 * 1.4 + uTime * 0.03));
         float clouds = zonalBands * wisps * uCloudiness;
         col = mix(col, mix(uBaseColor, vec3(1.0), 0.85), clouds * 0.55);
+
+        // Close-approach band detail — extra high-frequency turbulence that
+        // only appears when uProximity ramps up. Reveals filaments / curls.
+        float bandDetail = fbm6(n * 18.0 + warp2 * 2.5 + uTime * 0.04);
+        col = mix(col, uAccentColor, bandDetail * 0.18 * uProximity);
 
         gl_FragColor = vec4(applyLighting(col, vNormalW), 1.0);
       }
@@ -497,11 +521,21 @@ export function makeBarrenMaterial(opts: {
   });
 }
 
-/** Update time + sun direction on a planet ShaderMaterial (cheap). */
-export function tickPlanetUniforms(mat: THREE.ShaderMaterial, time: number, sunDir: THREE.Vector3) {
+/**
+ * Update time + sun direction + proximity on a planet ShaderMaterial.
+ * `proximity` is 0 (far) to 1 (right at the surface) and drives cinematic
+ * close-up detail (rim brightness, cloud contrast) inside the shader.
+ */
+export function tickPlanetUniforms(
+  mat: THREE.ShaderMaterial,
+  time: number,
+  sunDir: THREE.Vector3,
+  proximity = 0,
+) {
   const u = mat.uniforms as PlanetUniforms;
   u.uTime.value = time;
   u.uSunDir.value.copy(sunDir);
+  if (u.uProximity) u.uProximity.value = proximity;
 }
 
 // ─── Sun (active star surface — granulation, limb darkening, chromosphere) ───

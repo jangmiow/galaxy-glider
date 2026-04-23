@@ -5,6 +5,7 @@ import { KeyBindingsHUD } from "@/components/KeyBindingsHUD";
 import { Minimap } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
 import { MuteButton } from "@/components/MuteButton";
+import { PauseButton } from "@/components/PauseButton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMinimapRange } from "@/hooks/useMinimapRange";
 import { useSpaceScene } from "@/hooks/useSpaceScene";
@@ -65,7 +66,10 @@ function Play() {
         aria-hidden
       />
 
-      <div className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud">
+      <div
+        data-hud-safe="true"
+        className="pointer-events-auto absolute bottom-32 right-6 z-10 font-display text-hud"
+      >
         <Minimap
           data={minimap}
           objective={hud.objective}
@@ -75,6 +79,7 @@ function Play() {
       </div>
 
       <MuteButton muted={controller.muted} onToggle={() => controller.setMuted(!controller.muted)} />
+      <PauseButton paused={hud.paused} onToggle={controller.togglePause} />
 
       <CockpitHUD
         state={hud}

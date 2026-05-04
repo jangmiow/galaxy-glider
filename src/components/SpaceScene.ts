@@ -2126,7 +2126,11 @@ export class SpaceScene {
         let prox = 0;
         if (!b.isStar) {
           const d = b.mesh.position.distanceTo(this.ship.position);
-          prox = Math.max(0, Math.min(1, 1 - d / Math.max(1, b.size * 8)));
+          // Ramp begins at ~14× radius and reaches full at ~1.5× radius.
+          // Smoothstep gives an ease-in/out so detail blends in cinematically.
+          const tNorm = 1 - (d - b.size * 1.5) / Math.max(1, b.size * 12.5);
+          const t = Math.max(0, Math.min(1, tNorm));
+          prox = t * t * (3 - 2 * t);
         }
         tickPlanetUniforms(b.shaderMat, nowSec, sunDirTmp, prox);
       }

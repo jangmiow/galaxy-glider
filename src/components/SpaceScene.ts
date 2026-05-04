@@ -1531,9 +1531,10 @@ export class SpaceScene {
     this.camera.updateProjectionMatrix();
   }
 
-  triggerWarp() {
+  triggerWarp(targetSeed?: number) {
     if (this.warpCharge < 1 || this.isWarping) return;
     this.isWarping = true;
+    this.warpTargetSeed = typeof targetSeed === "number" ? targetSeed : null;
     // Lightspeed is a single jump: ~3s of hyperspace, then materialise in the
     // very next solar system. Short enough to feel snappy, long enough to read
     // as a "jump" rather than a teleport.

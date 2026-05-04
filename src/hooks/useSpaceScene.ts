@@ -18,6 +18,19 @@ import {
   type PilotStats,
 } from "@/lib/pilots";
 
+/** Deterministic sector coordinate string from a system seed. Stable per-seed
+ *  so the same destination always shows the same coordinates. */
+function sectorFor(seed: number): string {
+  const n = Math.abs(Math.floor(seed));
+  const x = (n % 64).toString().padStart(2, "0");
+  const yLetter = String.fromCharCode(65 + (Math.floor(n / 64) % 26));
+  const y = (Math.floor(n / 7) % 10).toString();
+  const z = (Math.floor(n / 13) % 64).toString().padStart(2, "0");
+  const wLetter = String.fromCharCode(65 + (Math.floor(n / 211) % 26));
+  const w = (Math.floor(n / 29) % 10).toString();
+  return `SECTOR ${x}-${yLetter}${y} / ${z}-${wLetter}${w}`;
+}
+
 type SteerInput = (x: number, y: number) => void;
 type ThrustInput = (t: number) => void;
 
@@ -73,6 +86,7 @@ export function useSpaceScene(
     warpCooldown: 0,
     isWarping: false,
     nextSystemName: null,
+    nextSystemSector: null,
     heading: { pitch: 0, yaw: 0 },
     score: 0,
     rank: "CADET",
@@ -297,11 +311,13 @@ export function useSpaceScene(
       audio.warpWhoosh();
       // Compute the destination system name from the seed the scene WILL use
       // when warp completes (current systemSeed + 1 — see SpaceScene.update).
-      const destName = generateName((scene.systemSeed + 1) * 1000);
+      const destSeed = scene.systemSeed + 1;
+      const destName = generateName(destSeed * 1000);
+      const destSector = sectorFor(destSeed);
       scene.triggerWarp();
-      setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName }));
+      setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
       // Lightspeed cinematic lasts 3 seconds — single jump to the next system.
-      setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null })), 3000);
+      setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null })), 3000);
     };
     const fireBoostBurst = () => {
       if (scene.triggerBoostBurst()) {
@@ -334,7 +350,7 @@ export function useSpaceScene(
           // in-progress jump. No hold gesture, no ambiguity.
           if (scene.isWarping) {
             scene.exitWarp();
-            setHud((s) => ({ ...s, isWarping: false, nextSystemName: null }));
+            setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null }));
           } else {
             engageWarp();
           }
@@ -627,10 +643,12 @@ export function useSpaceScene(
     if (!scene || scene.warpCharge < 1) return;
     audioRef.current?.start();
     audioRef.current?.warpWhoosh();
-    const destName = generateName((scene.systemSeed + 1) * 1000);
+    const destSeed = scene.systemSeed + 1;
+    const destName = generateName(destSeed * 1000);
+    const destSector = sectorFor(destSeed);
     scene.triggerWarp();
-    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName }));
-    setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null })), 3000);
+    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
+    setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null })), 3000);
   }, []);
 
   const boostBurst = useCallback(() => {

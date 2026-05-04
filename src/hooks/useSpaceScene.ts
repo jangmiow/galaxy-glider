@@ -87,6 +87,7 @@ export function useSpaceScene(
     isWarping: false,
     nextSystemName: null,
     nextSystemSector: null,
+    arriving: false,
     heading: { pitch: 0, yaw: 0 },
     score: 0,
     rank: "CADET",

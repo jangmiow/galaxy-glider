@@ -152,6 +152,14 @@ export function KeyBindingsHUD({ hud }: { hud: HUDState }) {
           dim={!autopilotActive}
         />
 
+        {/* GALAXY MAP — M opens the clickable star chart. */}
+        <ControlRow
+          caps={<Cap label="M" active={isDown("KeyM")} />}
+          label="GALAXY MAP"
+          hint="pick a system"
+          active={isDown("KeyM")}
+        />
+
         {/* PAUSE — ESC. */}
         <ControlRow
           caps={<Cap label="ESC" active={isDown("Escape")} />}

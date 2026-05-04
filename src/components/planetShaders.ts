@@ -263,7 +263,7 @@ export function makeRockyMaterial(opts: {
           float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
           float cloudMask = fbm6(cp * 1.6);
           // Boost contrast on close approach so wisps read as crisp shapes.
-          float cloudContrast = mix(1.0, 1.4, uProximity);
+          float cloudContrast = mix(1.0, 1.8, uProximity);
           float clouds = smoothstep(0.62, 0.78, cloudMask) * patches * cloudContrast;
           // Sample a tiny step toward the sun for fake shadow
           vec3 shadowSample = cp + normalize(uSunDir) * 0.08;

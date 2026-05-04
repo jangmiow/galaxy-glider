@@ -687,6 +687,13 @@ export function useSpaceScene(
     }, 3000);
   }, []);
 
+  const boostBurst = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    audioRef.current?.start();
+    if (scene.triggerBoostBurst()) audioRef.current?.orbPing();
+  }, []);
+
   const togglePause = useCallback(() => {
     const scene = sceneRef.current;
     if (!scene) return;

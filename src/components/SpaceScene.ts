@@ -1950,7 +1950,8 @@ export class SpaceScene {
         this.isWarping = false;
         (this.warpStars.material as THREE.PointsMaterial).opacity = 0;
         this.warpStars.visible = false;
-        this.systemSeed += 1;
+        this.systemSeed = this.warpTargetSeed ?? this.systemSeed + 1;
+        this.warpTargetSeed = null;
         this.buildSystem(this.systemSeed);
       }
     }

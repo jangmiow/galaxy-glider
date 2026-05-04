@@ -45,7 +45,7 @@ function Play() {
     <div className="relative h-screen w-screen overflow-hidden bg-background">
       {/* Canvas + boost FX layer. The wrapper handles screen-shake so HUD
           chrome (minimap, panels) stays steady while the world jitters. */}
-      <div className={`absolute inset-0 ${hud.boostBurst ? "boost-shake" : ""}`}>
+      <div className={`absolute inset-0 ${hud.boostBurst ? "boost-shake" : ""} ${hud.arriving ? "arrival-shake" : ""}`}>
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair" />
         {hud.boostBurst && (
           <>
@@ -58,6 +58,7 @@ function Play() {
             <div className="boost-speedlines" aria-hidden />
           </>
         )}
+        {hud.arriving && <div className="arrival-flash" aria-hidden />}
       </div>
 
       <div

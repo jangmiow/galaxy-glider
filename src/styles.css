@@ -150,6 +150,34 @@
   }
   .boost-shake { animation: boost-shake 160ms steps(4) infinite; will-change: transform; }
 
+  /* Arrival jolt — sharper, single-shot shake when warp completes. */
+  @keyframes arrival-shake {
+    0%   { transform: translate3d(0, 0, 0); }
+    15%  { transform: translate3d(-6px,  4px, 0); }
+    30%  { transform: translate3d( 7px, -5px, 0); }
+    45%  { transform: translate3d(-5px, -6px, 0); }
+    60%  { transform: translate3d( 4px,  6px, 0); }
+    75%  { transform: translate3d(-3px,  2px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+  .arrival-shake { animation: arrival-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; will-change: transform; }
+
+  /* Arrival flash — bright wash that quickly fades to reveal the new system. */
+  @keyframes arrival-flash {
+    0%   { opacity: 0.95; }
+    25%  { opacity: 0.6; }
+    100% { opacity: 0; }
+  }
+  .arrival-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(220, 240, 255, 0.95) 0%, rgba(120, 180, 255, 0.5) 55%, rgba(0, 0, 0, 0) 100%);
+    animation: arrival-flash 600ms ease-out forwards;
+    will-change: opacity;
+    z-index: 20;
+  }
+
   /* Chromatic aberration: stack two thin red/cyan canvas-sized "ghost" planes
      offset horizontally and blended additively. Cheap and effective at low alpha. */
   @keyframes ca-fade {

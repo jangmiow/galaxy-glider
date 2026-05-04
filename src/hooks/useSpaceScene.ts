@@ -350,7 +350,7 @@ export function useSpaceScene(
           // in-progress jump. No hold gesture, no ambiguity.
           if (scene.isWarping) {
             scene.exitWarp();
-            setHud((s) => ({ ...s, isWarping: false, nextSystemName: null }));
+            setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null }));
           } else {
             engageWarp();
           }

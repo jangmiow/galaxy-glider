@@ -643,10 +643,12 @@ export function useSpaceScene(
     if (!scene || scene.warpCharge < 1) return;
     audioRef.current?.start();
     audioRef.current?.warpWhoosh();
-    const destName = generateName((scene.systemSeed + 1) * 1000);
+    const destSeed = scene.systemSeed + 1;
+    const destName = generateName(destSeed * 1000);
+    const destSector = sectorFor(destSeed);
     scene.triggerWarp();
-    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName }));
-    setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null })), 3000);
+    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
+    setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null })), 3000);
   }, []);
 
   const boostBurst = useCallback(() => {

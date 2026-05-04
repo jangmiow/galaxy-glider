@@ -4,15 +4,14 @@
  * pilot has their own discovery journal, score, rank, and surveyed-system
  * medals — all stored in localStorage under a pilot-scoped key prefix.
  *
- * No backend / auth. Designed for a household-sized roster (you + your
- * boyfriend, maybe a guest) sharing one device. The unlock code is a soft
- * gate to keep curious siblings or kids out of the save data, not a security
- * boundary.
+ * No backend / auth. Designed for a small group sharing one device. The
+ * unlock code is a soft gate to keep casual users out of the save data, not
+ * a security boundary.
  */
 
 import { runMigrations } from "./migrations";
 
-export const UNLOCK_CODE = "0811";
+export const UNLOCK_CODE = "1234";
 
 export type Pilot = {
   id: string;

@@ -671,11 +671,20 @@ export function useSpaceScene(
     }, 3000);
   }, []);
 
-  const boostBurst = useCallback(() => {
+  const warpTo = useCallback((targetSeed: number) => {
     const scene = sceneRef.current;
-    if (!scene) return;
+    if (!scene || scene.isWarping || scene.warpCharge < 1) return;
+    if (targetSeed === scene.systemSeed) return;
     audioRef.current?.start();
-    if (scene.triggerBoostBurst()) audioRef.current?.orbPing();
+    audioRef.current?.warpWhoosh();
+    const destName = generateName(targetSeed * 1000);
+    const destSector = sectorFor(targetSeed);
+    scene.triggerWarp(targetSeed);
+    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
+    setTimeout(() => {
+      setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null, arriving: true }));
+      setTimeout(() => setHud((s) => ({ ...s, arriving: false })), 600);
+    }, 3000);
   }, []);
 
   const togglePause = useCallback(() => {

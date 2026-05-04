@@ -17,19 +17,8 @@ import {
   saveSystemSeed,
   type PilotStats,
 } from "@/lib/pilots";
+import { sectorFor, loadVisited, markVisited } from "@/lib/galaxy";
 
-/** Deterministic sector coordinate string from a system seed. Stable per-seed
- *  so the same destination always shows the same coordinates. */
-function sectorFor(seed: number): string {
-  const n = Math.abs(Math.floor(seed));
-  const x = (n % 64).toString().padStart(2, "0");
-  const yLetter = String.fromCharCode(65 + (Math.floor(n / 64) % 26));
-  const y = (Math.floor(n / 7) % 10).toString();
-  const z = (Math.floor(n / 13) % 64).toString().padStart(2, "0");
-  const wLetter = String.fromCharCode(65 + (Math.floor(n / 211) % 26));
-  const w = (Math.floor(n / 29) % 10).toString();
-  return `SECTOR ${x}-${yLetter}${y} / ${z}-${wLetter}${w}`;
-}
 
 type SteerInput = (x: number, y: number) => void;
 type ThrustInput = (t: number) => void;

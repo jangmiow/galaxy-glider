@@ -10,6 +10,8 @@ export type HUDState = {
   isWarping: boolean;
   /** Name of the system the current warp jump will land in. Shown in the LIGHTSPEED overlay. */
   nextSystemName: string | null;
+  /** Sector coordinates string (e.g. "SECTOR 04-A2 / 17-B5") for the warp destination. */
+  nextSystemSector: string | null;
   heading: { pitch: number; yaw: number };
   score: number;
   rank: string;

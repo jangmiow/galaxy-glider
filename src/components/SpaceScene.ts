@@ -1676,10 +1676,12 @@ export class SpaceScene {
           line.geometry.computeBoundingSphere();
           line.computeLineDistances();
         }
-        // Frame the planet — slerp ship orientation toward look-at(target).
+        // Frame the planet — orient the ship so its forward axis (-Z) points
+        // AT the target. Three.js Matrix4.lookAt(eye, target, up) builds a
+        // camera-style basis where -Z faces `target`, which is exactly what
+        // we want for the cockpit view.
         const m = new THREE.Matrix4();
-        const flipped = pos.clone().multiplyScalar(2).sub(target.mesh.position);
-        m.lookAt(pos, flipped, new THREE.Vector3(0, 1, 0));
+        m.lookAt(pos, target.mesh.position, new THREE.Vector3(0, 1, 0));
         const desired = new THREE.Quaternion().setFromRotationMatrix(m);
         this.ship.quaternion.slerp(desired, Math.min(1, dt * 2.5));
         // Suppress velocity/thrust during flyby so the existing physics doesn't fight us.

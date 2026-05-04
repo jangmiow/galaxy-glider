@@ -91,6 +91,7 @@ function Play() {
           objective={hud.objective}
           onZoomIn={() => adjustRange(-1)}
           onZoomOut={() => adjustRange(1)}
+          onOpenGalaxy={() => setGalaxyOpen(true)}
         />
       </div>
 

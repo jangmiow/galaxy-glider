@@ -79,6 +79,17 @@ export function Minimap({
       <div className="mb-1 flex items-center justify-between gap-2 px-1 text-[10px] uppercase tracking-widest text-hud-dim">
         <span>STAR MAP</span>
         <div className="flex items-center gap-1">
+          {onOpenGalaxy && (
+            <button
+              type="button"
+              onClick={onOpenGalaxy}
+              className="rounded border border-hud/40 px-1.5 leading-none text-hud-dim hover:bg-hud/10 hover:text-hud"
+              aria-label="Open galaxy map"
+              title="Galaxy map (M)"
+            >
+              GALAXY
+            </button>
+          )}
           <button
             type="button"
             onClick={onZoomOut}

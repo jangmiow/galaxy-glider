@@ -12,6 +12,8 @@ export type HUDState = {
   nextSystemName: string | null;
   /** Sector coordinates string (e.g. "SECTOR 04-A2 / 17-B5") for the warp destination. */
   nextSystemSector: string | null;
+  /** True for ~600ms right after warp completes — drives the arrival flash + shake. */
+  arriving: boolean;
   heading: { pitch: number; yaw: number };
   score: number;
   rank: string;

@@ -326,8 +326,8 @@ export function makeOceanMaterial(opts: {
         vec3 cp = p * 2.2 + vec3(uTime * 0.012, 0.0, uTime * 0.008);
         float cloudRaw = warpedFbm(cp * 0.9);
         // Sharper, higher-contrast cloud edges fade in with proximity.
-        float cloudLo = mix(0.48, 0.52, uProximity);
-        float cloudHi = mix(0.72, 0.66, uProximity);
+        float cloudLo = mix(0.48, 0.54, uProximity);
+        float cloudHi = mix(0.72, 0.62, uProximity);
         float clouds = smoothstep(cloudLo, cloudHi, cloudRaw);
         // Shadow sample slightly toward sun
         vec3 shadowP = cp + normalize(uSunDir) * 0.12;

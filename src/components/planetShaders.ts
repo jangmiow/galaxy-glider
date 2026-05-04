@@ -155,13 +155,16 @@ vec3 applyLighting(vec3 albedo, vec3 N) {
   vec3 dayNight = albedo * (lit + 0.05) + albedo * sunsetTint + albedo * ambient;
 
   // Atmospheric rim (Fresnel * forward-scatter on lit side). Boosted by
-  // proximity so close approaches feel atmospherically dense.
-  float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), 3.0);
+  // proximity so close approaches feel atmospherically dense. The exponent
+  // also softens at close range, widening the rim halo on planet limbs.
+  float fresExp = mix(3.0, 2.2, uProximity);
+  float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), fresExp);
   float vdl = max(dot(V, -L), 0.0);
   float forwardScatter = pow(vdl, 8.0); // bright halo when sun is behind planet
   float rimLit = 0.35 + 0.65 * lit;
-  float atmoBoost = mix(1.0, 1.6, uProximity);
-  vec3 atmo = uAtmoColor * uAtmoStrength * atmoBoost * (fres * rimLit + forwardScatter * 0.6 * fres);
+  float atmoBoost = mix(1.0, 2.2, uProximity);
+  float scatterBoost = mix(0.6, 1.1, uProximity);
+  vec3 atmo = uAtmoColor * uAtmoStrength * atmoBoost * (fres * rimLit + forwardScatter * scatterBoost * fres);
 
   vec3 col = dayNight + atmo;
   // Mild filmic shaping

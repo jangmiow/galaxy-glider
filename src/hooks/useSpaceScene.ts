@@ -652,7 +652,10 @@ export function useSpaceScene(
     const destSector = sectorFor(destSeed);
     scene.triggerWarp();
     setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
-    setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null })), 3000);
+    setTimeout(() => {
+      setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null, arriving: true }));
+      setTimeout(() => setHud((s) => ({ ...s, arriving: false })), 600);
+    }, 3000);
   }, []);
 
   const boostBurst = useCallback(() => {

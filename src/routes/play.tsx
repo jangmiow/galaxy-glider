@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CockpitHUD } from "@/components/CockpitHUD";
+import { GalaxyMap } from "@/components/GalaxyMap";
 import { KeyBindingsHUD } from "@/components/KeyBindingsHUD";
 import { Minimap } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";
@@ -40,6 +41,20 @@ function Play() {
   const isMobile = useIsMobile();
   const { rangeRef, adjustRange } = useMinimapRange();
   const { hud, minimap, controller } = useSpaceScene(canvasRef, rangeRef, adjustRange);
+  const [galaxyOpen, setGalaxyOpen] = useState(false);
+
+  // Toggle the galaxy map with the M key. Skip when typing into inputs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "KeyM" || e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      setGalaxyOpen((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">
@@ -76,6 +91,7 @@ function Play() {
           objective={hud.objective}
           onZoomIn={() => adjustRange(-1)}
           onZoomOut={() => adjustRange(1)}
+          onOpenGalaxy={() => setGalaxyOpen(true)}
         />
       </div>
 
@@ -105,6 +121,14 @@ function Play() {
           onAbort={controller.abortAutopilot}
         />
       )}
+
+      <GalaxyMap
+        open={galaxyOpen}
+        currentSeed={controller.currentSystemSeed}
+        visited={controller.visitedSystems}
+        onJumpTo={controller.warpTo}
+        onClose={() => setGalaxyOpen(false)}
+      />
     </div>
   );
 }

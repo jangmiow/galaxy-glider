@@ -17,19 +17,8 @@ import {
   saveSystemSeed,
   type PilotStats,
 } from "@/lib/pilots";
+import { sectorFor, loadVisited, markVisited } from "@/lib/galaxy";
 
-/** Deterministic sector coordinate string from a system seed. Stable per-seed
- *  so the same destination always shows the same coordinates. */
-function sectorFor(seed: number): string {
-  const n = Math.abs(Math.floor(seed));
-  const x = (n % 64).toString().padStart(2, "0");
-  const yLetter = String.fromCharCode(65 + (Math.floor(n / 64) % 26));
-  const y = (Math.floor(n / 7) % 10).toString();
-  const z = (Math.floor(n / 13) % 64).toString().padStart(2, "0");
-  const wLetter = String.fromCharCode(65 + (Math.floor(n / 211) % 26));
-  const w = (Math.floor(n / 29) % 10).toString();
-  return `SECTOR ${x}-${yLetter}${y} / ${z}-${wLetter}${w}`;
-}
 
 type SteerInput = (x: number, y: number) => void;
 type ThrustInput = (t: number) => void;
@@ -41,6 +30,12 @@ export type CockpitController = {
   thrust: ThrustInput;
   /** Try to engage warp; no-op if not READY. */
   warp: () => void;
+  /** Engage warp to a specific target system seed (from the Galaxy Map). */
+  warpTo: (seed: number) => void;
+  /** Snapshot of seeds the active pilot has visited. */
+  visitedSystems: Set<number>;
+  /** Current system seed — handy for the Galaxy Map. */
+  currentSystemSeed: number;
   /** Fire the 2-second speed burst (Space-tap on desktop, button on mobile). */
   boostBurst: () => void;
   /** Toggle pause both in scene and HUD. */
@@ -118,6 +113,10 @@ export function useSpaceScene(
   // Stable ref to the active pilot id used by score/medal persistence.
   // Populated post-mount in the effect below to keep SSR identical to client.
   const pilotIdRef = useRef<string | null>(null);
+  // Set of system seeds the active pilot has visited (for the Galaxy Map).
+  const [visitedSystems, setVisitedSystems] = useState<Set<number>>(() => new Set());
+  // Tracks the current system seed for the Galaxy Map.
+  const [currentSystemSeed, setCurrentSystemSeed] = useState<number>(0);
 
   // Hydrate pilot identity + persisted stats AFTER mount so the SSR HTML
   // matches the first client render exactly. A microsecond flash from
@@ -126,6 +125,12 @@ export function useSpaceScene(
     const pilot = getActivePilot();
     if (!pilot) return;
     pilotIdRef.current = pilot.id;
+    const seedNow = loadSystemSeed(pilot.id) ?? 0;
+    const initialVisited = loadVisited(pilot.id);
+    initialVisited.add(seedNow);
+    markVisited(pilot.id, seedNow);
+    setVisitedSystems(initialVisited);
+    setCurrentSystemSeed(seedNow);
     const stats = loadStats(pilot.id);
     setHud((s) => ({
       ...s,
@@ -580,6 +585,14 @@ export function useSpaceScene(
         if (scene.systemSeed !== lastPersistedSeed && pilotIdRef.current) {
           lastPersistedSeed = scene.systemSeed;
           saveSystemSeed(pilotIdRef.current, scene.systemSeed);
+          markVisited(pilotIdRef.current, scene.systemSeed);
+          setCurrentSystemSeed(scene.systemSeed);
+          setVisitedSystems((prev) => {
+            if (prev.has(scene.systemSeed)) return prev;
+            const next = new Set(prev);
+            next.add(scene.systemSeed);
+            return next;
+          });
           // Force a flight-state save on system change so the new seed
           // doesn't get paired with a stale position from the prior system.
           flushFlightState();
@@ -651,6 +664,22 @@ export function useSpaceScene(
     const destName = generateName(destSeed * 1000);
     const destSector = sectorFor(destSeed);
     scene.triggerWarp();
+    setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
+    setTimeout(() => {
+      setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null, arriving: true }));
+      setTimeout(() => setHud((s) => ({ ...s, arriving: false })), 600);
+    }, 3000);
+  }, []);
+
+  const warpTo = useCallback((targetSeed: number) => {
+    const scene = sceneRef.current;
+    if (!scene || scene.isWarping || scene.warpCharge < 1) return;
+    if (targetSeed === scene.systemSeed) return;
+    audioRef.current?.start();
+    audioRef.current?.warpWhoosh();
+    const destName = generateName(targetSeed * 1000);
+    const destSector = sectorFor(targetSeed);
+    scene.triggerWarp(targetSeed);
     setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
     setTimeout(() => {
       setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null, arriving: true }));
@@ -762,6 +791,9 @@ export function useSpaceScene(
     steer,
     thrust,
     warp,
+    warpTo,
+    visitedSystems,
+    currentSystemSeed,
     boostBurst,
     togglePause,
     resume,

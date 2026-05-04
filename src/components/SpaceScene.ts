@@ -221,6 +221,8 @@ export class SpaceScene {
   warpCharge = 0;
   isWarping = false;
   warpTimer = 0;
+  /** Optional explicit destination seed for the in-progress jump. Null = +1. */
+  warpTargetSeed: number | null = null;
   boost = 1;
   /** Active timed-burst (Space-tap) state — multiplies thrust for ~2s. */
   boostActive = false;
@@ -1529,9 +1531,10 @@ export class SpaceScene {
     this.camera.updateProjectionMatrix();
   }
 
-  triggerWarp() {
+  triggerWarp(targetSeed?: number) {
     if (this.warpCharge < 1 || this.isWarping) return;
     this.isWarping = true;
+    this.warpTargetSeed = typeof targetSeed === "number" ? targetSeed : null;
     // Lightspeed is a single jump: ~3s of hyperspace, then materialise in the
     // very next solar system. Short enough to feel snappy, long enough to read
     // as a "jump" rather than a teleport.
@@ -1947,7 +1950,8 @@ export class SpaceScene {
         this.isWarping = false;
         (this.warpStars.material as THREE.PointsMaterial).opacity = 0;
         this.warpStars.visible = false;
-        this.systemSeed += 1;
+        this.systemSeed = this.warpTargetSeed ?? this.systemSeed + 1;
+        this.warpTargetSeed = null;
         this.buildSystem(this.systemSeed);
       }
     }

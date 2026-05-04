@@ -41,6 +41,20 @@ function Play() {
   const isMobile = useIsMobile();
   const { rangeRef, adjustRange } = useMinimapRange();
   const { hud, minimap, controller } = useSpaceScene(canvasRef, rangeRef, adjustRange);
+  const [galaxyOpen, setGalaxyOpen] = useState(false);
+
+  // Toggle the galaxy map with the M key. Skip when typing into inputs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "KeyM" || e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      setGalaxyOpen((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">

@@ -377,6 +377,11 @@ export function CockpitHUD({
               <div className="font-display text-2xl text-amber hud-glow tracking-[0.2em]">
                 {state.nextSystemName}
               </div>
+              {state.nextSystemSector && (
+                <div className="font-display text-xs text-amber/80 tracking-[0.3em]">
+                  {state.nextSystemSector}
+                </div>
+              )}
             </div>
           )}
         </div>

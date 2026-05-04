@@ -318,7 +318,10 @@ export function useSpaceScene(
       scene.triggerWarp();
       setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
       // Lightspeed cinematic lasts 3 seconds — single jump to the next system.
-      setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null })), 3000);
+      setTimeout(() => {
+        setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null, arriving: true }));
+        setTimeout(() => setHud((s) => ({ ...s, arriving: false })), 600);
+      }, 3000);
     };
     const fireBoostBurst = () => {
       if (scene.triggerBoostBurst()) {

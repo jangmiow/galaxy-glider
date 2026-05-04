@@ -221,6 +221,8 @@ export class SpaceScene {
   warpCharge = 0;
   isWarping = false;
   warpTimer = 0;
+  /** Optional explicit destination seed for the in-progress jump. Null = +1. */
+  warpTargetSeed: number | null = null;
   boost = 1;
   /** Active timed-burst (Space-tap) state — multiplies thrust for ~2s. */
   boostActive = false;

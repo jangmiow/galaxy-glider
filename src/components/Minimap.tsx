@@ -39,11 +39,13 @@ export function Minimap({
   objective,
   onZoomIn,
   onZoomOut,
+  onOpenGalaxy,
 }: {
   data: MinimapData | null;
   objective: string;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
+  onOpenGalaxy?: () => void;
 }) {
   // Track the dot under the cursor for the hover tooltip.
   const [hover, setHover] = useState<{ dot: MinimapDot; x: number; y: number } | null>(null);

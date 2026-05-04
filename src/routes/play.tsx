@@ -121,6 +121,14 @@ function Play() {
           onAbort={controller.abortAutopilot}
         />
       )}
+
+      <GalaxyMap
+        open={galaxyOpen}
+        currentSeed={controller.currentSystemSeed}
+        visited={controller.visitedSystems}
+        onJumpTo={controller.warpTo}
+        onClose={() => setGalaxyOpen(false)}
+      />
     </div>
   );
 }

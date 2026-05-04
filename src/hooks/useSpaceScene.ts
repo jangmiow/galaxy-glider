@@ -125,6 +125,12 @@ export function useSpaceScene(
     const pilot = getActivePilot();
     if (!pilot) return;
     pilotIdRef.current = pilot.id;
+    const seedNow = loadSystemSeed(pilot.id) ?? 0;
+    const initialVisited = loadVisited(pilot.id);
+    initialVisited.add(seedNow);
+    markVisited(pilot.id, seedNow);
+    setVisitedSystems(initialVisited);
+    setCurrentSystemSeed(seedNow);
     const stats = loadStats(pilot.id);
     setHud((s) => ({
       ...s,

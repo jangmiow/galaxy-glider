@@ -113,6 +113,10 @@ export function useSpaceScene(
   // Stable ref to the active pilot id used by score/medal persistence.
   // Populated post-mount in the effect below to keep SSR identical to client.
   const pilotIdRef = useRef<string | null>(null);
+  // Set of system seeds the active pilot has visited (for the Galaxy Map).
+  const [visitedSystems, setVisitedSystems] = useState<Set<number>>(() => new Set());
+  // Tracks the current system seed for the Galaxy Map.
+  const [currentSystemSeed, setCurrentSystemSeed] = useState<number>(0);
 
   // Hydrate pilot identity + persisted stats AFTER mount so the SSR HTML
   // matches the first client render exactly. A microsecond flash from

@@ -236,8 +236,10 @@ export function makeRockyMaterial(opts: {
         float dust       = fbm(p * 22.0) * 0.12;
         // Extra micro-detail octave that fades in with proximity — keeps
         // far-away silhouettes clean but rewards close approaches.
-        float micro      = fbm6(p * 14.0) * 0.18 * uProximity;
-        float h = continents * 0.85 + midDetail * 0.18 + dust + micro - craters * 0.22;
+        float micro      = fbm6(p * 14.0) * 0.32 * uProximity;
+        // Even-finer grain that only blooms in the last stretch of approach.
+        float ultraMicro = fbm6(p * 38.0) * 0.18 * smoothstep(0.4, 1.0, uProximity);
+        float h = continents * 0.85 + midDetail * 0.18 + dust + micro + ultraMicro - craters * 0.22;
 
         // Three-tone surface: lowland / midland / highland
         vec3 lowland  = uBaseColor * 0.78;
@@ -246,8 +248,9 @@ export function makeRockyMaterial(opts: {
         vec3 col = mix(lowland, midland, smoothstep(-0.1, 0.15, h));
         col = mix(col, highland, smoothstep(0.25, 0.55, h));
 
-        // Valley shadows (darker in low spots) for depth
-        col *= 0.9 + 0.1 * smoothstep(-0.2, 0.4, h);
+        // Valley shadows (darker in low spots) for depth — deepens with proximity.
+        float valleyDepth = mix(0.1, 0.22, uProximity);
+        col *= (1.0 - valleyDepth) + valleyDepth * smoothstep(-0.2, 0.4, h);
 
         // Polar ice caps with noisy edge
         float lat = abs(n.y);

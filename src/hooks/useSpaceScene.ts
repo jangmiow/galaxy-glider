@@ -311,11 +311,13 @@ export function useSpaceScene(
       audio.warpWhoosh();
       // Compute the destination system name from the seed the scene WILL use
       // when warp completes (current systemSeed + 1 — see SpaceScene.update).
-      const destName = generateName((scene.systemSeed + 1) * 1000);
+      const destSeed = scene.systemSeed + 1;
+      const destName = generateName(destSeed * 1000);
+      const destSector = sectorFor(destSeed);
       scene.triggerWarp();
-      setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName }));
+      setHud((s) => ({ ...s, isWarping: true, nextSystemName: destName, nextSystemSector: destSector }));
       // Lightspeed cinematic lasts 3 seconds — single jump to the next system.
-      setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null })), 3000);
+      setTimeout(() => setHud((s) => ({ ...s, isWarping: false, nextSystemName: null, nextSystemSector: null })), 3000);
     };
     const fireBoostBurst = () => {
       if (scene.triggerBoostBurst()) {

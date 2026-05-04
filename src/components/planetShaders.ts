@@ -155,13 +155,16 @@ vec3 applyLighting(vec3 albedo, vec3 N) {
   vec3 dayNight = albedo * (lit + 0.05) + albedo * sunsetTint + albedo * ambient;
 
   // Atmospheric rim (Fresnel * forward-scatter on lit side). Boosted by
-  // proximity so close approaches feel atmospherically dense.
-  float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), 3.0);
+  // proximity so close approaches feel atmospherically dense. The exponent
+  // also softens at close range, widening the rim halo on planet limbs.
+  float fresExp = mix(3.0, 2.2, uProximity);
+  float fres = pow(1.0 - max(dot(vNormalW, V), 0.0), fresExp);
   float vdl = max(dot(V, -L), 0.0);
   float forwardScatter = pow(vdl, 8.0); // bright halo when sun is behind planet
   float rimLit = 0.35 + 0.65 * lit;
-  float atmoBoost = mix(1.0, 1.6, uProximity);
-  vec3 atmo = uAtmoColor * uAtmoStrength * atmoBoost * (fres * rimLit + forwardScatter * 0.6 * fres);
+  float atmoBoost = mix(1.0, 2.2, uProximity);
+  float scatterBoost = mix(0.6, 1.1, uProximity);
+  vec3 atmo = uAtmoColor * uAtmoStrength * atmoBoost * (fres * rimLit + forwardScatter * scatterBoost * fres);
 
   vec3 col = dayNight + atmo;
   // Mild filmic shaping
@@ -233,8 +236,10 @@ export function makeRockyMaterial(opts: {
         float dust       = fbm(p * 22.0) * 0.12;
         // Extra micro-detail octave that fades in with proximity — keeps
         // far-away silhouettes clean but rewards close approaches.
-        float micro      = fbm6(p * 14.0) * 0.18 * uProximity;
-        float h = continents * 0.85 + midDetail * 0.18 + dust + micro - craters * 0.22;
+        float micro      = fbm6(p * 14.0) * 0.32 * uProximity;
+        // Even-finer grain that only blooms in the last stretch of approach.
+        float ultraMicro = fbm6(p * 38.0) * 0.18 * smoothstep(0.4, 1.0, uProximity);
+        float h = continents * 0.85 + midDetail * 0.18 + dust + micro + ultraMicro - craters * 0.22;
 
         // Three-tone surface: lowland / midland / highland
         vec3 lowland  = uBaseColor * 0.78;
@@ -243,8 +248,9 @@ export function makeRockyMaterial(opts: {
         vec3 col = mix(lowland, midland, smoothstep(-0.1, 0.15, h));
         col = mix(col, highland, smoothstep(0.25, 0.55, h));
 
-        // Valley shadows (darker in low spots) for depth
-        col *= 0.9 + 0.1 * smoothstep(-0.2, 0.4, h);
+        // Valley shadows (darker in low spots) for depth — deepens with proximity.
+        float valleyDepth = mix(0.1, 0.22, uProximity);
+        col *= (1.0 - valleyDepth) + valleyDepth * smoothstep(-0.2, 0.4, h);
 
         // Polar ice caps with noisy edge
         float lat = abs(n.y);
@@ -257,7 +263,7 @@ export function makeRockyMaterial(opts: {
           float patches = smoothstep(0.15, 0.45, fbm(p * 0.6 + 41.0));
           float cloudMask = fbm6(cp * 1.6);
           // Boost contrast on close approach so wisps read as crisp shapes.
-          float cloudContrast = mix(1.0, 1.4, uProximity);
+          float cloudContrast = mix(1.0, 1.8, uProximity);
           float clouds = smoothstep(0.62, 0.78, cloudMask) * patches * cloudContrast;
           // Sample a tiny step toward the sun for fake shadow
           vec3 shadowSample = cp + normalize(uSunDir) * 0.08;
@@ -320,8 +326,8 @@ export function makeOceanMaterial(opts: {
         vec3 cp = p * 2.2 + vec3(uTime * 0.012, 0.0, uTime * 0.008);
         float cloudRaw = warpedFbm(cp * 0.9);
         // Sharper, higher-contrast cloud edges fade in with proximity.
-        float cloudLo = mix(0.48, 0.52, uProximity);
-        float cloudHi = mix(0.72, 0.66, uProximity);
+        float cloudLo = mix(0.48, 0.54, uProximity);
+        float cloudHi = mix(0.72, 0.62, uProximity);
         float clouds = smoothstep(cloudLo, cloudHi, cloudRaw);
         // Shadow sample slightly toward sun
         vec3 shadowP = cp + normalize(uSunDir) * 0.12;

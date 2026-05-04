@@ -30,6 +30,12 @@ export type CockpitController = {
   thrust: ThrustInput;
   /** Try to engage warp; no-op if not READY. */
   warp: () => void;
+  /** Engage warp to a specific target system seed (from the Galaxy Map). */
+  warpTo: (seed: number) => void;
+  /** Snapshot of seeds the active pilot has visited. */
+  visitedSystems: Set<number>;
+  /** Current system seed — handy for the Galaxy Map. */
+  currentSystemSeed: number;
   /** Fire the 2-second speed burst (Space-tap on desktop, button on mobile). */
   boostBurst: () => void;
   /** Toggle pause both in scene and HUD. */

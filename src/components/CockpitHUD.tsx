@@ -373,19 +373,29 @@ export function CockpitHUD({
       {state.isWarping && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-hud/10">
           <div className="font-display text-6xl text-hud hud-glow scan-pulse">LIGHTSPEED</div>
-          {state.nextSystemName && (
-            <div className="flex flex-col items-center gap-1">
-              <div className="text-[10px] tracking-[0.4em] text-hud-dim">DESTINATION SYSTEM</div>
-              <div className="font-display text-2xl text-amber hud-glow tracking-[0.2em]">
-                {state.nextSystemName}
-              </div>
-              {state.nextSystemSector && (
-                <div className="font-display text-xs text-amber/80 tracking-[0.3em]">
-                  {state.nextSystemSector}
+          <div className="flex flex-col items-center gap-1">
+            <div className="text-[10px] tracking-[0.4em] text-hud-dim">DESTINATION SYSTEM</div>
+            {state.nextSystemName ? (
+              <>
+                <div className="font-display text-2xl text-amber hud-glow tracking-[0.2em]">
+                  {state.nextSystemName}
                 </div>
-              )}
-            </div>
-          )}
+                {state.nextSystemSector ? (
+                  <div className="font-display text-xs text-amber/80 tracking-[0.3em]">
+                    {state.nextSystemSector}
+                  </div>
+                ) : (
+                  <div className="font-display text-xs text-amber/60 tracking-[0.3em] scan-pulse">
+                    PLOTTING COORDINATES…
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="font-display text-2xl text-amber/70 hud-glow tracking-[0.2em] scan-pulse">
+                SCANNING DESTINATION…
+              </div>
+            )}
+          </div>
         </div>
       )}
 

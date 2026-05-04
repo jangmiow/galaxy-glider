@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CockpitHUD } from "@/components/CockpitHUD";
+import { GalaxyMap } from "@/components/GalaxyMap";
 import { KeyBindingsHUD } from "@/components/KeyBindingsHUD";
 import { Minimap } from "@/components/Minimap";
 import { MobileControls } from "@/components/MobileControls";

@@ -14,7 +14,7 @@ export function PauseButton({ paused, onToggle }: Props) {
   return (
     <div
       data-hud-safe="true"
-      className="pointer-events-auto absolute top-6 right-6 z-20 flex flex-col items-end gap-1"
+      className="pointer-events-auto absolute top-6 right-32 z-30 flex flex-col items-end gap-1"
     >
       <button
         onClick={onToggle}

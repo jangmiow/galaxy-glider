@@ -585,6 +585,14 @@ export function useSpaceScene(
         if (scene.systemSeed !== lastPersistedSeed && pilotIdRef.current) {
           lastPersistedSeed = scene.systemSeed;
           saveSystemSeed(pilotIdRef.current, scene.systemSeed);
+          markVisited(pilotIdRef.current, scene.systemSeed);
+          setCurrentSystemSeed(scene.systemSeed);
+          setVisitedSystems((prev) => {
+            if (prev.has(scene.systemSeed)) return prev;
+            const next = new Set(prev);
+            next.add(scene.systemSeed);
+            return next;
+          });
           // Force a flight-state save on system change so the new seed
           // doesn't get paired with a stale position from the prior system.
           flushFlightState();

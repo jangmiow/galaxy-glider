@@ -1119,6 +1119,8 @@ export class SpaceScene {
     this.ship.quaternion.setFromRotationMatrix(m);
     this.mouseX = 0;
     this.mouseY = 0;
+    this.targetMouseX = 0;
+    this.targetMouseY = 0;
     return { name: best.name, dist: best.dist };
   }
 
@@ -1154,6 +1156,8 @@ export class SpaceScene {
     };
     this.mouseX = 0;
     this.mouseY = 0;
+    this.targetMouseX = 0;
+    this.targetMouseY = 0;
     return { name: best.name, dist: best.dist };
   }
 

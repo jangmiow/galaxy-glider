@@ -1042,8 +1042,8 @@ export class SpaceScene {
     // x,y in -1..1
     const dz = 0.1;
     const apply = (v: number) => (Math.abs(v) < dz ? 0 : (v - Math.sign(v) * dz) / (1 - dz));
-    this.mouseX = apply(x);
-    this.mouseY = apply(y);
+    this.targetMouseX = apply(x);
+    this.targetMouseY = apply(y);
   }
 
   /**

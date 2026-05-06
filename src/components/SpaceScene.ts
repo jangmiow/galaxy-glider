@@ -237,9 +237,16 @@ export class SpaceScene {
   bloomBase = 0.9;
   bloomBoost = 0;
 
-  // Inputs
+  // Inputs — mouseX/Y are the *smoothed* values consumed by the steering
+  // integrator. setMouse() writes to targetMouseX/Y and update() eases the
+  // smoothed values toward them. This kills the per-frame jitter you'd get
+  // from raw pointer deltas (especially on high-DPI mice) and prevents the
+  // visible jolt when the cursor crosses a HUD-safe element or leaves the
+  // canvas — the ship now glides back to neutral instead of snapping.
   mouseX = 0;
   mouseY = 0;
+  targetMouseX = 0;
+  targetMouseY = 0;
   keys = new Set<string>();
 
   callbacks: SceneCallbacks;

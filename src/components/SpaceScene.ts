@@ -237,9 +237,16 @@ export class SpaceScene {
   bloomBase = 0.9;
   bloomBoost = 0;
 
-  // Inputs
+  // Inputs — mouseX/Y are the *smoothed* values consumed by the steering
+  // integrator. setMouse() writes to targetMouseX/Y and update() eases the
+  // smoothed values toward them. This kills the per-frame jitter you'd get
+  // from raw pointer deltas (especially on high-DPI mice) and prevents the
+  // visible jolt when the cursor crosses a HUD-safe element or leaves the
+  // canvas — the ship now glides back to neutral instead of snapping.
   mouseX = 0;
   mouseY = 0;
+  targetMouseX = 0;
+  targetMouseY = 0;
   keys = new Set<string>();
 
   callbacks: SceneCallbacks;
@@ -1035,8 +1042,8 @@ export class SpaceScene {
     // x,y in -1..1
     const dz = 0.1;
     const apply = (v: number) => (Math.abs(v) < dz ? 0 : (v - Math.sign(v) * dz) / (1 - dz));
-    this.mouseX = apply(x);
-    this.mouseY = apply(y);
+    this.targetMouseX = apply(x);
+    this.targetMouseY = apply(y);
   }
 
   /**
@@ -1112,6 +1119,8 @@ export class SpaceScene {
     this.ship.quaternion.setFromRotationMatrix(m);
     this.mouseX = 0;
     this.mouseY = 0;
+    this.targetMouseX = 0;
+    this.targetMouseY = 0;
     return { name: best.name, dist: best.dist };
   }
 
@@ -1147,6 +1156,8 @@ export class SpaceScene {
     };
     this.mouseX = 0;
     this.mouseY = 0;
+    this.targetMouseX = 0;
+    this.targetMouseY = 0;
     return { name: best.name, dist: best.dist };
   }
 
@@ -1781,7 +1792,13 @@ export class SpaceScene {
       }
     }
 
-    // Steering from mouse
+    // Steering from mouse — ease toward the target each frame so sudden
+    // pointer jumps (HUD-safe dead zones, cursor leaving the canvas, low-poll
+    // mice) don't snap the ship. ~18 Hz cutoff feels responsive without
+    // jitter.
+    const smooth = 1 - Math.exp(-dt * 18);
+    this.mouseX += (this.targetMouseX - this.mouseX) * smooth;
+    this.mouseY += (this.targetMouseY - this.mouseY) * smooth;
     const yawRate = -this.mouseX * 0.8;
     const pitchRate = -this.mouseY * 0.8;
     this.ship.rotateY(yawRate * dt);

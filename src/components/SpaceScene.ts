@@ -1792,7 +1792,13 @@ export class SpaceScene {
       }
     }
 
-    // Steering from mouse
+    // Steering from mouse — ease toward the target each frame so sudden
+    // pointer jumps (HUD-safe dead zones, cursor leaving the canvas, low-poll
+    // mice) don't snap the ship. ~18 Hz cutoff feels responsive without
+    // jitter.
+    const smooth = 1 - Math.exp(-dt * 18);
+    this.mouseX += (this.targetMouseX - this.mouseX) * smooth;
+    this.mouseY += (this.targetMouseY - this.mouseY) * smooth;
     const yawRate = -this.mouseX * 0.8;
     const pitchRate = -this.mouseY * 0.8;
     this.ship.rotateY(yawRate * dt);

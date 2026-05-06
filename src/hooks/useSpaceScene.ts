@@ -469,9 +469,16 @@ export function useSpaceScene(
 
     const kd = (e: KeyboardEvent) => onKey(e, true);
     const ku = (e: KeyboardEvent) => onKey(e, false);
+    // When the cursor leaves the canvas (or the window loses focus), zero
+    // out steering so the ship doesn't keep yawing toward the last known
+    // offset. The smoothing inside SpaceScene eases it back to neutral.
+    const onLeave = () => scene.setMouse(0, 0);
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("contextmenu", onContextMenu);
+    canvas.addEventListener("mouseleave", onLeave);
+    canvas.addEventListener("pointerleave", onLeave);
+    window.addEventListener("blur", onLeave);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
 
@@ -626,6 +633,9 @@ export function useSpaceScene(
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("contextmenu", onContextMenu);
+      canvas.removeEventListener("mouseleave", onLeave);
+      canvas.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("blur", onLeave);
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
       // Final save on unmount so navigating away (e.g. /journal) preserves state.
